@@ -1,0 +1,33 @@
+{
+  "name": "junamis-skills",
+  "version": "1.0.0",
+  "description": "Install and manage Agent Skills (SKILL.md workflows) for any AI coding agent. Pins third-party skills by manifest and copies them into each agent's global skills directory.",
+  "keywords": [
+    "agent-skills",
+    "ai-agents",
+    "skill-md",
+    "claude",
+    "opencode",
+    "coding-agents"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "junamis-skills": "bin/junamis-skills.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "library",
+    "skills-lock.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "packageManager": "pnpm@12.15.0"
+}

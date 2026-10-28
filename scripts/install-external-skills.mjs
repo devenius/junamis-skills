@@ -56,7 +56,7 @@ for (const [source, names] of bySource) {
   console.log(`\n--> ${source}`);
   console.log(`    skills: ${names.join(", ")}`);
 
-  const cmd = [...runner(), "add", source, "--agent", agent, "--skill", ...names, "-y"];
+  const cmd = [...runner(), "add", source, "--agent", agent, "--skill", ...names, "-y", "-g"];
   console.log(`    command: ${cmd.join(" ")}\n`);
 
   const ok = await new Promise((resolvePromise) => {
@@ -71,7 +71,7 @@ for (const [source, names] of bySource) {
       });
     } else {
       // Fallback: skip scan (no alerts shown, but install succeeds).
-      const fallbackCmd = [...runner(), "add", source, "--agent", agent, "--skill", ...names, "-y", "--skip-scan"];
+      const fallbackCmd = [...runner(), "add", source, "--agent", agent, "--skill", ...names, "-y", "-g", "--skip-scan"];
       child = spawn(fallbackCmd[0], fallbackCmd.slice(1), {
         stdio: "inherit",
         cwd: process.cwd(),

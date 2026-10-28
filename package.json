@@ -21,13 +21,15 @@
     "library",
     "skills-lock.json",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "install:external": "node scripts/install-external-skills.mjs"
   },
   "packageManager": "pnpm@12.15.0"
 }

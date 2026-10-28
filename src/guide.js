@@ -38,12 +38,25 @@ async function listLibraryAgents(packageRoot) {
 
 async function listLockedSkills(packageRoot) {
   const lock = JSON.parse(await readFile(join(packageRoot, "skills-lock.json"), "utf8"));
-  return Object.entries(lock.skills)
+  const skills = Object.entries(lock.skills)
     .map(([name, entry]) => ({ name, source: entry.source, license: entry.license ?? "unknown" }))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Group by source so the guide can print one install command per source.
+  const bySource = new Map();
+  for (const sk of skills) {
+    if (!bySource.has(sk.source)) bySource.set(sk.source, []);
+    bySource.get(sk.source).push(sk.name);
+  }
+  const installCommands = [...bySource.entries()]
+    .map(([source, names]) => `npx skillsio add ${source} --agent <agent> --skill ${names.join(" ")} -y`)
+    .join("\n");
+  skills.installCommands = installCommands;
+  return skills;
 }
 
 export function renderGuide({ version, library, agents, locked }) {
+  const installCommands = locked.installCommands || "";
   const unknown = locked.filter((s) => s.license === "unknown").map((s) => s.name);
   const lockedLines = locked
     .map((s) => `| ${s.name} | ${s.source} | ${s.license} |`)
@@ -111,6 +124,22 @@ Destructive or external actions need your explicit approval for that exact comma
 Do not call a library skill or an external skill directly, even if you know its name. Send the request to the orchestrator. It reads the skills available to it, both the library skills and the external skills in your global skills folder, and uses their descriptions to decide what runs next. You do not need to name a skill yourself.
 
 If a skill you need is not installed, the orchestrator stops and tells you which one is missing. It does not improvise.
+
+## Installing the external skills
+
+The external skills are not included in this package. Install them from the manifest before using them. Run this once per machine:
+
+    npx junamis-skills init --with-external
+
+Or install them separately:
+
+    npx junamis-skills install-external
+
+${installCommands}
+
+Replace \`<agent>\` with \`opencode\` or \`claude-code\`. Skills install as a set; never install one in isolation, because skills reference each other.
+
+If a skill is missing, the orchestrator stops and tells you which one. It does not improvise.
 
 ## Installing skills with skillsio or the skills CLI
 

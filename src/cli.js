@@ -3,24 +3,42 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { PACKAGE_ROOT, GUIDE_NAME, MARKER_PATH, writeGuide } from "./guide.js";
 import { targets } from "./targets/index.js";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
 
+const SCRIPTS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "scripts");
 const HELP = `junamis-skills
 
 Usage:
-  junamis-skills init [--force] [--dir <path>]   write ${GUIDE_NAME} into the project
-  junamis-skills status [--dir <path>]           show guide state and detected agents
+  junamis-skills init [--force] [--dir <path>] [--with-external] [--agent <name>]
+      write ${GUIDE_NAME} into the project. With --with-external, also install
+      every skill in skills-lock.json using skillsio and print its scan alerts.
+
+  junamis-skills install-external [--agent <name>] [--installer skillsio|skills]
+      install every skill in skills-lock.json. Shows skillsio scan alerts.
+
+  junamis-skills status [--dir <path>]
+      show guide state and detected agents.
+
   junamis-skills help
 
-  --dir    project directory (default: current directory)
-  --force  rewrite the guide even if it exists
+  --dir          project directory (default: current directory)
+  --force        rewrite the guide even if it exists
+  --with-external  also install external skills (runs skillsio, shows alerts)
+  --agent        target agent name for skillsio (default: opencode)
+  --installer    skillsio (default) or skills
 `;
 
 function parseArgs(argv) {
-  const args = { command: argv[0] ?? "help", force: false, dir: process.cwd() };
+  const args = { command: argv[0] ?? "help", force: false, dir: process.cwd(), withExternal: false, agent: "opencode", installer: "skillsio" };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--force") args.force = true;
+    else if (a === "--with-external") args.withExternal = true;
     else if (a === "--dir") args.dir = resolve(argv[++i] ?? "");
+    else if (a === "--agent") args.agent = argv[++i] ?? "opencode";
+    else if (a === "--installer") args.installer = argv[++i] ?? "skillsio";
     else throw new Error(`unknown option: ${a}`);
   }
   return args;
@@ -30,6 +48,20 @@ async function countSkills(dir) {
   if (!existsSync(dir)) return null;
   const entries = await readdir(dir, { withFileTypes: true });
   return entries.filter((e) => e.isDirectory()).length;
+}
+
+async function runExternalInstall(agent, installer) {
+  return new Promise((resolvePromise) => {
+    const child = spawn(process.execPath, [join(SCRIPTS_DIR, "install-external-skills.mjs"), "--agent", agent, "--installer", installer], {
+      stdio: "inherit",
+      cwd: process.cwd(),
+    });
+    child.on("close", (code) => resolvePromise(code ?? 0));
+    child.on("error", (err) => {
+      console.error(`error: ${err.message}`);
+      resolvePromise(1);
+    });
+  });
 }
 
 async function init(args) {
@@ -44,6 +76,17 @@ async function init(args) {
     console.log(`${result.path} exists and was not written by junamis-skills; left unchanged.`);
     console.log("use --force to replace it.");
   }
+
+  if (args.withExternal) {
+    console.log("\n--- Installing external skills ---\n");
+    const code = await runExternalInstall(args.agent, args.installer);
+    if (code !== 0) process.exitCode = code;
+  }
+}
+
+async function installExternal(args) {
+  const code = await runExternalInstall(args.agent, args.installer);
+  if (code !== 0) process.exitCode = code;
 }
 
 async function status(args) {
@@ -70,6 +113,8 @@ export async function run(argv) {
   switch (args.command) {
     case "init":
       return init(args);
+    case "install-external":
+      return installExternal(args);
     case "status":
       return status(args);
     case "help":

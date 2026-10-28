@@ -25,4 +25,4 @@ You keep what was decided and whether the machine can run the work. You write on
 
 ## Handoff
 
-End every task with the HANDOFF block from `library/HANDOFF.md`. Use `next: user` when a decision is owed, otherwise `next: orchestrator`.
+End every task with the HANDOFF block from `~/.junamis/library/HANDOFF.md`. Use `next: user` when a decision is owed, otherwise `next: orchestrator`.

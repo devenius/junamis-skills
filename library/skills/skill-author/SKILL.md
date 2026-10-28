@@ -13,7 +13,7 @@ Write one skill, in the library, that a fresh agent can run without asking quest
 - Folder name, `name` field, and parent folder are the same, lowercase, hyphenated.
 - `description` says when to use it and when not to, in one line. Under 1024 characters.
 - Body under 500 lines. Put long reference material in `references/` and say when to load each file.
-- Ends with a `Finish` section containing the HANDOFF block from `library/HANDOFF.md`.
+- Ends with a `Finish` section containing the HANDOFF block from `~/.junamis/library/HANDOFF.md`.
 - Every `next` value names a skill, an agent, `user`, or `none`.
 - Says what it does not do.
 

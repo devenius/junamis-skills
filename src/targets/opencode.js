@@ -2,15 +2,20 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+// Verified against https://opencode.ai/docs/skills and https://opencode.ai/docs/agents
 export default {
   id: "opencode",
   label: "OpenCode",
-  // skillsio -g with --agent opencode installs here (the universal Agent Skills
-  // location, which OpenCode reads). ~/.config/opencode/skills also exists but is
-  // not where this installer writes.
+  // External skills (skillsio -g --agent opencode) and library skills both land here.
   globalSkillsDir() {
     return join(homedir(), ".agents", "skills");
   },
+  // Markdown agent definitions: ~/.config/opencode/agents/<name>.md
+  libraryAgentsDir() {
+    return join(homedir(), ".config", "opencode", "agents");
+  },
+  // OpenCode passes unknown frontmatter keys to the model provider, so only these are written.
+  libraryAgentFormat: "opencode",
   detect() {
     return existsSync(join(homedir(), ".config", "opencode"));
   },

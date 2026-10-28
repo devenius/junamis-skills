@@ -39,7 +39,7 @@ Decide the path for one request and state it in one line. Do no other work.
 | research | "what's the latest", "how do I use X in v3", "compare X and Y", "is CVE-... affecting us", "docs for" | `research` | researcher |
 | question | asks about this repo's code or decisions, no outside info needed, no change requested | none | orchestrator answers directly |
 
-External skills (`debug`, `architect`, `develop`) are installed from the upstream manifest, not from this library. If one is not installed, stop and tell the user. Do not substitute.
+External skills (for example `debug`, `architect`, `develop`, `tdd`, `grill-me`) are installed from the upstream manifest, not from this library. The full list and their owners are in `~/.junamis/library/EXTERNAL.md`. If one is not installed, stop and tell the user. Do not substitute.
 
 ## Steps
 
@@ -55,7 +55,7 @@ External skills (`debug`, `architect`, `develop`) are installed from the upstrea
 - Do not route to a skill because its name matches a word. Route by what must change.
 - If the user explicitly names a skill, honor it unless it clearly conflicts with the request. Say so if it does.
 - Any request that needs information from outside the repo goes to `research`, even if it is phrased as a question.
-- Any request whose work would run a command in the approval gate (`library/SAFETY.md`) is routed normally. The gate is applied by the owner agent, not by routing.
+- Any request whose work would run a command in the approval gate (`~/.junamis/library/SAFETY.md`) is routed normally. The gate is applied by the owner agent, not by routing.
 
 ## Finish
 

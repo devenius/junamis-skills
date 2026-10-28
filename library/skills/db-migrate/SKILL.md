@@ -16,7 +16,7 @@ Write a migration that is safe to deploy while the old code is still running, an
    - Breaking (rename, drop, type change, new NOT NULL): expand, migrate code, contract, in separate releases.
 3. **Write the migration.** Include an up and a down. If the down is destructive (data loss), say so in a comment and in the handoff.
 4. **Backfill separately.** Large data changes go in a batched script, not in the schema migration. Batch size and a resume point must be stated.
-5. **Rehearse.** Run up, then down, then up again against a local or copied database. The down step deletes data, so show the user the exact commands and get approval first (see `library/SAFETY.md`). Record the result. If no database is available, set `status: blocked` and say what is needed.
+5. **Rehearse.** Run up, then down, then up again against a local or copied database. The down step deletes data, so show the user the exact commands and get approval first (see `~/.junamis/library/SAFETY.md`). Record the result. If no database is available, set `status: blocked` and say what is needed.
 6. **Write the rollback note.** One paragraph: what a rollback restores, and whether any data written after deploy is lost.
 
 ## Gotchas

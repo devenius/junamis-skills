@@ -28,6 +28,6 @@ External skills assigned to library agents (by reference, not ownership):
 - `grill-me`, `grill-with-docs` → architect agent (stress-testing plans and designs)
 - `doc-coauthoring` → orchestrator (structured documentation workflow)
 
-Their licenses and safety status are in `skills-lock.json` and `library/SAFETY.md`.
+Their licenses and safety status are in `skills-lock.json` and `~/.junamis/library/SAFETY.md`.
 
 If an external name is not installed, the orchestrator stops and tells the user which one is missing. It does not perform that skill's work itself.

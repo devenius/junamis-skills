@@ -18,7 +18,7 @@ Restore the last good state, with a confirmed plan and a verified result.
 1. **Read the plan.** Show the user the steps from the rollback file, in order, and the data-loss note if one exists.
 2. **Ask.** Require the user to reply with an explicit confirmation naming the version (for example "roll back 2.4.1"). A general "yes" is not enough. Stop with `status: needs-decision` until you have it.
 3. **Check state.** Confirm the target version still exists (tag or artifact) and the current deploy is the version named.
-4. **Execute.** Run the steps in order, only after the confirmation in step 2. Each step that deploys, deletes, or changes git history is a gated command: name it to the user before running it (see `library/SAFETY.md`). Stop at the first failure. Record each step's output.
+4. **Execute.** Run the steps in order, only after the confirmation in step 2. Each step that deploys, deletes, or changes git history is a gated command: name it to the user before running it (see `~/.junamis/library/SAFETY.md`). Stop at the first failure. Record each step's output.
 5. **Migrations.** If the plan reverses a migration, run it only if the plan marks it safe. Otherwise stop and report. Code rollback does not undo schema changes.
 6. **Verify.** Run `deploy-verify` against the same base URL. The rollback is not done until it passes.
 7. **Record.** Write `docs/releases/rollback-<version>.md` with the steps run, their outputs, and the verification result.

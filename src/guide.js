@@ -93,7 +93,7 @@ ${agentLines}
 1. You send a request to the **orchestrator**.
 2. The orchestrator runs the \`route\` skill, which classifies the request into one path: feature, bug, refactor, dependency, migration, release, incident, security, performance, environment, decision, skill, research, or question.
 3. The orchestrator looks up the owning agent and skill for that path and dispatches exactly one step.
-4. The specialist runs its skill and ends with a HANDOFF block (see \`library/HANDOFF.md\` in the installed package).
+4. The specialist runs its skill and ends with a HANDOFF block (see \`~/.junamis/library/HANDOFF.md\` in the installed package).
 5. The orchestrator reads only the HANDOFF block. It checks that every listed artifact exists on disk.
 6. It then decides: dispatch the \`next\` skill, ask you a question, or stop.
 
@@ -117,7 +117,7 @@ next: <one skill name, agent name, user, or none>
 
 ### Safety
 
-Destructive or external actions need your explicit approval for that exact command. The full list is in \`library/SAFETY.md\` in the installed package. In short: deleting files, \`sudo\`, global installs, \`git push\`, production deploys, forced overwrites, and data changes. The \`-y\` flag is not approval.
+Destructive or external actions need your explicit approval for that exact command. The full list is in \`~/.junamis/library/SAFETY.md\` in the installed package. In short: deleting files, \`sudo\`, global installs, \`git push\`, production deploys, forced overwrites, and data changes. The \`-y\` flag is not approval.
 
 ## Always start with the orchestrator
 
@@ -125,31 +125,20 @@ Do not call a library skill or an external skill directly, even if you know its 
 
 If a skill you need is not installed, the orchestrator stops and tells you which one is missing. It does not improvise.
 
-## Installing the external skills
+## Installing the library and the external skills
 
-The external skills are not included in this package. Install them from the manifest before using them. Run this once per machine:
+Two commands, run once per machine. Review the dry run before the real install.
 
-    npx junamis-skills init --with-external
+1. Preview what the library install will change, then install it:
 
-Or install them separately:
+        npx junamis-skills install-library --agent opencode --dry-run
+        npx junamis-skills install-library --agent opencode
 
-    npx junamis-skills install-external
+2. Install the external skills from the manifest. skillsio shows its security scan. Critical findings still ask you to confirm; nothing is skipped or answered for you:
 
-${installCommands}
+        npx junamis-skills install-external --agent opencode
 
-Replace \`<agent>\` with \`opencode\` or \`claude-code\`. Skills install as a set; never install one in isolation, because skills reference each other.
-
-If a skill is missing, the orchestrator stops and tells you which one. It does not improvise.
-
-## Installing skills with skillsio or the skills CLI
-
-The \`--agent\` value is the name the installer knows, not this package's target id.
-
-- OpenCode: \`--agent opencode\`
-- Claude Code: \`--agent claude-code\`
-
-    npx skillsio add junamis-skills --agent opencode
-    npx skillsio add junamis-skills --agent claude-code
+Use \`--agent claude\` instead of \`opencode\` for Claude Code. The library install never overwrites a file you edited; it stops and lists the file. Use \`--force\` only after you have reviewed it.
 
 Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
 

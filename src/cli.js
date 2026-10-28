@@ -2,46 +2,63 @@ import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { PACKAGE_ROOT, GUIDE_NAME, MARKER_PATH, writeGuide } from "./guide.js";
-import { targets } from "./targets/index.js";
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
+import { getTarget, targets } from "./targets/index.js";
+import { installExternal, validateAgent, validateInstaller } from "./external.js";
+import { planLibraryInstall, applyLibraryInstall, manifestPath } from "./library-install.js";
 
-const SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
 const HELP = `junamis-skills
 
 Usage:
   junamis-skills init [--force] [--dir <path>] [--with-external] [--agent <name>]
-      write ${GUIDE_NAME} into the project. With --with-external, also install
-      every skill in skills-lock.json using skillsio and print its scan alerts.
+      write ${GUIDE_NAME} into the project. --with-external also installs the external skills.
 
-  junamis-skills install-external [--agent <name>] [--installer skillsio|skills]
-      install every skill in skills-lock.json. Shows skillsio scan alerts.
+  junamis-skills install-library [--agent opencode|claude] [--dry-run] [--force]
+      install the library skills, agent definitions, and shared docs so the agent can load them.
+      Shows what would change first when --dry-run is given. Never overwrites a file you edited unless --force.
+
+  junamis-skills install-external [--agent opencode|claude] [--installer skillsio|skills]
+      install every external skill in skills-lock.json. Scan alerts are shown and critical
+      findings still ask you to confirm. The scan is never skipped.
 
   junamis-skills status [--dir <path>]
-      show guide state and detected agents.
+      show guide state, installed library, and detected agents.
 
   junamis-skills help
 
   --dir          project directory (default: current directory)
-  --force        rewrite the guide even if it exists
-  --with-external  also install external skills (runs skillsio, shows alerts)
-  --agent        target agent name for skillsio (default: opencode)
+  --force        overwrite the guide or edited library files
+  --dry-run      print the install plan without writing anything
+  --agent        opencode (default) or claude
   --installer    skillsio (default) or skills
 `;
 
 function parseArgs(argv) {
-  const args = { command: argv[0] ?? "help", force: false, dir: process.cwd(), withExternal: false, agent: "opencode", installer: "skillsio" };
+  const args = {
+    command: argv[0] ?? "help",
+    force: false,
+    dryRun: false,
+    dir: process.cwd(),
+    withExternal: false,
+    agent: "opencode",
+    installer: "skillsio",
+  };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--force") args.force = true;
+    else if (a === "--dry-run") args.dryRun = true;
     else if (a === "--with-external") args.withExternal = true;
-    else if (a === "--dir") args.dir = resolve(argv[++i] ?? "");
-    else if (a === "--agent") args.agent = argv[++i] ?? "opencode";
-    else if (a === "--installer") args.installer = argv[++i] ?? "skillsio";
+    else if (a === "--dir") args.dir = resolve(requireValue(argv, ++i, a));
+    else if (a === "--agent") args.agent = requireValue(argv, ++i, a);
+    else if (a === "--installer") args.installer = requireValue(argv, ++i, a);
     else throw new Error(`unknown option: ${a}`);
   }
   return args;
+}
+
+function requireValue(argv, i, flag) {
+  const v = argv[i];
+  if (v === undefined || v.startsWith("--")) throw new Error(`${flag} needs a value`);
+  return v;
 }
 
 async function countSkills(dir) {
@@ -50,18 +67,8 @@ async function countSkills(dir) {
   return entries.filter((e) => e.isDirectory()).length;
 }
 
-async function runExternalInstall(agent, installer) {
-  return new Promise((resolvePromise) => {
-    const child = spawn(process.execPath, [join(SRC_DIR, "install-external.js"), "--agent", agent, "--installer", installer], {
-      stdio: "inherit",
-      cwd: process.cwd(),
-    });
-    child.on("close", (code) => resolvePromise(code ?? 0));
-    child.on("error", (err) => {
-      console.error(`error: ${err.message}`);
-      resolvePromise(1);
-    });
-  });
+async function packageVersion() {
+  return JSON.parse(await readFile(join(PACKAGE_ROOT, "package.json"), "utf8")).version;
 }
 
 async function init(args) {
@@ -79,14 +86,51 @@ async function init(args) {
 
   if (args.withExternal) {
     console.log("\n--- Installing external skills ---\n");
-    const code = await runExternalInstall(args.agent, args.installer);
-    if (code !== 0) process.exitCode = code;
+    await installExternalCommand(args);
   }
 }
 
-async function installExternal(args) {
-  const code = await runExternalInstall(args.agent, args.installer);
-  if (code !== 0) process.exitCode = code;
+async function installExternalCommand(args) {
+  validateInstaller(args.installer);
+  validateAgent(args.agent);
+  const { failed } = await installExternal({
+    lockPath: join(PACKAGE_ROOT, "skills-lock.json"),
+    agent: args.agent,
+    installer: args.installer,
+  });
+  if (failed > 0) process.exitCode = 1;
+}
+
+async function installLibraryCommand(args) {
+  if (!getTarget(args.agent)) throw new Error(`unknown agent "${args.agent}"; expected opencode or claude`);
+  const version = await packageVersion();
+  const files = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: args.agent });
+  const result = await applyLibraryInstall({
+    agent: args.agent,
+    files,
+    version,
+    force: args.force,
+    dryRun: args.dryRun,
+  });
+
+  const counts = {};
+  for (const a of result.actions) counts[a.action] = (counts[a.action] ?? 0) + 1;
+  const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ") || "nothing";
+  console.log(`library for ${args.agent} (junamis-skills ${version}): ${summary}`);
+
+  if (args.dryRun) {
+    for (const a of result.actions) console.log(`  ${a.action.padEnd(12)} ${a.path}`);
+  }
+  for (const p of result.stale) console.log(`  ${args.dryRun ? "would remove" : "removed"} stale ${p}`);
+
+  if (!result.ok) {
+    console.error(`\n${result.conflicts.length} file(s) were edited by you and are not managed by junamis-skills:`);
+    for (const p of result.conflicts) console.error(`  ${p}`);
+    console.error("Review them. Run again with --force to overwrite, or move your copy elsewhere.");
+    process.exitCode = 1;
+    return;
+  }
+  if (args.dryRun) console.log("\ndry run: nothing was written.");
 }
 
 async function status(args) {
@@ -105,6 +149,13 @@ async function status(args) {
     const count = await countSkills(dir);
     const state = count === null ? "no skills dir" : `${count} skill folders`;
     console.log(`  ${t.label.padEnd(12)} ${t.detect() ? "detected" : "not found"}  ${dir}  (${state})`);
+    const mpath = manifestPath(t.id);
+    if (existsSync(mpath)) {
+      const data = JSON.parse(await readFile(mpath, "utf8"));
+      console.log(`               library ${data.version} installed ${data.installedAt} (${data.files.length} files)`);
+    } else {
+      console.log("               library not installed (run: junamis-skills install-library)");
+    }
   }
 }
 
@@ -113,8 +164,10 @@ export async function run(argv) {
   switch (args.command) {
     case "init":
       return init(args);
+    case "install-library":
+      return installLibraryCommand(args);
     case "install-external":
-      return installExternal(args);
+      return installExternalCommand(args);
     case "status":
       return status(args);
     case "help":

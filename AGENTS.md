@@ -40,9 +40,9 @@ The old agent layer (`.agents/`, `.opencode/`) was removed from the repo. It is 
 - Install methods the user may use:
   - `skills` CLI: `npx skills add <repo>` or `pnpm dlx skills add <repo>`
   - `skillsio`: `npx skillsio` or `pnpm dlx skillsio`
-  The guide is written only by `junamis-skills init`. No install hook runs it: npm 11 and pnpm block dependency install scripts by default, so a postinstall hook is unreliable. Skill installers never run it.
-- **Guide.** `junamis-skills init` writes `junamis-skills-guide.md` at the project root once, and records `.junamis/install.json`. Run it in each project that needs the guide. The guide is a project file, not a skill, so skill installers never touch it. It is never overwritten unless `--force` is given.
-- **External skills.** `junamis-skills init --with-external` (or `junamis-skills install-external`) installs every skill in `skills-lock.json` using skillsio. It prints skillsio's security scan alerts. It never skips the scan.
+  The guide is written only by `npx junamis-skills init`. No install hook runs it: npm 11 and pnpm block dependency install scripts by default, so a postinstall hook is unreliable. Skill installers never run it.
+- **Guide.** `npx junamis-skills init` writes `junamis-skills-guide.md` at the project root once, and records `.junamis/install.json`. Run it in each project that needs the guide. The guide is a project file, not a skill, so skill installers never touch it. It is never overwritten unless `--force` is given.
+- **External skills.** `npx junamis-skills init --with-external` (or `npx junamis-skills install-external`) installs every skill in `skills-lock.json` using skillsio. It prints skillsio's security scan alerts. It never skips the scan.
 - Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
 
 ## Supported agents (targets)

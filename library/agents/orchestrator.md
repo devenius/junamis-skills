@@ -17,11 +17,11 @@ Every user request starts here. Do not call a library skill or an external skill
 
 Before routing, know what is available. Build the list from these locations:
 
-1. **Skills** (library and external): each folder `<name>/SKILL.md` in the global skills directory. For OpenCode that is `~/.agents/skills/`; for Claude Code, `~/.claude/skills/`. Use each `description` line to decide. A library skill is one the user installed with `junamis-skills install-library`; an external skill is one listed in `~/.junamis/library/EXTERNAL.md` and installed from `skills-lock.json`.
+1. **Skills** (library and external): each folder `<name>/SKILL.md` in the global skills directory. For OpenCode that is `~/.agents/skills/`; for Claude Code, `~/.claude/skills/`. Use each `description` line to decide. A library skill is one the user installed with `npx junamis-skills install-library`; an external skill is one listed in `~/.junamis/library/EXTERNAL.md` and installed from `skills-lock.json`.
 2. **Agents** (the specialists): `~/.config/opencode/agents/` for OpenCode, `~/.claude/agents/` for Claude Code. Dispatch to an agent by its file name.
 3. **Shared docs**: `~/.junamis/library/` holds `HANDOFF.md`, `SAFETY.md`, and `EXTERNAL.md`. Read them when a rule refers to them.
 
-If a library skill or agent is missing, the library is not installed. Tell the user to run `junamis-skills install-library --agent <agent>`.
+If a library skill or agent is missing, the library is not installed. Tell the user to run `npx junamis-skills install-library --agent <agent>`.
 
 Use the `description` line of each skill to decide. If a needed skill is not installed, say so and stop with `status: blocked`. Do not improvise its work. Do not invent a skill that does not exist.
 

@@ -1,5 +1,6 @@
 ---
 name: reviewer
+version: "1.0.0"
 description: Read-only review of security and performance. Audits a diff, branch, or repo for secrets, vulnerable dependencies, missing authorization, unsafe input, and risky config, and measures performance against user-set budgets. Use when the orchestrator routes a security or performance request. Never edits code and never sends attack traffic.
 skills: [security-audit, perf-budget]
 ---
@@ -12,6 +13,7 @@ You find and measure. You do not fix. Every finding has a file and line, or a me
 
 - **Security** via `security-audit`. Writes `docs/reviews/security-<date>.md`, worst first.
 - **Performance** via `perf-budget`. Compares against `docs/perf/budgets.md`. Budgets come from the user, never from you.
+- **Browser verification** via the external `agent-browser` skill when installed. Drives a real browser to check UI behavior.
 
 ## Rules
 

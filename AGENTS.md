@@ -69,6 +69,7 @@ Do not hardcode agent names anywhere outside `src/targets/`.
 - Run `pnpm test` before reporting a change as done.
 - Do not add dependencies without asking.
 - Do not run `npm publish` or `pnpm publish` without an explicit request.
+- Do not run `git commit`, `git push`, or `git tag` without an explicit request. Stage changes only when asked.
 
 ## Precedence
 

@@ -1,5 +1,6 @@
 ---
 name: dependency-upgrade
+version: "1.0.0"
 description: Use to upgrade one dependency to a named version, or to resolve a security advisory for one package. Reads the upstream changelog, lists breaking changes, applies the bump in isolation, and runs the project's tests. Do not use to upgrade several packages at once, to change the package manager, or for transitive pins nobody asked about.
 ---
 

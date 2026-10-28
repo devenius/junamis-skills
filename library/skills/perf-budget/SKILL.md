@@ -1,5 +1,6 @@
 ---
 name: perf-budget
+version: "1.0.0"
 description: Use to measure performance against budgets the user has set: JavaScript bundle size, API latency, and Core Web Vitals on a named URL. Records measurements over repeated runs and compares them to docs/perf/budgets.md. Read-only on code. Do not use to optimize code; that is a follow-up task. Do not use for Vercel billing or function-cost analysis.
 ---
 

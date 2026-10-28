@@ -69,8 +69,8 @@ const agentNames = agentFiles.map((f) => f.replace(/\.md$/, ""));
 const lockNames = Object.keys(LOCK.skills);
 
 test("library has the expected skills and agents", () => {
-  assert.equal(skillNames.length, 15);
-  assert.equal(agentNames.length, 6);
+  assert.equal(skillNames.length, 18);
+  assert.equal(agentNames.length, 9);
   assert.ok(existsSync(join(LIB, "HANDOFF.md")), "HANDOFF.md missing");
   assert.ok(existsSync(join(LIB, "SAFETY.md")), "SAFETY.md missing");
   assert.ok(existsSync(join(LIB, "EXTERNAL.md")), "EXTERNAL.md missing");

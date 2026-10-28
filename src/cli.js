@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
-const SCRIPTS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "scripts");
+const SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)));
 const HELP = `junamis-skills
 
 Usage:
@@ -52,7 +52,7 @@ async function countSkills(dir) {
 
 async function runExternalInstall(agent, installer) {
   return new Promise((resolvePromise) => {
-    const child = spawn(process.execPath, [join(SCRIPTS_DIR, "install-external-skills.mjs"), "--agent", agent, "--installer", installer], {
+    const child = spawn(process.execPath, [join(SRC_DIR, "install-external.js"), "--agent", agent, "--installer", installer], {
       stdio: "inherit",
       cwd: process.cwd(),
     });

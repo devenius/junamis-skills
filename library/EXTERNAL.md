@@ -13,6 +13,21 @@ These skills are installed from `skills-lock.json` into the global skills direct
 
 Routing between `test` and `tdd` is in `library/skills/route/SKILL.md`. Both are installed; the route decides which runs.
 
-Other locked skills are installed but not referenced by the library: `scope`, `document`, `shadcn`, `shadcn-component-discovery`, `shadcn-component-review`, `nestjs-best-practices`, `agent-browser`, `driftlock`, `agent-rules`. Their licenses and safety status are in `skills-lock.json` and `library/SAFETY.md`.
+External skills assigned to library agents (by reference, not ownership):
+
+- `scope`, `document` → orchestrator (workflow planning and release documentation)
+- `find-skills` → maintainer agent (skill discovery and installation)
+- `mcp-builder`, `skill-creator` → maintainer agent (MCP servers, skill authoring)
+- `shadcn`, `shadcn-component-discovery`, `shadcn-component-review` → frontend agent (UI components)
+- `frontend-design`, `theme-factory` → frontend agent (design guidance)
+- `webapp-testing` → frontend agent (browser-based UI testing)
+- `nestjs-best-practices` → nestjs agent (deep NestJS patterns)
+- `agent-browser` → reviewer agent (browser-based verification)
+- `driftlock` → context-keeper agent (documentation governance)
+- `agent-rules` → context-keeper agent (AGENTS.md generation and maintenance)
+- `grill-me`, `grill-with-docs` → architect agent (stress-testing plans and designs)
+- `doc-coauthoring` → orchestrator (structured documentation workflow)
+
+Their licenses and safety status are in `skills-lock.json` and `library/SAFETY.md`.
 
 If an external name is not installed, the orchestrator stops and tells the user which one is missing. It does not perform that skill's work itself.

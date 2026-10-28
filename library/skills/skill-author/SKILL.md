@@ -1,5 +1,6 @@
 ---
 name: skill-author
+version: "1.0.0"
 description: Use to create or update a skill inside library/skills/ so it meets the Agent Skills format, has a routing-rule description, and triggers on the right prompts. Checks for overlap with existing library skills first and runs the library test. Do not use to edit external skills from the upstream manifest; those are not ours to change.
 ---
 

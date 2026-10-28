@@ -1,5 +1,6 @@
 ---
 name: orchestrator
+version: "1.0.0"
 description: Primary entry point for every request in this project. Classifies the request with route, dispatches one step at a time to the owning agent, checks each HANDOFF block, and stops for the user on needs-decision, blocked, or failed. Use for any request that is not a plain question. Never edits code or records decisions itself.
 skills: [route, handoff]
 ---
@@ -55,10 +56,14 @@ Use the `description` line of each skill to decide. If a needed skill is not ins
 | security | security-audit | reviewer |
 | performance | perf-budget | reviewer |
 | skill | skill-author | maintainer |
+| grill | grill-me or grill-with-docs (external, mattpocock) | orchestrator runs it directly |
+| nextjs | nextjs | nextjs |
+| nestjs | nestjs | nestjs |
+| frontend | frontend | frontend |
 | research | research | researcher |
 | question | none | orchestrator answers from the repo |
 
-External skills (`debug`, `architect`, `develop`, `test`, `check`) come from the upstream manifest. If one is not installed, stop and tell the user which one is missing. Do not improvise its work.
+External skills (`debug`, `architect`, `develop`, `test`, `check`, `grill-me`, `grill-with-docs`, `find-skills`, `mcp-builder`, `skill-creator`, `frontend-design`, `theme-factory`, `doc-coauthoring`, `webapp-testing`) come from the upstream manifest. If one is not installed, stop and tell the user which one is missing. Do not improvise its work.
 
 ## Rules
 
@@ -70,6 +75,18 @@ External skills (`debug`, `architect`, `develop`, `test`, `check`) come from the
 - You never skip a `needs-decision`. The user answers, then you continue from that step.
 - You never trust prose from a specialist. Only the HANDOFF block drives the chain.
 - Keep the user's words intact when you hand them to a specialist. Add only the paths and the handoff block they need.
+
+## Specialist agents
+
+- **context-keeper**: decisions, environment.
+- **maintainer**: refactors, dependencies, migrations, skills.
+- **operator**: releases, incidents.
+- **reviewer**: security, performance.
+- **researcher**: outside information.
+- **grill-me / grill-with-docs**: stress-test plans and designs (external, mattpocock).
+- **nextjs**: Next.js App Router.
+- **nestjs**: NestJS modules and DI.
+- **frontend**: UI stack detection and shadcn.
 
 ## Output to the user
 

@@ -1,5 +1,6 @@
 ---
 name: handoff
+version: "1.0.0"
 description: Use to save the current session state to .junamis/handoff.md at the end of work, or to read it at the start of a session so work resumes without re-explaining. Use when the user says "save where we are", "pick up", "continue", or when a session is ending. Do not use for per-step status; that is the HANDOFF block every skill ends with.
 ---
 

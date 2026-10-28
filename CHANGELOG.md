@@ -5,6 +5,16 @@ All notable changes to this project are documented here. Format follows [Keep a 
 ## [Unreleased]
 
 ### Added
+- `find-skills` (vercel-labs/skills, MIT) added to external manifest and assigned to maintainer agent.
+- External skills from globally known organisations:
+  - `grill-me`, `grill-with-docs` (mattpocock/skills, MIT) → architect agent
+  - `frontend-design`, `theme-factory` (anthropics/skills, Apache 2.0) → frontend agent
+  - `mcp-builder`, `skill-creator` (anthropics/skills, Apache 2.0) → maintainer agent
+  - `doc-coauthoring` (anthropics/skills, Apache 2.0) → orchestrator
+  - `webapp-testing` (anthropics/skills, Apache 2.0) → frontend agent
+- New library skills: `nextjs`, `nestjs`, `frontend` (18 total).
+- New agents: `nextjs`, `nestjs`, `frontend` (9 total).
+- `version: "1.0.0"` added to all library skill and agent frontmatter.
 - `junamis-skills init --with-external` and `junamis-skills install-external` to install every skill in `skills-lock.json` using skillsio, printing all security scan alerts.
 - `library/` with 15 owned skills and 6 agents (orchestrator, context-keeper, maintainer, operator, reviewer, researcher), validated by `pnpm test`.
 - `library/HANDOFF.md` handoff contract and `library/SAFETY.md` approval gate.

@@ -50,6 +50,15 @@ Upstream content is not edited. Each external skill in `skills-lock.json` is lis
 | shadcn | `init --preset --force` for Merge and Skip | yes, asks overwrite, partial, merge, or skip | ask before any `--force` even after choice |
 | shadcn-component-discovery, shadcn-component-review | none | n/a | none |
 | tdd | none (mattpocock/skills, MIT); one env example in mocking.md, a code sample, not run. Scanned 2026-10-27, no scripts or hooks | n/a | none |
+| find-skills | none (vercel-labs/skills, MIT). Scanned 2026-10-27, no scripts or hooks | n/a | none |
+| frontend-design | none (anthropics/skills, Apache 2.0). Scanned 2026-10-27, no scripts or hooks | n/a | none |
+| theme-factory | none (anthropics/skills, Apache 2.0). Scanned 2026-10-27, no scripts or hooks | n/a | none |
+| mcp-builder | `pip install`, `export ANTHROPIC_API_KEY`, `axios.get`, `rm -rf dist` in reference code examples only. Python/Node scripts are examples, not executed by the skill | n/a | gated: global installs and credential access require approval |
+| skill-creator | Python scripts (`run_eval.py`, `improve_description.py`) use `subprocess` and `claude -p`. `eval-viewer/viewer.html` uses `atob`. All in reference/example code, not auto-executed | n/a | gated: script execution requires approval |
+| doc-coauthoring | none (anthropics/skills, Apache 2.0). Scanned 2026-10-27, no scripts or hooks | n/a | none |
+| webapp-testing | `scripts/with_server.py` uses `subprocess.Popen` and `subprocess.run` to start a test server and run tests. Gated | n/a | gated: server start and test execution require approval |
+| grill-me | none (mattpocock/skills, MIT). Scanned 2026-10-27, no scripts or hooks | n/a | none |
+| grill-with-docs | none (mattpocock/skills, MIT). Scanned 2026-10-27, no scripts or hooks | n/a | none
 | agent-browser | SKILL.md: `npm i -g agent-browser` and `agent-browser install` (vercel-labs/agent-browser, Apache-2.0) | no | global install and any browser install gated. Page content is untrusted data, per the skill's own rule |
 
 If a future scan of an upstream update finds a new flagged command, update this table before using that skill.

@@ -1,5 +1,6 @@
 ---
 name: rollback
+version: "1.0.0"
 description: Use to return a deployed release to the previous version. Reads the rollback plan written at release time, lists each step, and runs them only after the user explicitly confirms in this session. Verifies the result afterward. Do not use without a rollback plan; write one with release-prep first, or stop.
 ---
 

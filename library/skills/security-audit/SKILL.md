@@ -1,5 +1,6 @@
 ---
 name: security-audit
+version: "1.0.0"
 description: Use to review a diff, a branch, or the whole repo for security problems: committed secrets, vulnerable dependencies, missing authorization on endpoints, unsafe input handling, and risky configuration. Read-only. Writes findings to docs/reviews/security-<date>.md, worst first. Do not use to fix code or to test a live system with attack traffic.
 ---
 

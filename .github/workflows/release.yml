@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 1.0.1). Leave empty to use package.json."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') && vars.NPM_PUBLISH_ENABLED == 'true'
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Set version (if provided)
+        if: github.event.inputs.version != ''
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+
+      - name: Publish to npm (trusted publishing via OIDC)
+        run: npm publish --provenance --access public
+
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
+  publish-skipped:
+    needs: test
+    runs-on: ubuntu-latest
+    if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') && vars.NPM_PUBLISH_ENABLED != 'true'
+    steps:
+      - run: |
+          echo "::warning::Publish skipped because NPM_PUBLISH_ENABLED is not 'true'."
+          echo "Set the repository variable NPM_PUBLISH_ENABLED=true after configuring Trusted Publishing on npmjs.com."
+          echo "See: https://docs.npmjs.com/trusted-publishers"

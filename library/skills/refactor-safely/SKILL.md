@@ -1,5 +1,6 @@
 ---
 name: refactor-safely
+version: "1.0.0"
 description: Use when the user asks to restructure, rename, extract, or clean up code and explicitly says behavior must not change. Locks current behavior with characterization tests before editing, then changes code in small steps with the tests run after each step. Do not use when behavior is meant to change; that is a feature or a bug fix.
 ---
 

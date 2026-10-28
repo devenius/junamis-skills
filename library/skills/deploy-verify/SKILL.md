@@ -1,5 +1,6 @@
 ---
 name: deploy-verify
+version: "1.0.0"
 description: Use after the user has deployed, to confirm the live or staging environment is healthy. Probes health and readiness endpoints with GET requests only, runs the smoke checks listed in the release notes, and reports pass or fail with evidence. Do not use to deploy, to send write requests, or to log in with real user credentials.
 ---
 

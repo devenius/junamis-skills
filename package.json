@@ -29,7 +29,16 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "install:external": "node scripts/install-external-skills.mjs"
+    "install:external": "node src/install-external.js"
   },
-  "packageManager": "pnpm@12.15.0"
+  "packageManager": "pnpm@12.15.0",
+  "main": "src/cli.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devenius/junamis-skills.git"
+  },
+  "homepage": "https://github.com/devenius/junamis-skills#readme",
+  "bugs": {
+    "url": "https://github.com/devenius/junamis-skills/issues"
+  }
 }

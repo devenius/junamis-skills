@@ -1,5 +1,6 @@
 ---
 name: env-doctor
+version: "1.0.0"
 description: Use when the project will not install, build, or run locally, or before starting work on an unfamiliar machine. Checks runtime and package-manager versions against the project's declared requirements, lockfile presence, and which environment variable names the code needs. Writes docs/env-report.md. Do not use to install software or to set secret values.
 ---
 

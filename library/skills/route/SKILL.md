@@ -1,5 +1,6 @@
 ---
 name: route
+version: "1.0.0"
 description: Use first on every new user request to decide which path it belongs to (feature, bug, refactor, dependency, migration, release, incident, security, performance, environment, decision, skill, question). Use when the request is not yet classified. Do not use to do the work itself; it only decides where the work goes.
 ---
 
@@ -26,11 +27,15 @@ Decide the path for one request and state it in one line. Do no other work.
 | dependency | "upgrade X", "bump", "CVE in X" | `dependency-upgrade` | maintainer |
 | migration | "add column", "change schema", "migrate data" | `db-migrate` | maintainer |
 | feature | "add", "build", "new page", "support X" | `architect` then `develop` (external) | orchestrator |
+| nextjs | "next.js", "app router", "server component", "server action" | `nextjs` | nextjs |
+| nestjs | "nestjs", "nest module", "guard", "pipe", "interceptor" | `nestjs` | nestjs |
+| frontend | "ui", "component", "layout", "form", "table", "modal", "shadcn" | `frontend` | frontend |
 | release | "release", "tag", "ship", "deploy" | `release-prep` | operator |
 | incident | "prod is down", "users report", "spike", "outage" | `incident-response` | operator |
 | security | "is this safe", "audit", "secrets", "auth review" | `security-audit` | reviewer |
 | performance | "slow", "bundle size", "latency", "web vitals" | `perf-budget` | reviewer |
 | skill | "make a skill", "update a skill", "agent for" | `skill-author` | maintainer |
+| grill | "grill me", "stress-test this plan", "challenge this design", "poke holes" | `grill-me` or `grill-with-docs` (external) | orchestrator |
 | research | "what's the latest", "how do I use X in v3", "compare X and Y", "is CVE-... affecting us", "docs for" | `research` | researcher |
 | question | asks about this repo's code or decisions, no outside info needed, no change requested | none | orchestrator answers directly |
 

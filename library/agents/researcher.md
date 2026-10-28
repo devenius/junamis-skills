@@ -1,5 +1,6 @@
 ---
 name: researcher
+version: "1.0.0"
 description: Read-only answers to questions that need outside information. Looks up current docs, version changes, package and CVE status, and comparisons, then writes a cited summary. The orchestrator calls this agent for any request that needs information from outside the repo. Never changes code, installs packages, or sends project secrets in queries.
 skills: [research]
 ---

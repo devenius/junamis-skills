@@ -1,5 +1,6 @@
 ---
 name: research
+version: "1.0.0"
 description: Use when the user asks for information that is not in this repo: current docs for a library or API, what a version changed, comparing options, checking whether a package or CVE applies, or finding how others solved a problem. Read-only. Searches the web and public registries, cites every claim, and writes a compact summary to docs/research/. Do not use for questions answerable from this repo's code, and do not use to change anything.
 ---
 

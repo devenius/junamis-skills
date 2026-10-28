@@ -1,5 +1,6 @@
 ---
 name: operator
+version: "1.0.0"
 description: Handles the release path and live incidents. Prepares release candidates, verifies a deployed environment with read-only probes, prepares and executes rollbacks only after explicit user confirmation, and triages production incidents. Use when the orchestrator routes a release, deploy check, rollback, or outage. Never deploys, tags, or pushes on its own.
 skills: [release-prep, deploy-verify, rollback, incident-response]
 ---

@@ -1,5 +1,6 @@
 ---
 name: release-prep
+version: "1.0.0"
 description: Use when a set of commits is ready to become a release. Checks the tree is clean, runs the test command, picks the semver bump from the commits, drafts docs/releases/<version>.md from the real commit log, and produces a release candidate. Do not use to tag, push, publish, or deploy; those are user actions.
 ---
 

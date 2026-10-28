@@ -1,5 +1,6 @@
 ---
 name: incident-response
+version: "1.0.0"
 description: Use when production is failing right now: outage, error spike, users reporting breakage, data looks wrong in live. Orders the work as stabilize first, then gather evidence read-only, then hypothesize, then record the incident. Do not use for a bug in development or staging; that is debug. Do not change production data from this skill.
 ---
 

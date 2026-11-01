@@ -1,0 +1,58 @@
+{
+  "name": "@devenius/junamis-agents-skills",
+  "version": "1.0.0",
+  "description": "Install and manage Agent Skills (SKILL.md workflows) for any AI coding agent. Pins third-party skills by manifest and copies them into each agent's global skills directory.",
+  "keywords": [
+    "agent-skills",
+    "ai-agents",
+    "skill-md",
+    "claude",
+    "opencode",
+    "coding-agents"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "type": "module",
+  "bin": {
+    "junamis-agents-skills": "bin/junamis-agents-skills.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "library",
+    "skills-lock.json",
+    "opencode.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "lint": "eslint .",
+    "check:config": "node scripts/check-opencode-config.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "install:external": "node src/install-external.js",
+    "check:yaml": "node scripts/check-yaml.js"
+  },
+  "packageManager": "pnpm@12.15.0",
+  "main": "src/cli.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devenius/junamis-agents-skills.git"
+  },
+  "homepage": "https://github.com/devenius/junamis-agents-skills#readme",
+  "bugs": {
+    "url": "https://github.com/devenius/junamis-agents-skills/issues"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "js-yaml": "^5.5.0"
+  }
+}

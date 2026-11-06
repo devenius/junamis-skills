@@ -1,15 +1,29 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join, dirname } from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { getTarget } from "../src/targets/index.js";
 import {
   planLibraryInstall,
   applyLibraryInstall,
+  manifestPath,
 } from "../src/library-install.js";
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const CLI = join(PACKAGE_ROOT, "bin", "junamis-agents-skills.js");
+
+function fileCount(dir) {
+  if (!existsSync(dir)) return 0;
+  let count = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    count += entry.isDirectory() ? fileCount(join(dir, entry.name)) : 1;
+  }
+  return count;
+}
 
 function withHome(fn) {
   const home = mkdtempSync(join(tmpdir(), "junamis-home-"));
@@ -22,6 +36,53 @@ function withHome(fn) {
       rmSync(home, { recursive: true, force: true });
     });
 }
+
+test("planLibraryInstall uses documented paths for Cursor, Cline, and Windsurf/Devin", async () => {
+  const projectDir = join(PACKAGE_ROOT, "target-path-test-project");
+  const targets = [
+    {
+      agent: "cursor",
+      globalSkills: join(homedir(), ".cursor", "skills"),
+      globalAgents: join(homedir(), ".cursor", "agents"),
+      projectSkills: join(projectDir, ".cursor", "skills"),
+      projectAgents: join(projectDir, ".cursor", "agents"),
+    },
+    {
+      agent: "cline",
+      globalSkills: join(homedir(), ".cline", "skills"),
+      globalAgents: join(homedir(), ".cline", "agents"),
+      projectSkills: join(projectDir, ".cline", "skills"),
+      projectAgents: join(projectDir, ".cline", "agents"),
+    },
+    {
+      agent: "windsurf",
+      globalSkills: join(homedir(), ".codeium", "windsurf", "skills"),
+      globalAgents: join(homedir(), ".config", "devin", "agents"),
+      projectSkills: join(projectDir, ".windsurf", "skills"),
+      projectAgents: join(projectDir, ".devin", "agents"),
+    },
+  ];
+
+  for (const target of targets) {
+    const globalFiles = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: target.agent });
+    const projectFiles = await planLibraryInstall({
+      packageRoot: PACKAGE_ROOT,
+      agent: target.agent,
+      scope: "project",
+      projectDir,
+    });
+    const globalSkill = globalFiles.find((file) => file.path.endsWith("/route/SKILL.md"));
+    const globalAgent = globalFiles.find((file) => file.path.endsWith("/orchestrator.md"));
+    const projectSkill = projectFiles.find((file) => file.path.endsWith("/route/SKILL.md"));
+    const projectAgent = projectFiles.find((file) => file.path.endsWith("/orchestrator.md"));
+
+    assert.ok(globalSkill?.path.startsWith(`${target.globalSkills}/`), `${target.agent}: global skill path`);
+    assert.ok(globalAgent?.path.startsWith(`${target.globalAgents}/`), `${target.agent}: global agent path`);
+    assert.ok(projectSkill?.path.startsWith(`${target.projectSkills}/`), `${target.agent}: project skill path`);
+    assert.ok(projectAgent?.path.startsWith(`${target.projectAgents}/`), `${target.agent}: project agent path`);
+    assert.match(projectAgent.content.toString("utf8"), /^---\nname: orchestrator\ndescription:/);
+  }
+});
 
 test("install-library creates files, then reports them unchanged", async () => {
   await withHome(async () => {
@@ -110,6 +171,177 @@ test("project scope installs under the project directory", async () => {
   });
 });
 
+test("project scope rejects a .junamis parent symlinked outside the project", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
+    try {
+      // A lexical containment check passes here, but the real destination is
+      // outside the project. The manifest must be rejected, not acted on.
+      symlinkSync(outside, join(project, ".junamis"));
+      writeManifest(
+        "opencode",
+        { files: [{ path: join(project, ".junamis", "library", "HANDOFF.md"), sha256: sha256("outside\n") }] },
+        "project",
+        project,
+      );
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0", scope: "project", projectDir: project }),
+        /managed root contains a symlink or escapes its expected location/,
+      );
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+test("project scope rejects a managed root symlinked outside the project", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
+    try {
+      symlinkSync(outside, join(project, ".agents"));
+      writeManifest(
+        "opencode",
+        { files: [{ path: join(project, ".agents", "skills", "route", "SKILL.md"), sha256: sha256("outside\n") }] },
+        "project",
+        project,
+      );
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0", scope: "project", projectDir: project }),
+        /managed root contains a symlink or escapes its expected location/,
+      );
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+test("project scope rejects .agents/skills symlinked to the project root", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    try {
+      mkdirSync(join(project, ".agents"), { recursive: true });
+      symlinkSync(project, join(project, ".agents", "skills"));
+      const victim = join(project, "package.json");
+      writeFileSync(victim, "victim\n");
+      writeManifest(
+        "opencode",
+        { files: [{ path: join(project, ".agents", "skills", "package.json"), sha256: sha256("victim\n") }] },
+        "project",
+        project,
+      );
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0", scope: "project", projectDir: project }),
+        /managed root contains a symlink or escapes its expected location/,
+      );
+      assert.equal(existsSync(victim), true, "the project file must not be deleted");
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+});
+
+test("project scope rejects .agents/skills symlinked to .git", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    try {
+      mkdirSync(join(project, ".agents"), { recursive: true });
+      mkdirSync(join(project, ".git"), { recursive: true });
+      writeFileSync(join(project, ".git", "config"), "secret\n");
+      symlinkSync(join(project, ".git"), join(project, ".agents", "skills"));
+      writeManifest(
+        "opencode",
+        { files: [{ path: join(project, ".agents", "skills", "config"), sha256: sha256("secret\n") }] },
+        "project",
+        project,
+      );
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0", scope: "project", projectDir: project }),
+        /managed root contains a symlink or escapes its expected location/,
+      );
+      assert.equal(existsSync(join(project, ".git", "config")), true, ".git/config must not be deleted");
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+});
+
+test("global scope rejects a managed root symlinked outside the home directory", async () => {
+  await withHome(async (home) => {
+    const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
+    try {
+      mkdirSync(join(outside, "skills"), { recursive: true });
+      const victim = join(outside, "skills", "victim.txt");
+      writeFileSync(victim, "outside\n");
+      symlinkSync(outside, join(home, ".agents"));
+      writeManifest("opencode", {
+        files: [{ path: join(home, ".agents", "skills", "victim.txt"), sha256: sha256("outside\n") }],
+      });
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0" }),
+        /managed root contains a symlink or escapes its expected location/,
+      );
+      assert.equal(existsSync(victim), true, "the outside file must not be deleted");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+test("project scope allows the project directory itself to be reached through a symlink", async () => {
+  const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+  const link = join(tmpdir(), `junamis-proj-link-${process.pid}-${Date.now()}`);
+  try {
+    symlinkSync(project, link);
+    writeManifest("opencode", { files: [] }, "project", link);
+    const result = await applyLibraryInstall({
+      agent: "opencode",
+      files: [],
+      version: "1.0.0",
+      scope: "project",
+      projectDir: link,
+    });
+    assert.equal(result.ok, true);
+  } finally {
+    rmSync(link, { force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("project scope rejects a target behind an intermediate symlink inside a managed root", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
+    try {
+      const skillsRoot = join(project, ".agents", "skills");
+      mkdirSync(skillsRoot, { recursive: true });
+      symlinkSync(outside, join(skillsRoot, "route"));
+      writeManifest(
+        "opencode",
+        { files: [{ path: join(skillsRoot, "route", "SKILL.md"), sha256: sha256("outside\n") }] },
+        "project",
+        project,
+      );
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0", scope: "project", projectDir: project }),
+        /path escapes the managed project roots through a symlink/,
+      );
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
 test("stale edited files are not removed and become conflicts", async () => {
   await withHome(async () => {
     const files = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: "opencode" });
@@ -123,5 +355,308 @@ test("stale edited files are not removed and become conflicts", async () => {
     assert.equal(result.ok, false);
     assert.ok(result.conflicts.includes(routeFile.path));
     assert.equal(existsSync(routeFile.path), true);
+  });
+});
+
+const sha256 = (value) => createHash("sha256").update(value).digest("hex");
+
+function writeManifest(agent, manifest, scope = "global", projectDir = process.cwd()) {
+  const path = manifestPath(agent, scope, projectDir);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(manifest));
+}
+
+test("library manifests cannot point outside the managed roots", async () => {
+  await withHome(async (home) => {
+    const victim = join(home, "victim.txt");
+    writeFileSync(victim, "do not delete\n");
+    writeManifest("opencode", {
+      files: [{ path: victim, sha256: sha256("do not delete\n") }],
+    });
+
+    await assert.rejects(
+      applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0" }),
+      /invalid library manifest .*outside the managed global roots/,
+    );
+    assert.equal(existsSync(victim), true);
+  });
+});
+
+test("library manifests reject malformed hashes and duplicate paths", async () => {
+  await withHome(async (home) => {
+    const target = getTarget("opencode");
+    const inside = join(target.globalSkillsDir(), "route", "SKILL.md");
+
+    writeManifest("opencode", { files: [{ path: inside, sha256: "not-a-hash" }] });
+    await assert.rejects(
+      applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0" }),
+      /sha256 must be 64 lowercase hex characters/,
+    );
+
+    writeManifest("opencode", {
+      files: [
+        { path: inside, sha256: sha256("one") },
+        { path: inside, sha256: sha256("two") },
+      ],
+    });
+    await assert.rejects(
+      applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0" }),
+      /duplicate path/,
+    );
+    assert.ok(home);
+  });
+});
+
+test("library manifests reject symlinked targets inside a managed root", async () => {
+  await withHome(async (home) => {
+    const target = getTarget("opencode");
+    const root = target.globalSkillsDir();
+    mkdirSync(root, { recursive: true });
+    const victim = join(home, "victim.txt");
+    writeFileSync(victim, "secret\n");
+    const link = join(root, "linked");
+    symlinkSync(victim, link);
+    writeManifest("opencode", {
+      files: [{ path: link, sha256: sha256("secret\n") }],
+    });
+
+    await assert.rejects(
+      applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0" }),
+      /refusing symlinked path/,
+    );
+    assert.equal(existsSync(victim), true);
+  });
+});
+
+test("a directory at a planned path is a conflict, not an EISDIR crash", async () => {
+  await withHome(async () => {
+    const files = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: "opencode" });
+    const routeFile = files.find((f) => f.path.endsWith("/route/SKILL.md"));
+    assert.ok(routeFile);
+    mkdirSync(routeFile.path, { recursive: true });
+
+    const result = await applyLibraryInstall({ agent: "opencode", files, version: "1.0.0" });
+    assert.equal(result.ok, false);
+    assert.ok(result.conflicts.includes(routeFile.path));
+    assert.equal(statSync(routeFile.path).isDirectory(), true, "the directory must not be read or removed");
+  });
+});
+
+test("a directory at a stale path is refused without being read or deleted", async () => {
+  await withHome(async () => {
+    const files = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: "opencode" });
+    await applyLibraryInstall({ agent: "opencode", files, version: "1.0.0" });
+
+    const routeFile = files.find((f) => f.path.endsWith("/route/SKILL.md"));
+    assert.ok(routeFile);
+    rmSync(routeFile.path);
+    mkdirSync(routeFile.path, { recursive: true });
+    const subset = files.filter((f) => f.path !== routeFile.path);
+    const kept = subset.find((f) => f.path.endsWith("orchestrator.md"));
+
+    await assert.rejects(
+      applyLibraryInstall({ agent: "opencode", files: subset, version: "1.0.0" }),
+      /refusing non-regular file/,
+    );
+    assert.equal(statSync(routeFile.path).isDirectory(), true, "the directory must not be read or removed");
+    assert.ok(kept);
+    assert.equal(existsSync(kept.path), true, "no other managed file may be deleted");
+  });
+});
+
+test("library manifests reject malformed JSON", async () => {
+  await withHome(async () => {
+    const path = manifestPath("opencode");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, "{not json");
+
+    await assert.rejects(
+      applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0" }),
+      /invalid library manifest/,
+    );
+  });
+});
+
+test("planned install rejects a symlinked managed root even with no manifest", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
+    try {
+      symlinkSync(outside, join(project, ".agents"));
+      const files = await planLibraryInstall({
+        packageRoot: PACKAGE_ROOT,
+        agent: "opencode",
+        scope: "project",
+        projectDir: project,
+      });
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files, version: "1.0.0", scope: "project", projectDir: project }),
+        /managed root contains a symlink or escapes its expected location/,
+      );
+      assert.equal(fileCount(outside), 0, "nothing may be written through the symlinked root");
+      assert.equal(existsSync(join(outside, "skills", "route", "SKILL.md")), false);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+test("planned install rejects a symlinked subdirectory even with an empty manifest", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
+    try {
+      mkdirSync(join(project, ".agents", "skills"), { recursive: true });
+      symlinkSync(outside, join(project, ".agents", "skills", "route"));
+      writeManifest("opencode", { files: [] }, "project", project);
+      const files = await planLibraryInstall({
+        packageRoot: PACKAGE_ROOT,
+        agent: "opencode",
+        scope: "project",
+        projectDir: project,
+      });
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files, version: "1.0.0", scope: "project", projectDir: project }),
+        /invalid library destination .*path escapes the managed project roots through a symlink/,
+      );
+      assert.equal(fileCount(outside), 0, "nothing may be written through the symlinked subdirectory");
+      assert.equal(existsSync(join(outside, "SKILL.md")), false);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+test("--force does not overwrite a file outside the managed roots through a symlinked subdirectory", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
+    try {
+      mkdirSync(join(project, ".agents", "skills"), { recursive: true });
+      symlinkSync(outside, join(project, ".agents", "skills", "route"));
+      writeManifest("opencode", { files: [] }, "project", project);
+      const victim = join(outside, "SKILL.md");
+      writeFileSync(victim, "user data that must survive\n");
+      const files = await planLibraryInstall({
+        packageRoot: PACKAGE_ROOT,
+        agent: "opencode",
+        scope: "project",
+        projectDir: project,
+      });
+
+      await assert.rejects(
+        applyLibraryInstall({
+          agent: "opencode",
+          files,
+          version: "1.0.0",
+          scope: "project",
+          projectDir: project,
+          force: true,
+        }),
+        /invalid library destination .*path escapes the managed project roots through a symlink/,
+      );
+      assert.equal(readFileSync(victim, "utf8"), "user data that must survive\n");
+      assert.equal(fileCount(outside), 1, "only the pre-existing victim may remain");
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+test("install-library rejects a symlinked project root instead of reporting creates", async () => {
+  const home = mkdtempSync(join(tmpdir(), "junamis-home-"));
+  const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+  const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
+  try {
+    symlinkSync(outside, join(project, ".agents"));
+    const result = spawnSync(
+      process.execPath,
+      [CLI, "install-library", "--agent", "opencode", "--scope", "project", "--dir", project],
+      { encoding: "utf8", env: { ...process.env, HOME: home } },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /managed root contains a symlink or escapes its expected location/);
+    assert.doesNotMatch(result.stdout, /create/);
+    assert.equal(fileCount(outside), 0);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test("a regular file at a managed root is rejected for a manifest entry without an ENOTDIR crash", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    try {
+      mkdirSync(join(project, ".agents"), { recursive: true });
+      const rootFile = join(project, ".agents", "skills");
+      writeFileSync(rootFile, "not a directory\n");
+      writeManifest(
+        "opencode",
+        { files: [{ path: join(rootFile, "x"), sha256: sha256("x") }] },
+        "project",
+        project,
+      );
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files: [], version: "1.0.0", scope: "project", projectDir: project }),
+        /managed root is not a directory: .*\.agents\/skills/,
+      );
+      assert.equal(readFileSync(rootFile, "utf8"), "not a directory\n");
+      assert.equal(existsSync(join(project, ".junamis", "library")), false, "nothing may be written");
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+});
+
+test("a regular file at a managed root is rejected for planned paths without an ENOTDIR crash", async () => {
+  await withHome(async () => {
+    const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
+    try {
+      mkdirSync(join(project, ".agents"), { recursive: true });
+      const rootFile = join(project, ".agents", "skills");
+      writeFileSync(rootFile, "not a directory\n");
+      const files = await planLibraryInstall({
+        packageRoot: PACKAGE_ROOT,
+        agent: "opencode",
+        scope: "project",
+        projectDir: project,
+      });
+
+      await assert.rejects(
+        applyLibraryInstall({ agent: "opencode", files, version: "1.0.0", scope: "project", projectDir: project }),
+        /managed root is not a directory: .*\.agents\/skills/,
+      );
+      assert.equal(readFileSync(rootFile, "utf8"), "not a directory\n");
+      assert.equal(existsSync(join(project, ".junamis", "library")), false, "nothing may be written");
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+});
+
+test("global scope accepts a managed root symlinked inside the home directory", async () => {
+  await withHome(async (home) => {
+    const dotfiles = join(home, "dotfiles");
+    mkdirSync(dotfiles, { recursive: true });
+    symlinkSync(dotfiles, join(home, ".agents"));
+
+    const files = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: "opencode" });
+    const first = await applyLibraryInstall({ agent: "opencode", files, version: "1.0.0" });
+    assert.equal(first.ok, true);
+    assert.ok(existsSync(join(dotfiles, "skills", "route", "SKILL.md")), "the install must land inside home");
+
+    // The second run validates a real manifest against the same symlinked root.
+    const next = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: "opencode" });
+    const second = await applyLibraryInstall({ agent: "opencode", files: next, version: "1.0.0" });
+    assert.equal(second.ok, true);
   });
 });

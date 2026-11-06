@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, writeFile, rename } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile, rename, rm } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,8 +9,13 @@ export const MARKER_PATH = join(".junamis", "install.json");
 
 async function atomicWriteFile(path, content) {
   const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.${Date.now()}.tmp`);
-  await writeFile(tmp, content);
-  await rename(tmp, path);
+  await writeFile(tmp, content, { flag: "wx" });
+  try {
+    await rename(tmp, path);
+  } catch (error) {
+    try { await rm(tmp, { force: true }); } catch { /* best-effort cleanup */ }
+    throw error;
+  }
 }
 
 async function readPackageVersion(packageRoot) {
@@ -44,25 +49,14 @@ async function listLibraryAgents(packageRoot) {
 
 async function listLockedSkills(packageRoot) {
   const lock = JSON.parse(await readFile(join(packageRoot, "skills-lock.json"), "utf8"));
-  const skills = Object.entries(lock.skills)
+  return Object.entries(lock.skills)
     .map(([name, entry]) => ({ name, source: entry.source, license: entry.license ?? "unknown" }))
     .sort((a, b) => a.name.localeCompare(b.name));
-
-  // Group by source so the guide can print one install command per source.
-  const bySource = new Map();
-  for (const sk of skills) {
-    if (!bySource.has(sk.source)) bySource.set(sk.source, []);
-    bySource.get(sk.source).push(sk.name);
-  }
-  const installCommands = [...bySource.entries()]
-    .map(([source, names]) => `npx skillsio add ${source} --agent <agent> --skill ${names.join(" ")} -y`)
-    .join("\n");
-  skills.installCommands = installCommands;
-  return skills;
 }
 
 export function renderGuide({ version, library, agents, locked }) {
   const unknown = locked.filter((s) => s.license === "unknown").map((s) => s.name);
+  const specialistCount = agents.filter((agent) => agent.name !== "orchestrator").length;
   const lockedLines = locked
     .map((s) => `| ${s.name} | ${s.source} | ${s.license} |`)
     .join("\n");
@@ -89,14 +83,14 @@ ${lockedLines}
 ${unknown.length > 0 ? `Licenses marked \`unknown\` are not verified. Do not publish work that depends on: ${unknown.join(", ")}.\n` : ""}
 ## How the agents are structured
 
-There is one entry point and five specialists. Every request starts at the orchestrator. The orchestrator never does the work itself; it routes and dispatches.
+There is one entry point and ${specialistCount} specialist${specialistCount === 1 ? "" : "s"}. Every request starts at the orchestrator. The orchestrator never does the work itself; it routes and dispatches.
 
 ${agentLines}
 
 ### The dispatch loop
 
 1. You send a request to the **orchestrator**.
-2. The orchestrator runs the \`route\` skill, which classifies the request into one path: feature, bug, refactor, dependency, migration, release, incident, security, performance, environment, decision, skill, research, or question.
+2. The orchestrator runs the \`route\` skill, which classifies the request into one path: feature, bug, refactor, dependency, migration, release, deploy verification, rollback, incident, security, performance, environment, decision, skill, research, or question.
 3. The orchestrator looks up the owning agent and skill for that path and dispatches exactly one step.
 4. The specialist runs its skill and ends with a HANDOFF block (see \`~/.junamis/library/HANDOFF.md\` in the installed package).
 5. The orchestrator reads only the HANDOFF block. It checks that every listed artifact exists on disk.
@@ -143,7 +137,7 @@ Two commands, run once per machine. Review the dry run before the real install.
 
         npx junamis-agents-skills install-external --agent opencode
 
-Use \`--agent claude\` instead of \`opencode\` for Claude Code. The library install never overwrites a file you edited; it stops and lists the file. Use \`--force\` only after you have reviewed it.
+      Use \`--agent claude\` instead of \`opencode\` for Claude Code. External skills are checked out at the commit recorded in the lock, their folder tree SHAs are verified, and then the pinned scanner runs before installation. Existing external skills are left unchanged and reported as conflicts. The library install never overwrites a file you edited; it stops and lists the file. Use \`--force\` only after you have reviewed it.
 
 Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
 

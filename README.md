@@ -3,12 +3,12 @@
 An orchestrated set of Agent Skills and agents for AI coding tools. The package ships:
 
 - **The library** (`library/`): the orchestrator, eight specialist agents, and the skills they use.
-- **The manifest** (`skills-lock.json`): the external skills the library refers to, pinned by source and license.
+- **The manifest** (`skills-lock.json`): external skill sources, immutable commits, per-skill tree SHAs, and licenses.
 - **An installer** (`junamis-agents-skills`): installs the library and the external skills, and writes a setup guide into your project.
 
 ## Quick start
 
-Run these in the project that will use the skills. Use `--dry-run` first to see what will change. Requires Node.js 26+.
+Run these in the project that will use the skills. Use `--dry-run` first to see what will change. Requires Node.js 26+; external installs also require Git.
 
 ### Option A: Run directly from GitHub (no setup)
 
@@ -80,20 +80,23 @@ Then open the project in your agent and send your first request to `orchestrator
 |---|---|
 | `init [--force] [--with-external] [--with-library] [--with-all]` | Writes `junamis-agents-skills-guide.md` at the project root, once. `--with-external` also runs `install-external`; `--with-library` also installs the library; `--with-all` does both. |
 | `install-library --agent <a> [--dry-run] [--force]` | Copies library skills, agent definitions, and shared docs to the agent's directories. Never overwrites a file you edited unless `--force`. |
-| `install-external --agent <a> [--installer skillsio\|skills]` | Installs every skill in `skills-lock.json` globally. The security scan is never skipped. |
-| `status` | Shows the guide, the installed library version, and detected agents. |
-| `doctor` | Checks Node version, detected agents, skills dirs, shared docs, manifest licenses, and `opencode.json`. |
+| `install-external --agent <a> [--installer skillsio]` | Verifies each locked commit and skill tree SHA, then installs through the pinned `skillsio` scanner. Existing skills are left unchanged and reported as conflicts. |
+| `status [--dir <path>] [--scope global\|project\|all]` | Shows guide state and library installs in both scopes by default. |
+| `doctor [--dir <path>] [--scope global\|project\|all]` | Checks Node, selected library scopes, manifest licenses, and `opencode.json`. Defaults to global scope. |
 | `sync [--agent <a>] [--dry-run] [--force]` | Reinstalls/refreshes the library for an agent (alias of `install-library`). |
 
 ## Supported agents
 
-| Agent (`--agent`) | Skills directory | Agent definitions | Installer name |
+| Agent (`--agent`) | Skills directory | Agent definitions | External install support |
 |---|---|---|---|
-| `opencode` | `~/.agents/skills` | `~/.config/opencode/agents` | `opencode` |
-| `claude` | `~/.claude/skills` | `~/.claude/agents` | `claude-code` |
-| `cursor` | `~/.cursor/skills` | `~/.cursor/agents` | (not supported by skillsio; use `skills`) |
-| `windsurf` | `~/.windsurf/skills` | `~/.windsurf/agents` | (not supported by skillsio; use `skills`) |
-| `cline` | `~/.cline/skills` | `~/.cline/agents` | (not supported by skillsio; use `skills`) |
+| `opencode` | `~/.agents/skills` | `~/.config/opencode/agents` | `skillsio` |
+| `claude` | `~/.claude/skills` | `~/.claude/agents` | `skillsio` |
+| `cursor` | `~/.cursor/skills` | `~/.cursor/agents` | Not supported by `install-external` yet |
+| `windsurf` | `~/.codeium/windsurf/skills` | `~/.config/devin/agents` | Not supported by `install-external` yet |
+| `cline` | `~/.cline/skills` | `~/.cline/agents` | Not supported by `install-external` yet |
+
+Library installation supports all five targets. Scanned external installation currently accepts only OpenCode and Claude Code.
+The Windsurf target keeps project skills in the legacy `.windsurf/skills` directory and installs subagents using Devin's current `.devin/agents` format and locations.
 
 Other agents are added on request, one target file each under `src/targets/`.
 
@@ -134,6 +137,8 @@ These are installed from `skills-lock.json` into the agent's global skills direc
 | `test` | [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills) | MIT |
 | `theme-factory` | [anthropics/skills](https://github.com/anthropics/skills) | Apache-2.0 |
 | `webapp-testing` | [anthropics/skills](https://github.com/anthropics/skills) | Apache-2.0 |
+
+Each lock entry pins an upstream commit and skill tree SHA. Maintainers should follow the [external skill review and pinning procedure](docs/external-skills-maintenance.md) when changing this manifest.
 
 ## Installing from GitHub Packages
 

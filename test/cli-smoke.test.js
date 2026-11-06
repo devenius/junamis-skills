@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
@@ -43,6 +43,61 @@ test("sync dry-run reports library actions", () => {
       env: { ...process.env, HOME: home },
     });
     assert.match(out, /library for opencode/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("status reports a malformed project marker without crashing", () => {
+  const { home, project } = tempDirs();
+  try {
+    mkdirSync(join(project, ".junamis"), { recursive: true });
+    writeFileSync(join(project, ".junamis", "install.json"), "{not json");
+    const result = spawnSync(process.execPath, [CLI, "status", "--dir", project], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: home },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /invalid marker/);
+    assert.doesNotMatch(result.stderr, /Cannot read properties/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("status reports a malformed library manifest without crashing", () => {
+  const { home, project } = tempDirs();
+  try {
+    const manifestDir = join(project, ".junamis", "installed");
+    mkdirSync(manifestDir, { recursive: true });
+    writeFileSync(join(manifestDir, "library-opencode.json"), JSON.stringify({ files: "not-an-array" }));
+    const result = spawnSync(process.execPath, [CLI, "status", "--dir", project], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: home },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /library manifest invalid/);
+    assert.match(result.stderr, /files must be an array/);
+    assert.doesNotMatch(result.stderr, /Cannot read properties/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("doctor reports a malformed opencode.json without throwing a type error", () => {
+  const { home, project } = tempDirs();
+  try {
+    writeFileSync(join(project, "opencode.json"), JSON.stringify({ permission: 5 }));
+    const result = spawnSync(process.execPath, [CLI, "doctor", "--dir", project], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: home },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /permission must be an object/);
+    assert.doesNotMatch(result.stderr, /Cannot read properties/);
   } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });

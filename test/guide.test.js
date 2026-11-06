@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, existsSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, existsSync, writeFileSync, rmSync, mkdirSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
-import { writeGuide, GUIDE_NAME, MARKER_PATH, PACKAGE_ROOT } from "../src/guide.js";
+import { writeGuide, renderGuide, GUIDE_NAME, MARKER_PATH, PACKAGE_ROOT } from "../src/guide.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, "..", "bin", "junamis-agents-skills.js");
@@ -14,6 +14,24 @@ const CLI = join(HERE, "..", "bin", "junamis-agents-skills.js");
 function tempProject() {
   return mkdtempSync(join(tmpdir(), "junamis-proj-"));
 }
+
+test("renderGuide derives specialist count and includes operator paths", () => {
+  const text = renderGuide({
+    version: "1.0.0",
+    library: [],
+    agents: [
+      { name: "orchestrator", description: "", skills: [] },
+      { name: "operator", description: "", skills: [] },
+      { name: "reviewer", description: "", skills: [] },
+    ],
+    locked: [],
+  });
+
+  assert.match(text, /one entry point and 2 specialists/);
+  assert.match(text, /release, deploy verification, rollback, incident/);
+  assert.match(text, /folder tree SHAs are verified/);
+  assert.match(text, /Existing external skills are left unchanged/);
+});
 
 test("writeGuide creates the guide and marker once", async () => {
   const dir = tempProject();
@@ -65,6 +83,18 @@ test("writeGuide with force replaces the file", async () => {
     const result = await writeGuide({ projectDir: dir, force: true });
     assert.equal(result.status, "created");
     assert.match(readFileSync(join(dir, GUIDE_NAME), "utf8"), /setup guide/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a failed atomic write removes its temp file", async () => {
+  const dir = tempProject();
+  try {
+    mkdirSync(join(dir, GUIDE_NAME));
+    await assert.rejects(writeGuide({ projectDir: dir, force: true }));
+    const temps = readdirSync(dir).filter((name) => name.startsWith(`.${GUIDE_NAME}.`) && name.endsWith(".tmp"));
+    assert.deepEqual(temps, []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

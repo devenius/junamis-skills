@@ -39,6 +39,20 @@ async function main() {
     fail("yaml check failed");
   }
 
+  // Validate the immutable external skill lock.
+  try {
+    execFileSync(process.execPath, [join(root, "scripts", "check-skills-lock.mjs")], { stdio: "inherit" });
+  } catch {
+    fail("skills lock check failed");
+  }
+
+  // Verify the published file set without creating an archive.
+  try {
+    execFileSync(process.execPath, [join(root, "scripts", "check-pack.mjs")], { stdio: "inherit" });
+  } catch {
+    fail("package contents check failed");
+  }
+
   const tag = process.argv.includes("--tag") ? process.argv[process.argv.indexOf("--tag") + 1] : process.env.RELEASE_TAG;
   if (tag) {
     const expected = `v${version}`;

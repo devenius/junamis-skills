@@ -76,6 +76,13 @@ test("library has the expected skills and agents", () => {
   assert.ok(existsSync(join(LIB, "EXTERNAL.md")), "EXTERNAL.md missing");
 });
 
+test("every external lock entry pins a commit and skill tree", () => {
+  for (const [name, entry] of Object.entries(LOCK.skills)) {
+    assert.match(entry.ref ?? "", /^[a-f0-9]{40}$/, `${name}: missing immutable commit SHA`);
+    assert.match(entry.treeSha ?? "", /^[a-f0-9]{40}$/, `${name}: missing skill tree SHA`);
+  }
+});
+
 for (const name of skillNames) {
   test(`skill ${name}: frontmatter, length, handoff block`, () => {
     const file = join(SKILLS_DIR, name, "SKILL.md");
@@ -142,11 +149,15 @@ test("orchestrator dispatches to every agent", () => {
   }
 });
 
-test("route covers the research path and the orchestrator routes to researcher", () => {
+test("route covers research and operator paths", () => {
   const route = readFileSync(join(SKILLS_DIR, "route", "SKILL.md"), "utf8");
   const orch = readFileSync(join(AGENTS_DIR, "orchestrator.md"), "utf8");
   assert.ok(route.includes("| research |"), "route SKILL.md has no research path");
   assert.ok(orch.includes("| research | research | researcher |"), "orchestrator table has no research row");
+  assert.ok(route.includes("| deploy verification |"), "route SKILL.md has no deploy verification path");
+  assert.ok(orch.includes("| deploy verification | deploy-verify | operator |"), "orchestrator table has no deploy verification row");
+  assert.ok(route.includes("| rollback |"), "route SKILL.md has no rollback path");
+  assert.ok(orch.includes("| rollback | rollback | operator |"), "orchestrator table has no rollback row");
 });
 
 test("destructive commands in library prose are prohibitions or gated", () => {

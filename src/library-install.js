@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync, realpathSync, statSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile, rename } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { getTarget } from "./targets/index.js";
 
 // Installs the library (skills, agents, shared docs) so an agent can load it.
@@ -29,8 +29,13 @@ const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 async function atomicWriteFile(path, content) {
   const dir = dirname(path);
   const tmp = join(dir, `.${basename(path)}.${process.pid}.${Date.now()}.tmp`);
-  await writeFile(tmp, content);
-  await rename(tmp, path);
+  await writeFile(tmp, content, { flag: "wx" });
+  try {
+    await rename(tmp, path);
+  } catch (error) {
+    try { await rm(tmp, { force: true }); } catch { /* best-effort cleanup */ }
+    throw error;
+  }
 }
 
 async function walk(dir) {
@@ -106,14 +111,229 @@ export async function planLibraryInstall({ packageRoot, agent, scope = "global",
   return files.map((f) => ({ ...f, sha256: sha256(f.content) }));
 }
 
+const HEX64 = /^[a-f0-9]{64}$/;
+
+function managedRoots(agentId, scope, projectDir) {
+  const target = getTarget(agentId);
+  if (!target) throw new Error(`unknown agent "${agentId}"`);
+  return scope === "project"
+    ? [target.projectSkillsDir(projectDir), target.projectAgentsDir(projectDir), sharedDocsDir("project", projectDir)]
+    : [target.globalSkillsDir(), target.libraryAgentsDir(), sharedDocsDir("global")];
+}
+
+function isInside(root, target) {
+  const rel = relative(root, target);
+  return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
+function isMissingPath(error) {
+  return Boolean(error && typeof error === "object" && "code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR"));
+}
+
+function realpathOrNull(path) {
+  try {
+    return realpathSync.native(path);
+  } catch (error) {
+    if (isMissingPath(error)) return null;
+    throw error;
+  }
+}
+
+function lstatOrNull(path) {
+  try {
+    return lstatSync(path);
+  } catch (error) {
+    if (isMissingPath(error)) return null;
+    throw error;
+  }
+}
+
+// Resolve the real path a write or delete would hit, even when the final
+// segments do not exist yet: realpath the deepest existing ancestor, then
+// re-append the missing segments. Lexical containment alone is not enough,
+// because a symlinked parent can redirect the path outside the managed roots.
+function actualPath(path) {
+  const missing = [];
+  let current = resolve(path);
+  for (;;) {
+    const real = realpathOrNull(current);
+    if (real !== null) return missing.length === 0 ? real : join(real, ...missing);
+    const parent = dirname(current);
+    if (parent === current) return resolve(path);
+    missing.unshift(basename(current));
+    current = parent;
+  }
+}
+
+// A managed root may only be absent or a directory. A symlinked root is
+// resolved by the containment check below, but its target must still be a
+// directory. ENOTDIR means an ancestor is a file, which is never usable as a
+// root, so it becomes a clean rejection instead of a raw filesystem error.
+function assertRootIsDirectory(root) {
+  let stat;
+  try {
+    stat = lstatSync(root);
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error) {
+      if (error.code === "ENOENT") return;
+      if (error.code === "ENOTDIR") throw new Error(`managed root is not a directory: ${root}`, { cause: error });
+    }
+    throw error;
+  }
+  if (stat.isDirectory()) return;
+  if (stat.isSymbolicLink()) {
+    let followed;
+    try {
+      followed = statSync(root);
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error) {
+        if (error.code === "ENOENT") return;
+        if (error.code === "ENOTDIR") throw new Error(`managed root is not a directory: ${root}`, { cause: error });
+      }
+      throw error;
+    }
+    if (followed.isDirectory()) return;
+  }
+  throw new Error(`managed root is not a directory: ${root}`);
+}
+
+// The managed roots themselves must not be symlinks that redirect writes or
+// deletes away from the location we planned. Project scope keeps the exact
+// expected real path. Global scope accepts any root inside the real home
+// directory, so legitimate dotfile symlinks such as ~/.agents or ~/.config
+// keep working, while a root that escapes home is still rejected.
+export function assertManagedRoots(agentId, scope = "global", projectDir = process.cwd()) {
+  const roots = managedRoots(agentId, scope, projectDir).map((root) => resolve(root));
+  for (const root of roots) assertRootIsDirectory(root);
+  const actualRoots = roots.map((root) => actualPath(root));
+
+  if (scope === "project") {
+    // The base directory may itself be reached through a symlink: relative()
+    // keeps the same suffix, so only a symlink in the root's own location fails.
+    const base = resolve(projectDir);
+    const realBase = realpathSync.native(base);
+    for (const [index, actualRoot] of actualRoots.entries()) {
+      const expected = join(realBase, relative(base, roots[index]));
+      if (actualRoot !== expected) {
+        throw new Error(`managed root contains a symlink or escapes its expected location: ${roots[index]}`);
+      }
+    }
+  } else {
+    const realHome = realpathSync.native(resolve(homedir()));
+    for (const [index, actualRoot] of actualRoots.entries()) {
+      if (actualRoot !== realHome && !isInside(realHome, actualRoot)) {
+        throw new Error(`managed root contains a symlink or escapes its expected location: ${roots[index]}`);
+      }
+    }
+  }
+
+  return { roots, actualRoots };
+}
+
+// Planned destinations are checked before anything is written, even when there
+// is no manifest or the manifest is empty. Each destination must resolve to a
+// path strictly inside exactly one actual managed root.
+export function assertPlannedDestinations(files, roots, actualRoots, scope) {
+  for (const f of files) {
+    if (typeof f.path !== "string" || !isAbsolute(f.path)) {
+      throw new Error(`invalid library destination ${String(f.path)}: path must be an absolute path`);
+    }
+    const target = resolve(f.path);
+    const owners = roots.filter((root) => isInside(root, target));
+    if (owners.length !== 1) {
+      throw new Error(`invalid library destination ${f.path}: path is outside the managed ${scope} roots`);
+    }
+    const actualTarget = actualPath(f.path);
+    const actualOwners = actualRoots.filter((root) => isInside(root, actualTarget));
+    if (actualOwners.length !== 1) {
+      throw new Error(`invalid library destination ${f.path}: path escapes the managed ${scope} roots through a symlink`);
+    }
+  }
+}
+
+// A project-scoped manifest lives in the project, so it is attacker-controlled.
+// Accept only absolute paths under this scope's managed roots, with a real hash,
+// and never point at a symlink. Reject the whole manifest (fail closed).
+export function validateLibraryManifest(agentId, manifest, scope = "global", projectDir = process.cwd()) {
+  const path = manifestPath(agentId, scope, projectDir);
+  const fail = (message) => {
+    throw new Error(`invalid library manifest ${path}: ${message}`);
+  };
+
+  if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
+    fail("expected a JSON object");
+  }
+  if (!Array.isArray(manifest.files)) {
+    fail("files must be an array");
+  }
+
+  const { roots, actualRoots } = assertManagedRoots(agentId, scope, projectDir);
+  const seen = new Set();
+  for (const [index, entry] of manifest.files.entries()) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      fail(`files[${index}] must be an object`);
+    }
+    if (typeof entry.path !== "string" || !isAbsolute(entry.path)) {
+      fail(`files[${index}].path must be an absolute path`);
+    }
+    if (typeof entry.sha256 !== "string" || !HEX64.test(entry.sha256)) {
+      fail(`files[${index}].sha256 must be 64 lowercase hex characters`);
+    }
+    if (seen.has(entry.path)) {
+      fail(`duplicate path: ${entry.path}`);
+    }
+    seen.add(entry.path);
+
+    const target = resolve(entry.path);
+    const owners = roots.filter((root) => isInside(root, target));
+    if (owners.length !== 1) {
+      fail(`path is outside the managed ${scope} roots: ${entry.path}`);
+    }
+
+    const stat = lstatOrNull(entry.path);
+    if (stat?.isSymbolicLink()) {
+      fail(`refusing symlinked path: ${entry.path}`);
+    }
+    if (stat && !stat.isFile()) {
+      fail(`refusing non-regular file: ${entry.path}`);
+    }
+
+    // The final component may not exist, but an ancestor can still be a symlink
+    // that redirects the write outside the managed roots.
+    const actualTarget = actualPath(entry.path);
+    const actualOwners = actualRoots.filter((root) => isInside(root, actualTarget));
+    if (actualOwners.length !== 1) {
+      fail(`path escapes the managed ${scope} roots through a symlink: ${entry.path}`);
+    }
+  }
+
+  return manifest;
+}
+
 async function readManifest(agentId, scope = "global", projectDir = process.cwd()) {
+  // Run the root check even when there is no manifest, so an empty install
+  // cannot skip containment.
+  assertManagedRoots(agentId, scope, projectDir);
   const path = manifestPath(agentId, scope, projectDir);
   if (!existsSync(path)) return { files: [] };
-  return JSON.parse(await readFile(path, "utf8"));
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `invalid library manifest ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  return validateLibraryManifest(agentId, parsed, scope, projectDir);
 }
 
 // Decides per file: create, update (ours, unmodified), unchanged, or conflict (user-edited or unmanaged).
 export async function applyLibraryInstall({ agent, files, version, force = false, dryRun = false, scope = "global", projectDir = process.cwd() }) {
+  // Containment is checked before any write or delete, even when no manifest
+  // exists or the manifest is empty and --force is given.
+  const { roots, actualRoots } = assertManagedRoots(agent, scope, projectDir);
+  assertPlannedDestinations(files, roots, actualRoots, scope);
   const previous = await readManifest(agent, scope, projectDir);
   const owned = new Set(previous.files.map((f) => f.path));
   const previousHash = new Map(previous.files.map((f) => [f.path, f.sha256]));
@@ -121,8 +341,14 @@ export async function applyLibraryInstall({ agent, files, version, force = false
   const conflicts = [];
 
   for (const f of files) {
-    if (!existsSync(f.path)) {
+    const stat = lstatOrNull(f.path);
+    if (!stat) {
       actions.push({ path: f.path, action: "create" });
+      continue;
+    }
+    if (!stat.isFile()) {
+      // A directory or other special file is never read, overwritten, or deleted.
+      conflicts.push(f.path);
       continue;
     }
     const current = sha256(await readFile(f.path));
@@ -155,10 +381,22 @@ export async function applyLibraryInstall({ agent, files, version, force = false
   const removableStale = [];
   const staleConflicts = [];
   for (const p of stale) {
-    if (!existsSync(p)) continue;
+    const stat = lstatOrNull(p);
+    if (!stat) continue;
+    if (!stat.isFile()) {
+      // Never read or delete a path that is no longer a regular file.
+      staleConflicts.push(p);
+      continue;
+    }
     const last = previousHash.get(p);
+    // Never delete a path whose recorded hash is unknown. A valid manifest always
+    // has one, so this only protects against a hand-edited record.
+    if (last === undefined) {
+      staleConflicts.push(p);
+      continue;
+    }
     const current = sha256(await readFile(p));
-    if (last !== undefined && current !== last && !force) staleConflicts.push(p);
+    if (current !== last && !force) staleConflicts.push(p);
     else removableStale.push(p);
   }
   const allConflicts = [...conflicts, ...staleConflicts];

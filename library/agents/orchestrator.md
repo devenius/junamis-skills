@@ -55,6 +55,8 @@ Use the `description` line of each skill to decide. If a needed skill is not ins
 | migration | db-migrate | maintainer |
 | feature | architect, then develop (external) | orchestrator runs them directly |
 | release | release-prep | operator |
+| deploy verification | deploy-verify | operator |
+| rollback | rollback | operator |
 | incident | incident-response | operator |
 | security | security-audit | reviewer |
 | performance | perf-budget | reviewer |

@@ -4,21 +4,23 @@ import { join } from "node:path";
 
 export default {
   id: "windsurf",
-  label: "Windsurf",
+  label: "Windsurf / Devin",
   globalSkillsDir() {
-    return join(homedir(), ".windsurf", "skills");
+    return join(homedir(), ".codeium", "windsurf", "skills");
   },
   libraryAgentsDir() {
-    return join(homedir(), ".windsurf", "agents");
+    return join(homedir(), ".config", "devin", "agents");
   },
   projectSkillsDir(projectDir) {
     return join(projectDir, ".windsurf", "skills");
   },
   projectAgentsDir(projectDir) {
-    return join(projectDir, ".windsurf", "agents");
+    return join(projectDir, ".devin", "agents");
   },
   libraryAgentFormat: "claude",
   detect() {
-    return existsSync(join(homedir(), ".windsurf")) || existsSync(join(homedir(), ".codeium", "windsurf"));
+    return existsSync(join(homedir(), ".codeium", "windsurf"))
+      || existsSync(join(homedir(), ".config", "devin"))
+      || existsSync(join(homedir(), ".windsurf"));
   },
 };

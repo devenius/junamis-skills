@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Thin entry point. The logic lives in ./external.js so it can be tested.
-// Usage: node src/install-external.js [--agent opencode|claude] [--installer skillsio|skills]
+// Usage: node src/install-external.js [--agent opencode|claude] [--installer skillsio]
 
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";

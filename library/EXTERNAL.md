@@ -1,6 +1,6 @@
 # External skills referenced by the library
 
-These skills are installed from `skills-lock.json` into the global skills directory (`~/.agents/skills/` for OpenCode, as `skillsio -g` writes it). They are not owned by this project. The library refers to them by name only. Each reference must resolve to a lock entry, which `test/library.test.js` checks.
+These skills are installed from `skills-lock.json` into the global skills directory (`~/.agents/skills/` for OpenCode, as `skillsio -g` writes it). Each lock entry pins a Git commit and the skill folder's Git tree SHA; the installer verifies both before scanning and installation. They are not owned by this project. The library refers to them by name only. Each reference must resolve to a lock entry, which `test/library.test.js` checks.
 
 | Name | Lock source | License | Referenced by | Used for |
 |---|---|---|---|---|

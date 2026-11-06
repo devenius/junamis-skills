@@ -1,9 +1,12 @@
 import { spawn } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { lstatSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { devNull, tmpdir } from "node:os";
+import { isAbsolute, join } from "node:path";
+import { getSkillTreeSha, preparePinnedSource } from "./pinned-source.js";
 import { getTarget } from "./targets/index.js";
 
-// Installs every skill in skills-lock.json with skillsio (or the skills CLI).
+// Installs every skill in skills-lock.json with the pinned skillsio scanner.
 //
 // Safety rules for this file:
 // - No shell. Commands are argument arrays passed to spawn(), never strings.
@@ -13,13 +16,99 @@ import { getTarget } from "./targets/index.js";
 
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SOURCE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const SHA = /^[a-f0-9]{40}$/;
+const SECURITY_CANCELLATION = "Installation cancelled due to security concerns";
+export { SECURITY_CANCELLATION };
+const SECURITY_CANCELLATION_EXIT = 125;
+const MAX_CAPTURE_BYTES = 64 * 1024;
+export const KILL_GRACE_MS = 5000;
+const SETTLE_GRACE_MS = KILL_GRACE_MS + 2000;
+
+// The scanner is the trusted component in the whole supply-chain story, so its
+// registry and tarball integrity are constants, not project configuration.
+export const SCANNER = {
+  name: "skillsio",
+  version: "1.1.3",
+  registry: "https://registry.npmjs.org/",
+  integrity: "sha512-gsm2Urzgjrz9Mx84lkI4UOXSCkQlYgrUMqQqTDj5sn44vkRO+GDBg372UyUAw5vT/+h/I3MLh4+qgghm5tDDIA==",
+};
+
+const DENIED_ENV = /^(npm_config_|NPM_CONFIG_|pnpm_config_|PNPM_CONFIG_|NODE_OPTIONS|NODE_PATH|COREPACK_)/;
+// CI markers make some tools switch to non-interactive or auto-accept paths.
+const DENIED_ENV_EXACT = new Set(["CI", "GITHUB_ACTIONS"]);
+
+// A hostile project can set registry or Node options through the environment.
+// Only keep the variables a scanner needs, then force our own registry paths.
+export function sanitizedEnv(base = process.env) {
+  const env = {};
+  for (const [key, value] of Object.entries(base)) {
+    if (!DENIED_ENV.test(key) && !DENIED_ENV_EXACT.has(key) && value !== undefined) env[key] = value;
+  }
+  return Object.assign(env, {
+    npm_config_registry: SCANNER.registry,
+    npm_config_userconfig: devNull,
+    npm_config_globalconfig: devNull,
+    GIT_TERMINAL_PROMPT: "0",
+    NO_COLOR: "1",
+    FORCE_COLOR: "0",
+  });
+}
+
+const SCANNER_TARBALL = `${SCANNER.registry}${SCANNER.name}/-/${SCANNER.name}-${SCANNER.version}.tgz`;
+
+export async function verifyScannerIntegrity(fetchImpl = fetch) {
+  const url = `${SCANNER.registry}${SCANNER.name}/${SCANNER.version}`;
+  const response = await fetchImpl(url, {
+    headers: { accept: "application/json" },
+    signal: globalThis.AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    throw new Error(`could not verify ${SCANNER.name}@${SCANNER.version}: HTTP ${response.status}`);
+  }
+  const metadata = await response.json();
+  const integrity = metadata?.dist?.integrity;
+  if (integrity !== SCANNER.integrity) {
+    throw new Error(
+      `${SCANNER.name}@${SCANNER.version} integrity mismatch (expected ${SCANNER.integrity}, got ${String(integrity)})`,
+    );
+  }
+  const tarball = metadata?.dist?.tarball;
+  if (tarball !== SCANNER_TARBALL) {
+    throw new Error(
+      `${SCANNER.name}@${SCANNER.version} tarball mismatch (expected ${SCANNER_TARBALL}, got ${String(tarball)})`,
+    );
+  }
+}
+
+export function stripControlSequences(value) {
+  return String(value)
+    // OSC: ESC ] ... BEL or ST
+    // eslint-disable-next-line no-control-regex
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
+    // CSI: ESC [ parameters final byte
+    // eslint-disable-next-line no-control-regex
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+    // Other two-byte ESC sequences.
+    // eslint-disable-next-line no-control-regex
+    .replace(/\x1b[@-_]/g, "")
+    // Remaining control characters except tab, newline, and carriage return.
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+}
+
+function isValidSkillPath(value) {
+  if (typeof value !== "string") return false;
+  const segments = value.split("/");
+  return segments.at(-1) === "SKILL.md" && segments.every((segment) =>
+    segment !== "" && segment !== "." && segment !== ".." && /^[A-Za-z0-9._-]+$/.test(segment),
+  );
+}
 
 // Agent ids accepted on the command line, mapped to the name skillsio expects.
 const SKILLSIO_AGENT = { opencode: "opencode", claude: "claude-code", "claude-code": "claude-code" };
 
 const INSTALLERS = {
-  skillsio: ["pnpm", "--silent", "dlx", "skillsio"],
-  skills: ["npx", "--yes", "skills"],
+  skillsio: ["pnpm", "--registry", SCANNER.registry, "dlx", `${SCANNER.name}@${SCANNER.version}`],
 };
 
 export function validateAgent(agent) {
@@ -36,73 +125,164 @@ export function validateInstaller(installer) {
   return installer;
 }
 
+// A scan can be declined with wording or casing we do not control. Treat a
+// line about security that also says cancel/decline/block/fail as a failure,
+// but never turn an explicit pass into a cancellation. Match whole words only:
+// a bare substring test would read the "fail" inside "failures" as a decline.
+export function isSecurityCancellation(output) {
+  const text = String(output);
+  if (text.toLowerCase().includes(SECURITY_CANCELLATION.toLowerCase())) return true;
+  return text.split(/\r?\n/).some((line) => {
+    const lower = line.toLowerCase();
+    if (!lower.includes("security")) return false;
+    if (/no security issues|security scan passed/.test(lower)) return false;
+    return /\b(?:cancel(?:led|ed)?|declin(?:ed|e)|block(?:ed)?|fail(?:ed|s|ure)?)\b/.test(lower);
+  });
+}
+
+export function installerExitCode(code, output) {
+  return isSecurityCancellation(output) ? SECURITY_CANCELLATION_EXIT : code ?? 1;
+}
+
 // Group lock entries by source so each source is one installer call.
 export function groupLock(lock) {
+  if (!lock || typeof lock !== "object" || !lock.skills || typeof lock.skills !== "object" || Array.isArray(lock.skills)) {
+    throw new Error("lock must contain a skills object");
+  }
+  if (Object.keys(lock.skills).length === 0) {
+    throw new Error("lock must contain at least one skill");
+  }
+
   const groups = new Map();
   for (const [name, entry] of Object.entries(lock.skills ?? {})) {
     if (!SKILL_NAME.test(name)) throw new Error(`invalid skill name in lock: "${name}"`);
     if (!entry || typeof entry.source !== "string" || !SOURCE.test(entry.source)) {
       throw new Error(`invalid source for "${name}" in lock: ${JSON.stringify(entry?.source)}`);
     }
-    if (!entry.skillPath || typeof entry.skillPath !== "string") {
+    if (entry.sourceType !== "github") {
+      throw new Error(`invalid sourceType for "${name}" in lock`);
+    }
+    if (!isValidSkillPath(entry.skillPath)) {
       throw new Error(`invalid skillPath for "${name}" in lock`);
     }
-    if (!groups.has(entry.source)) groups.set(entry.source, { skills: [], paths: {} });
-    groups.get(entry.source).skills.push(name);
-    groups.get(entry.source).paths[name] = entry.skillPath;
+    if (typeof entry.license !== "string" || entry.license.trim() === "") {
+      throw new Error(`missing license for "${name}" in lock`);
+    }
+    if (typeof entry.ref !== "string" || !SHA.test(entry.ref)) {
+      throw new Error(`invalid commit SHA for "${name}" in lock`);
+    }
+    if (typeof entry.treeSha !== "string" || !SHA.test(entry.treeSha)) {
+      throw new Error(`invalid tree SHA for "${name}" in lock`);
+    }
+    const key = `${entry.source}\0${entry.ref}`;
+    if (!groups.has(key)) groups.set(key, { source: entry.source, ref: entry.ref, skills: [] });
+    groups.get(key).skills.push({ name, skillPath: entry.skillPath, treeSha: entry.treeSha });
   }
-  return [...groups].map(([source, data]) => ({ source, skills: data.skills.sort(), paths: data.paths }));
+  return [...groups.values()].map((group) => ({
+    ...group,
+    skills: group.skills.sort((left, right) => left.name.localeCompare(right.name)),
+  }));
 }
 
 // Returns an argv array. Never a string. Never includes --skip-scan.
-export function buildCommand({ installer, source, agent, skills }) {
+export function buildCommand({ installer, source, agent, skills, local = false }) {
   const runner = INSTALLERS[validateInstaller(installer)];
   const skillsioAgent = validateAgent(agent);
-  if (!SOURCE.test(source)) throw new Error(`invalid source: ${JSON.stringify(source)}`);
-  for (const s of skills) if (!SKILL_NAME.test(s)) throw new Error(`invalid skill name: ${JSON.stringify(s)}`);
-  return [...runner, "add", source, "--agent", skillsioAgent, "--skill", ...skills, "-y", "-g"];
-}
-
-async function fetchText(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return await res.text();
-}
-
-// Fallback when skillsio/skills is unavailable: fetch the skill directly from GitHub.
-export async function fetchSkillFromGitHub(source, skillPath, destDir) {
-  const branches = ["main", "master"];
-  let lastError;
-  for (const branch of branches) {
-    const url = `https://raw.githubusercontent.com/${source}/${branch}/${skillPath}`;
-    try {
-      const text = await fetchText(url);
-      await mkdir(destDir, { recursive: true });
-      await writeFile(join(destDir, "SKILL.md"), text, "utf8");
-      return { ok: true, branch, url };
-    } catch (err) {
-      lastError = err;
-    }
+  if (local ? !isAbsolute(source) : !SOURCE.test(source)) {
+    throw new Error(`invalid ${local ? "local source path" : "source"}: ${JSON.stringify(source)}`);
   }
-  throw lastError ?? new Error("fetch failed");
+  for (const s of skills) if (!SKILL_NAME.test(s)) throw new Error(`invalid skill name: ${JSON.stringify(s)}`);
+  return [...runner, "add", source, "--agent", skillsioAgent, "--skill", ...skills, "-g"];
 }
 
-export function runCommand(argv, timeout = 300000) {
+export async function verifySkillTree(directory, skill, readTreeSha = getSkillTreeSha) {
+  const actual = await readTreeSha(directory, skill.skillPath);
+  if (actual !== skill.treeSha) {
+    throw new Error(`locked tree SHA mismatch for "${skill.name}" (expected ${skill.treeSha}, got ${actual})`);
+  }
+}
+
+function pathExists(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+export function partitionExistingSkills(skills, skillsDir, exists = pathExists) {
+  const available = [];
+  const conflicts = [];
+  for (const skill of skills) {
+    const path = join(skillsDir, skill.name);
+    if (exists(path)) conflicts.push({ ...skill, path });
+    else available.push(skill);
+  }
+  return { available, conflicts };
+}
+
+export function runCommand(argv, timeout = 300000, options = {}) {
+  const { cwd = tmpdir(), env = sanitizedEnv() } = options;
   return new Promise((resolve) => {
-    const child = spawn(argv[0], argv.slice(1), { stdio: "inherit", shell: false });
+    const child = spawn(argv[0], argv.slice(1), {
+      stdio: ["inherit", "pipe", "pipe"],
+      shell: false,
+      cwd,
+      env,
+      detached: true,
+    });
     let settled = false;
+    let capturedOutput = "";
+    let securityCancellationDetected = false;
+    let timedOut = false;
+    let killTimer = null;
+    let settleTimer = null;
+
+    const killGroup = (signal) => {
+      try {
+        if (child.pid) process.kill(-child.pid, signal);
+        else child.kill(signal);
+      } catch {
+        try { child.kill(signal); } catch { /* ignore */ }
+      }
+    };
+    const capture = (stream, destination) => {
+      stream?.on("data", (chunk) => {
+        const text = chunk.toString();
+        capturedOutput = (capturedOutput + text).slice(-MAX_CAPTURE_BYTES);
+        securityCancellationDetected ||= isSecurityCancellation(capturedOutput);
+        const readable = stripControlSequences(text);
+        if (readable) destination.write(readable);
+      });
+    };
+    capture(child.stdout, process.stdout);
+    capture(child.stderr, process.stderr);
+
     const finish = (code) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve(code ?? 1);
+      clearTimeout(killTimer);
+      clearTimeout(settleTimer);
+      resolve(installerExitCode(timedOut ? 124 : code, securityCancellationDetected ? SECURITY_CANCELLATION : ""));
     };
     const timer = timeout > 0
       ? setTimeout(() => {
-          try { child.kill("SIGTERM"); } catch { /* ignore */ }
+        timedOut = true;
+        killGroup("SIGTERM");
+        killTimer = setTimeout(() => killGroup("SIGKILL"), KILL_GRACE_MS);
+        // A descendant can leave its own process group and keep the pipes open,
+        // so `close` may never arrive. After the escalation window, settle anyway.
+        settleTimer = setTimeout(() => {
+          child.stdout?.destroy();
+          child.stderr?.destroy();
           finish(124);
-        }, timeout)
+        }, SETTLE_GRACE_MS);
+      }, timeout)
       : null;
+    // Resolve only once the child (and its process group) is actually gone.
     child.on("close", (code) => finish(code));
     child.on("error", () => finish(1));
   });
@@ -114,56 +294,99 @@ export async function installExternal({
   installer = "skillsio",
   log = console.log,
   run = runCommand,
+  prepareSource = preparePinnedSource,
+  verifyTree = verifySkillTree,
+  verifyScanner = verifyScannerIntegrity,
+  exists = pathExists,
   retries = 1,
   timeout = 300000,
 }) {
   validateInstaller(installer);
   validateAgent(agent);
+  const target = getTarget(agent);
+  if (!target) throw new Error(`unknown agent "${agent}"`);
   const lock = JSON.parse(await readFile(lockPath, "utf8"));
   const groups = groupLock(lock);
   let failed = 0;
-
-  const target = getTarget(agent === "claude-code" ? "claude" : agent);
-  const skillsDir = target ? target.globalSkillsDir() : null;
+  let scannerVerified = false;
 
   for (const group of groups) {
-    const argv = buildCommand({ installer, agent, source: group.source, skills: group.skills });
+    let checkout;
+    let { available, conflicts } = partitionExistingSkills(group.skills, target.globalSkillsDir(), exists);
     log(`\n--> ${group.source}`);
-    log(`    skills: ${group.skills.join(", ")}`);
-    log(`    command: ${argv.join(" ")}\n`);
-    let code = 1;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      if (attempt > 0) log(`    retry ${attempt}/${retries}: ${group.source}`);
-      code = await run(argv, timeout);
-      if (code === 0) break;
+    log(`    commit: ${group.ref}`);
+    log(`    skills: ${available.map((skill) => skill.name).join(", ") || "none"}`);
+    for (const conflict of conflicts) {
+      log(`    SKIPPED ${conflict.name}: existing skill was not overwritten (${conflict.path})`);
     }
-    if (code === 0) continue;
-
-    // Fallback: fetch directly from GitHub when the installer is unavailable.
-    log(`    installer failed; attempting direct GitHub fetch for ${group.source}`);
-    let fallbackOk = true;
-    if (!skillsDir) fallbackOk = false;
-    for (const skill of group.skills) {
-      const skillPath = group.paths[skill];
-      const dest = skillsDir ? join(skillsDir, skill) : null;
-      if (!dest) { fallbackOk = false; break; }
-      try {
-        await fetchSkillFromGitHub(group.source, skillPath, dest);
-        log(`    fetched ${skill} from GitHub`);
-      } catch (err) {
-        fallbackOk = false;
-        log(`    FAILED to fetch ${skill}: ${err.message}`);
-      }
-    }
-    if (fallbackOk) {
-      log(`    recovered ${group.source} via direct GitHub fetch`);
+    if (available.length === 0) {
+      failed++;
+      log(`    FAILED: ${group.source} (all skills already exist)`);
       continue;
     }
 
-    failed++;
-    log(`    FAILED: ${group.source} (exit ${code})`);
-    log("    Some dependencies could not be installed. They may have been removed upstream.");
-    log("    Please report this at https://github.com/devenius/junamis-agents-skills/issues");
+    try {
+      checkout = await prepareSource({ ...group, skills: available }, { timeout });
+      const afterCheckout = partitionExistingSkills(available, target.globalSkillsDir(), exists);
+      for (const conflict of afterCheckout.conflicts) {
+        log(`    SKIPPED ${conflict.name}: skill appeared during checkout and was not overwritten (${conflict.path})`);
+      }
+      conflicts = [...conflicts, ...afterCheckout.conflicts];
+      available = afterCheckout.available;
+      if (available.length === 0) {
+        failed++;
+        log(`    FAILED: ${group.source} (skills appeared during checkout)`);
+        continue;
+      }
+
+      for (const skill of available) await verifyTree(checkout.path, skill);
+
+      const argv = buildCommand({
+        installer,
+        source: checkout.path,
+        agent,
+        skills: available.map((skill) => skill.name),
+        local: true,
+      });
+      log(`    command: ${argv.join(" ")}\n`);
+
+      if (!scannerVerified) {
+        await verifyScanner();
+        scannerVerified = true;
+      }
+
+      let code = 1;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        if (attempt > 0) log(`    retry ${attempt}/${retries}: ${group.source}`);
+        code = await run(argv, timeout);
+        if (code === 0 || code === SECURITY_CANCELLATION_EXIT) break;
+      }
+      if (code === 0) {
+        if (conflicts.length > 0) failed++;
+        continue;
+      }
+
+      failed++;
+      if (code === SECURITY_CANCELLATION_EXIT) {
+        log(`    FAILED: ${group.source} (security scan declined)`);
+      } else {
+        log(`    FAILED: ${group.source} (exit ${code})`);
+      }
+      log("    Some dependencies could not be installed. They may have been removed upstream.");
+      log("    Please report this at https://github.com/devenius/junamis-agents-skills/issues");
+    } catch (error) {
+      failed++;
+      log(`    FAILED: ${group.source} (${error instanceof Error ? error.message : String(error)})`);
+      log("    No skills from this source were passed to the installer.");
+    } finally {
+      if (checkout) {
+        try {
+          await checkout.cleanup();
+        } catch (error) {
+          log(`    WARNING: could not clean temporary checkout: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
   }
 
   log(`\nDone. ${groups.length - failed}/${groups.length} source groups installed.`);

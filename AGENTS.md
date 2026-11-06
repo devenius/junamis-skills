@@ -13,8 +13,10 @@ The package ships the installer and a manifest. It does not ship third-party ski
 - Do not copy external skill content into anything the package publishes.
 - Do not edit upstream skill content in place. Change it upstream, or keep a clearly named local override.
 - Every manifest entry must record its `license`. If the license is not verified, set `"license": "unknown"` and block publishing until it is verified.
+- Every manifest entry must pin a 40-character upstream commit in `ref` and a 40-character Git tree SHA for its skill directory in `treeSha`.
 - Nested clones in this repo are not part of the package and must never be added to `files`: `skills/` (JavaScript-Mastery-Pro/skills, MIT) and `nestjs-agent-skills/` (MIT).
 - Keep `skills-lock.json` as the single source of truth for what gets installed.
+- Follow `docs/external-skills-maintenance.md` when reviewing or updating upstream skill pins.
 
 ## Our library: `library/`
 
@@ -36,26 +38,25 @@ The old agent layer (`.agents/`, `.opencode/`) was removed from the repo. It is 
 ## Install design
 
 - **Global by default.** Skills are installed into the agent's global skills directory so they can be shared across projects. An install is a snapshot. Editing this repo does not change installed skills until the user reinstalls.
-- Skill installation is performed by an external installer (`skillsio` or the `skills` CLI), not by this package. This package ships the manifest (`skills-lock.json`) and the guide writer.
-- Install methods the user may use:
-  - `skills` CLI: `npx skills add <repo>` or `pnpm dlx skills add <repo>`
-  - `skillsio`: `npx skillsio` or `pnpm dlx skillsio`
+- External skills are installed by this package: it fetches the locked commit with the system `git` CLI, verifies each skill tree SHA, then passes the local checkout to the pinned `skillsio` scanner.
+- Never fall back to a branch head, direct raw-file download, or unscanned installer. Existing skill directories are conflicts and are not overwritten.
+- Package-managed external installs support only OpenCode and Claude Code. Other targets can receive the owned library, but do not claim scanned external-install support until verified.
   The guide is written only by `npx junamis-agents-skills init`. No install hook runs it: npm 11 and pnpm block dependency install scripts by default, so a postinstall hook is unreliable. Skill installers never run it.
 - **Guide.** `npx junamis-agents-skills init` writes `junamis-agents-skills-guide.md` at the project root once, and records `.junamis/install.json`. Run it in each project that needs the guide. The guide is a project file, not a skill, so skill installers never touch it. It is never overwritten unless `--force` is given.
-- **External skills.** `npx junamis-agents-skills init --with-external` (or `npx junamis-agents-skills install-external`) installs every skill in `skills-lock.json` using skillsio. It prints skillsio's security scan alerts. It never skips the scan.
+- **External skills.** `npx junamis-agents-skills init --with-external` (or `npx junamis-agents-skills install-external`) installs every locked skill through `skillsio@1.1.3`. It prints scanner alerts, never skips scanning, and refuses unverified content before invoking the scanner.
 - Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
 
 ## Supported agents (targets)
 
 Goal: support **all AI coding agents and models** that read the Agent Skills standard (`SKILL.md`). Supporting one only means teaching the installer where that agent reads skills from.
 
-Current targets: **claude** (skillsio name: `claude-code`), **opencode** (skillsio name: `opencode`), **cursor**, **windsurf**, **cline**. Others are added on request, one target file each.
+Current targets: **claude** (skillsio name: `claude-code`), **opencode** (skillsio name: `opencode`), **cursor**, **windsurf** (legacy skill path with current Devin subagent paths), **cline**. Others are added on request, one target file each.
 
 Target-specific logic lives only in `src/targets/`.
 
 To add a new agent or model:
 
-1. Create `src/targets/<id>.js` exporting `{ id, label, globalSkillsDir(), detect() }`.
+1. Create `src/targets/<id>.js` exporting `{ id, label, globalSkillsDir(), libraryAgentsDir(), projectSkillsDir(projectDir), projectAgentsDir(projectDir), libraryAgentFormat, detect() }`.
 2. Register it in `src/targets/index.js`.
 3. Add a test in `test/targets.test.js` covering the directory it resolves to.
 4. Add a row to the target table in `README.md`.
@@ -65,7 +66,7 @@ Do not hardcode agent names anywhere outside `src/targets/`.
 
 ## Working rules
 
-- Node 26 or newer. ESM only (`"type": "module"`).
+- Node 26 or newer. ESM only (`"type": "module"`). External installs also require the system `git` CLI.
 - Run `pnpm test` before reporting a change as done.
 - When adding or changing work, use the current library skills in `library/skills/` (route, handoff, skill-author, etc.) and keep them in sync with tests.
 - Strict: update `CHANGELOG.md` before every commit. Do not commit with a stale changelog.

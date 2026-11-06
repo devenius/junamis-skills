@@ -1,7 +1,7 @@
 ---
 name: route
 version: "1.0.0"
-description: Use first on every new user request to decide which path it belongs to (feature, bug, refactor, dependency, migration, release, incident, security, performance, environment, decision, skill, question). Use when the request is not yet classified. Do not use to do the work itself; it only decides where the work goes.
+description: Use first on every new user request to decide which path it belongs to (feature, bug, refactor, dependency, migration, release, deploy verification, rollback, incident, security, performance, environment, decision, skill, question). Use when the request is not yet classified. Do not use to do the work itself; it only decides where the work goes.
 ---
 
 # route
@@ -26,6 +26,8 @@ Decide the path for one request and state it in one line. Do no other work.
 | refactor | "clean up", "restructure", "no behavior change" | `refactor-safely` | maintainer |
 | dependency | "upgrade X", "bump", "CVE in X" | `dependency-upgrade` | maintainer |
 | migration | "add column", "change schema", "migrate data" | `db-migrate` | maintainer |
+| deploy verification | "check a deployed app", "run post-deploy smoke checks", "verify health after release" | `deploy-verify` | operator |
+| rollback | "roll back", "return to the previous release", "restore the previous deployment" | `rollback` | operator |
 | feature | "add", "build", "new page", "support X" | `architect` then `develop` (external) | orchestrator |
 | nextjs | "next.js", "app router", "server component", "server action" | `nextjs` | nextjs |
 | nestjs | "nestjs", "nest module", "guard", "pipe", "interceptor" | `nestjs` | nestjs |

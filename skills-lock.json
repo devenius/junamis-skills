@@ -5,155 +5,192 @@
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
       "skillPath": "skills/architect/SKILL.md",
-      "computedHash": "ff57c65a06ca4047420113d1eaa18e5002bc657224688b9350a1f06d77204327",
+      "ref": "43b69e44c9ca905fe3a3418ccdf4102255e20d40",
+      "treeSha": "b6dca29ce92b4ba7a579d33c4c649b4126732268",
       "license": "MIT"
     },
     "check": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
       "skillPath": "skills/check/SKILL.md",
-      "computedHash": "3f21e5cf83a65be1c0fd07fa9f4a75ae31f4f2d169d862be6aec6e6e7adb0382",
+      "ref": "43b69e44c9ca905fe3a3418ccdf4102255e20d40",
+      "treeSha": "35188d0d3c23bc9e1554091d600feeb136cfdbb0",
       "license": "MIT"
     },
     "debug": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
       "skillPath": "skills/debug/SKILL.md",
-      "computedHash": "bc5bffa19310d272abc205966b85f5f80d562ccfa16c39b1b92701026e676e30",
+      "ref": "43b69e44c9ca905fe3a3418ccdf4102255e20d40",
+      "treeSha": "672b62001b8692431c95111fcabb2a38a2984c68",
       "license": "MIT"
     },
     "develop": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
       "skillPath": "skills/develop/SKILL.md",
-      "computedHash": "42dc998560097e8fe95e78f08df574ef4e5110b9ceacdd5ae3fdf68808f51c59",
+      "ref": "43b69e44c9ca905fe3a3418ccdf4102255e20d40",
+      "treeSha": "1da402b53f96058ce2a31992b94b1130aec34c60",
       "license": "MIT"
     },
     "document": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
       "skillPath": "skills/document/SKILL.md",
-      "computedHash": "90933443f204d2ed29c84730be87b7b5470f6819fccde6129aedad1df517fb92",
+      "ref": "43b69e44c9ca905fe3a3418ccdf4102255e20d40",
+      "treeSha": "7f2f5263eb3e09853fd2130c435d0d2ee278a7f0",
       "license": "MIT"
     },
     "nestjs-best-practices": {
       "source": "Kadajett/agent-nestjs-skills",
       "sourceType": "github",
       "skillPath": "skills/nestjs-best-practices/SKILL.md",
-      "computedHash": "58f8a630637be3acce1f118c747d68160346ada8a43d76cb52a5b4c4edaa2d37",
+      "ref": "3986e0cede33958e000f959031cbee0cd83c2941",
+      "treeSha": "904db2759aaf1bd0e30eadedcd00efbd6367cc9f",
       "license": "MIT"
     },
     "scope": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
       "skillPath": "skills/scope/SKILL.md",
-      "computedHash": "cc3683a45b96c1b0ecb23f9aba64263be096cb3ef2487662c0fe7e7c3200fb70",
+      "ref": "43b69e44c9ca905fe3a3418ccdf4102255e20d40",
+      "treeSha": "5d5fe1c75ba52fe8422f7acaf6bbcfb1ad7a72a0",
       "license": "MIT"
     },
     "shadcn": {
       "source": "shadcn-ui/ui",
       "sourceType": "github",
       "skillPath": "skills/shadcn/SKILL.md",
-      "computedHash": "b864a958765563321f485a96f4d59c0bb6539f4286ab6d8b8b66895b7ebd302d",
+      "ref": "96da9cc7f1aa10580a3741664e2a77c721206c00",
+      "treeSha": "900e3dff4bc1b341db90a147bee6dbed4c2add3c",
       "license": "MIT"
     },
     "shadcn-component-discovery": {
       "source": "mattbx/shadcn-skills",
       "sourceType": "github",
       "skillPath": "skills/shadcn-component-discovery/SKILL.md",
-      "computedHash": "c0cb08dad86f68b1e993360c93f4c71295c6ae1a9effc4497f61923d7dd2de28",
+      "ref": "4d6045fc5301b796353e90438a55e8293a55b04a",
+      "treeSha": "0ae591432542b11188fb72ebf1b2a91c6330ab2d",
       "license": "MIT"
     },
     "shadcn-component-review": {
       "source": "mattbx/shadcn-skills",
       "sourceType": "github",
       "skillPath": "skills/shadcn-component-review/SKILL.md",
-      "computedHash": "f44334fae042003e35b19a497be9451a24727007643c3aedb4f4e4dd10e177b1",
+      "ref": "4d6045fc5301b796353e90438a55e8293a55b04a",
+      "treeSha": "d414b586157405a84e73a13a8357c09eaa7cb66c",
       "license": "MIT"
     },
     "test": {
       "source": "JavaScript-Mastery-Pro/skills",
       "sourceType": "github",
       "skillPath": "skills/test/SKILL.md",
-      "computedHash": "87dd379cca618d8cb2ca3d5073ffa8be6755e5822e7834a3c0ebe06bd3853f1f",
+      "ref": "43b69e44c9ca905fe3a3418ccdf4102255e20d40",
+      "treeSha": "152cd0d4cd17b0a0a763a34af0b001b54404a918",
       "license": "MIT"
     },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/tdd/SKILL.md",
+      "ref": "59db609eb1e18aaf59b63284d0e52255aff0c63c",
+      "treeSha": "667dbdd00c09d0e2189e082986e6a4d61a67c2a6",
       "license": "MIT"
     },
     "agent-browser": {
       "source": "vercel-labs/agent-browser",
       "sourceType": "github",
       "skillPath": "skills/agent-browser/SKILL.md",
+      "ref": "5801a50d262a4d3e1a2381996a962b22000d8289",
+      "treeSha": "82def67855a0d2aad7794207951820fa5422fdb0",
       "license": "Apache-2.0"
     },
     "driftlock": {
       "source": "KairosSignal/driftlock-agent-docs",
       "sourceType": "github",
       "skillPath": "SKILL.md",
+      "ref": "c51bca5c0904e0b0f8bd38e86430f4c9214e3678",
+      "treeSha": "c51bca5c0904e0b0f8bd38e86430f4c9214e3678",
       "license": "MIT"
     },
     "agent-rules": {
       "source": "netresearch/agent-rules-skill",
       "sourceType": "github",
       "skillPath": "skills/agent-rules/SKILL.md",
+      "ref": "c2c65235a2eacee8cdd069225ab261df99165812",
+      "treeSha": "3a0380b08290317edb3eca0a8f0a6e756e5e8757",
       "license": "MIT OR CC-BY-SA-4.0"
     },
     "find-skills": {
       "source": "vercel-labs/skills",
       "sourceType": "github",
       "skillPath": "skills/find-skills/SKILL.md",
+      "ref": "d8eca76d5dbe47df2d146d036e32534b74ece57a",
+      "treeSha": "76a98a285cb0434f3d39e1a873823556330e398b",
       "license": "MIT"
     },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "skillPath": "skills/frontend-design/SKILL.md",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "treeSha": "d79e2a5bb4df4a386c2adcdd9ab8709bba28c3f6",
       "license": "Apache-2.0"
     },
     "theme-factory": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "skillPath": "skills/theme-factory/SKILL.md",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "treeSha": "e05534d132fb1b21f9917840874758e30f0a9b1a",
       "license": "Apache-2.0"
     },
     "mcp-builder": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "skillPath": "skills/mcp-builder/SKILL.md",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "treeSha": "b866bcfb57b780c10b587c7b543e871a91661ce0",
       "license": "Apache-2.0"
     },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "skillPath": "skills/skill-creator/SKILL.md",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "treeSha": "3cf9a8db32597ba3e24b584a3d696f4e11c7d7b6",
       "license": "Apache-2.0"
     },
     "doc-coauthoring": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "skillPath": "skills/doc-coauthoring/SKILL.md",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "treeSha": "d9df960e61fe2bafe9183e37de6f9f6b73b74087",
       "license": "Apache-2.0"
     },
     "webapp-testing": {
       "source": "anthropics/skills",
       "sourceType": "github",
       "skillPath": "skills/webapp-testing/SKILL.md",
+      "ref": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "treeSha": "5ffb7dc66b9fd4c25c3e400a4c00da99a349b714",
       "license": "Apache-2.0"
     },
     "grill-me": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "ref": "59db609eb1e18aaf59b63284d0e52255aff0c63c",
+      "treeSha": "3df14e2d3a89459bf300614be9247e3ce74798f8",
       "license": "MIT"
     },
     "grill-with-docs": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
+      "ref": "59db609eb1e18aaf59b63284d0e52255aff0c63c",
+      "treeSha": "eedaf2562c83155115e9c649fa3ecaac2e10e81d",
       "license": "MIT"
     }
   }

@@ -58,7 +58,7 @@ test("guide lists library skills, locked externals, and the orchestrator rule", 
     assert.match(text, /\| architect \| JavaScript-Mastery-Pro\/skills \| MIT \|/);
     assert.match(text, /route/, "library skill route missing from guide");
     assert.doesNotMatch(text, /Licenses marked `unknown`/, "no unknown licenses remain, so the guide must not flag any");
-    assert.match(text, /library\/SAFETY\.md/);
+    assert.match(text, /~\/\.config\/junamis\/SAFETY\.md/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

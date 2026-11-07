@@ -1,8 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "orchestrator",
-  "skills": ["{env:HOME}/.agents/skills"],
-  "instructions": ["{env:HOME}/.junamis/library/*.md"],
+  "skills": ["{env:HOME}/.config/junamis/skills", "{env:HOME}/.agents/skills"],
+  "instructions": ["{env:HOME}/.config/junamis/*.md"],
   "permission": {
     "*": "ask",
     "read": {

@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { PACKAGE_ROOT, GUIDE_NAME, MARKER_PATH, writeGuide } from "./guide.js";
 import { getTarget, targets } from "./targets/index.js";
 import { installExternal, validateAgent, validateInstaller } from "./external.js";
-import { planLibraryInstall, applyLibraryInstall, manifestPath } from "./library-install.js";
+import { planLibraryInstall, applyLibraryInstall, manifestPath, sharedDocsDir } from "./library-install.js";
 
 const HELP = `junamis-agents-skills
 
@@ -171,8 +171,9 @@ async function initConfig(args) {
   // global paths in the template to project-relative ones.
   if (scope === "project") {
     content = content
-      .replace(/"\{env:HOME\}\/\.agents\/skills"/g, '"./.agents/skills"')
-      .replace(/"\{env:HOME\}\/\.junamis\/library\/\*\.md"/g, '"./.junamis/library/*.md"');
+      .replace(/"\{env:HOME\}\/\.config\/junamis\/skills"/g, '"./.config/junamis/skills"')
+      .replace(/"\{env:HOME\}\/\.config\/junamis\/\*\.md"/g, '"./.config/junamis/*.md"')
+      .replace(/"\{env:HOME\}\/\.agents\/skills"/g, '"./.agents/skills"');
   }
   await mkdir(dirname(targetPath), { recursive: true });
 
@@ -284,6 +285,7 @@ export function statusLocations(agentId, scope = "all", projectDir = process.cwd
   return scopes.map((installScope) => ({
     scope: installScope,
     skillsDir: installScope === "project" ? target.projectSkillsDir(projectDir) : target.globalSkillsDir(),
+    librarySkillsDir: installScope === "project" ? target.projectLibrarySkillsDir(projectDir) : target.librarySkillsDir(),
     manifestPath: manifestPath(agentId, installScope, projectDir),
   }));
 }
@@ -313,9 +315,11 @@ async function status(args) {
   for (const t of targets) {
     console.log(`  ${t.label.padEnd(12)} ${t.detect() ? "detected" : "not found"}`);
     for (const location of statusLocations(t.id, args.scope ?? "all", args.dir)) {
-      const count = await countSkills(location.skillsDir);
-      const state = count === null ? "no skills dir" : `${count} skill folders`;
-      console.log(`    ${location.scope.padEnd(8)} ${location.skillsDir} (${state})`);
+      const libraryCount = await countSkills(location.librarySkillsDir);
+      const externalCount = await countSkills(location.skillsDir);
+      const state = (count) => (count === null ? "no skills dir" : `${count} skill folders`);
+      console.log(`    ${location.scope.padEnd(8)} internal ${location.librarySkillsDir} (${state(libraryCount)})`);
+      console.log(`    ${location.scope.padEnd(8)} external ${location.skillsDir} (${state(externalCount)})`);
       if (existsSync(location.manifestPath)) {
         const parsed = await readJsonObject(location.manifestPath);
         const problem = parsed.error ?? (parsed.value ? describeLibraryManifest(parsed.value) : "unknown error");
@@ -363,15 +367,14 @@ async function doctor(args) {
   for (const { target, locations } of locationsByTarget) {
     ok(`${target.label} detected`, target.detect());
     for (const location of locations) {
-      ok(`${target.label} ${location.scope} skills dir`, existsSync(location.skillsDir), location.skillsDir);
+      ok(`${target.label} ${location.scope} internal skills dir`, existsSync(location.librarySkillsDir), location.librarySkillsDir);
+      ok(`${target.label} ${location.scope} external skills dir`, existsSync(location.skillsDir), location.skillsDir);
       ok(`${target.label} ${location.scope} library manifest`, existsSync(location.manifestPath), location.manifestPath);
     }
   }
 
   for (const installScope of scopes) {
-    const libraryDir = installScope === "project"
-      ? join(args.dir, ".junamis", "library")
-      : join(home, ".junamis", "library");
+    const libraryDir = sharedDocsDir(installScope, args.dir);
     for (const doc of ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md"]) {
       const path = join(libraryDir, doc);
       ok(`Shared doc ${doc} (${installScope})`, existsSync(path), path);

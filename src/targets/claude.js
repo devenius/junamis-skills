@@ -9,11 +9,18 @@ export default {
   globalSkillsDir() {
     return join(homedir(), ".claude", "skills");
   },
+  // This target has one skills directory: library and external skills share it.
+  librarySkillsDir() {
+    return join(homedir(), ".claude", "skills");
+  },
   // Subagent definitions: ~/.claude/agents/<name>.md (name and description are required)
   libraryAgentsDir() {
     return join(homedir(), ".claude", "agents");
   },
   projectSkillsDir(projectDir) {
+    return join(projectDir, ".claude", "skills");
+  },
+  projectLibrarySkillsDir(projectDir) {
     return join(projectDir, ".claude", "skills");
   },
   projectAgentsDir(projectDir) {

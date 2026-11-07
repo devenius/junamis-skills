@@ -87,13 +87,15 @@ Then open the project in your agent and send your first request to `orchestrator
 
 ## Supported agents
 
-| Agent (`--agent`) | Skills directory | Agent definitions | External install support |
-|---|---|---|---|
-| `opencode` | `~/.agents/skills` | `~/.config/opencode/agents` | `skillsio` |
-| `claude` | `~/.claude/skills` | `~/.claude/agents` | `skillsio` |
-| `cursor` | `~/.cursor/skills` | `~/.cursor/agents` | Not supported by `install-external` yet |
-| `windsurf` | `~/.codeium/windsurf/skills` | `~/.config/devin/agents` | Not supported by `install-external` yet |
-| `cline` | `~/.cline/skills` | `~/.cline/agents` | Not supported by `install-external` yet |
+| Agent (`--agent`) | External skills directory | Internal (library) skills directory | Agent definitions | External install support |
+|---|---|---|---|---|
+| `opencode` | `~/.agents/skills` | `~/.config/junamis/skills` | `~/.config/opencode/agents` | `skillsio` |
+| `claude` | `~/.claude/skills` | `~/.claude/skills` | `~/.claude/agents` | `skillsio` |
+| `cursor` | `~/.cursor/skills` | `~/.cursor/skills` | `~/.cursor/agents` | Not supported by `install-external` yet |
+| `windsurf` | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/skills` | `~/.config/devin/agents` | Not supported by `install-external` yet |
+| `cline` | `~/.cline/skills` | `~/.cline/skills` | `~/.cline/agents` | Not supported by `install-external` yet |
+
+For OpenCode, the shipped `opencode.json` registers both skill roots, so internal and external skills resolve side by side. Other targets keep a single skills directory shared by both kinds.
 
 Library installation supports all five targets. Scanned external installation currently accepts only OpenCode and Claude Code.
 The Windsurf target keeps project skills in the legacy `.windsurf/skills` directory and installs subagents using Devin's current `.devin/agents` format and locations.
@@ -102,10 +104,13 @@ Other agents are added on request, one target file each under `src/targets/`.
 
 ## Where things go
 
-- Skills: `<skills directory>/<name>/SKILL.md`
+- External skills: `<external skills directory>/<name>/SKILL.md`
+- Internal (library) skills: `<internal skills directory>/<name>/SKILL.md`
 - Agents: `<agent directory>/<name>.md`
-- Shared rules the agents read: `~/.junamis/library/` (`HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`)
-- Install record: `~/.junamis/installed/library-<agent>.json`
+- Shared rules the agents read: `~/.config/junamis/` (`HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`)
+- Install record: `~/.config/junamis/installed/library-<agent>.json`
+- Project scope: `<project>/.config/junamis/` mirrors the internal skills, shared docs, and install record. External skills stay at the target's project skills directory, and project agents stay at its project agents directory.
+- Session state and the guide marker stay in `.junamis/` (`handoff.md`, `install.json`).
 
 ## External skills (manifest)
 

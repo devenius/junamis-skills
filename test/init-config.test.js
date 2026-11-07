@@ -92,7 +92,8 @@ test("init-config project scope uses project-relative skill paths", () => {
     });
     const text = readFileSync(join(project, "opencode.json"), "utf8");
     assert.match(text, /"\.\/\.agents\/skills"/);
-    assert.match(text, /"\.\/\.junamis\/library\/\*\.md"/);
+    assert.match(text, /"\.\/\.config\/junamis\/skills"/);
+    assert.match(text, /"\.\/\.config\/junamis\/\*\.md"/);
   } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });
@@ -108,7 +109,8 @@ test("init-config global scope uses home-relative skill paths", () => {
     });
     const text = readFileSync(join(home, ".config", "opencode", "opencode.json"), "utf8");
     assert.match(text, /"\{env:HOME\}\/\.agents\/skills"/);
-    assert.match(text, /"\{env:HOME\}\/\.junamis\/library\/\*\.md"/);
+    assert.match(text, /"\{env:HOME\}\/\.config\/junamis\/skills"/);
+    assert.match(text, /"\{env:HOME\}\/\.config\/junamis\/\*\.md"/);
   } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });

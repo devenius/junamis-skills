@@ -92,7 +92,7 @@ ${agentLines}
 1. You send a request to the **orchestrator**.
 2. The orchestrator runs the \`route\` skill, which classifies the request into one path: feature, bug, refactor, dependency, migration, release, deploy verification, rollback, incident, security, performance, environment, decision, skill, research, or question.
 3. The orchestrator looks up the owning agent and skill for that path and dispatches exactly one step.
-4. The specialist runs its skill and ends with a HANDOFF block (see \`~/.junamis/library/HANDOFF.md\` in the installed package).
+4. The specialist runs its skill and ends with a HANDOFF block (see \`~/.config/junamis/HANDOFF.md\` in the installed package).
 5. The orchestrator reads only the HANDOFF block. It checks that every listed artifact exists on disk.
 6. It then decides: dispatch the \`next\` skill, ask you a question, or stop.
 
@@ -116,7 +116,7 @@ next: <one skill name, agent name, user, or none>
 
 ### Safety
 
-Destructive or external actions need your explicit approval for that exact command. The full list is in \`~/.junamis/library/SAFETY.md\` in the installed package. In short: deleting files, \`sudo\`, global installs, \`git push\`, production deploys, forced overwrites, and data changes. The \`-y\` flag is not approval.
+Destructive or external actions need your explicit approval for that exact command. The full list is in \`~/.config/junamis/SAFETY.md\` in the installed package. In short: deleting files, \`sudo\`, global installs, \`git push\`, production deploys, forced overwrites, and data changes. The \`-y\` flag is not approval.
 
 ## Always start with the orchestrator
 

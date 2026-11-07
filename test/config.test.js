@@ -33,6 +33,12 @@ test("opencode.json keeps the documented permission invariants", () => {
   assert.equal(permission.webfetch?.["*"], "ask", "webfetch default must be ask");
 });
 
+test("opencode.json registers both internal and external skill roots", () => {
+  assert.deepEqual(config.skills, ["{env:HOME}/.config/junamis/skills", "{env:HOME}/.agents/skills"]);
+  assert.deepEqual(config.instructions, ["{env:HOME}/.config/junamis/*.md"]);
+  assert.equal(config.default_agent, "orchestrator");
+});
+
 test("validateConfig rejects the string and catch-all bash allow forms", () => {
   for (const [bash, pattern] of [
     ["allow", /must not be "allow"/],

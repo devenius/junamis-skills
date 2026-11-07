@@ -6,9 +6,14 @@ import { join } from "node:path";
 export default {
   id: "opencode",
   label: "OpenCode",
-  // External skills (skillsio -g --agent opencode) and library skills both land here.
+  // External skills (skillsio -g --agent opencode) land here.
   globalSkillsDir() {
     return join(homedir(), ".agents", "skills");
+  },
+  // Internal (library) skills live apart from external skills so the two can be
+  // managed and resolved independently.
+  librarySkillsDir() {
+    return join(homedir(), ".config", "junamis", "skills");
   },
   // Markdown agent definitions: ~/.config/opencode/agents/<name>.md
   libraryAgentsDir() {
@@ -16,6 +21,9 @@ export default {
   },
   projectSkillsDir(projectDir) {
     return join(projectDir, ".agents", "skills");
+  },
+  projectLibrarySkillsDir(projectDir) {
+    return join(projectDir, ".config", "junamis", "skills");
   },
   projectAgentsDir(projectDir) {
     return join(projectDir, ".opencode", "agents");

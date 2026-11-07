@@ -28,6 +28,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Validate project-supplied JSON in `status` and `doctor` and report malformed input without crashing.
 
 ### Changed
+- Split internal (library) skills from external skills for OpenCode: internal skills install to `~/.config/junamis/skills`, shared docs to `~/.config/junamis/`, and the install manifest to `~/.config/junamis/installed/library-<agent>.json`. External skills stay in `~/.agents/skills`, and `opencode.json` registers both skill roots. Project scope mirrors the internal side under `<project>/.config/junamis/`; other targets keep their single skills directory.
 - Remove the ignored `pnpm` field from `package.json`; `pnpm-workspace.yaml` is the single source of truth for overrides.
 - Use the platform null device from `node:os` for the scanner's config paths.
 

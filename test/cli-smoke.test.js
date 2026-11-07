@@ -70,7 +70,7 @@ test("status reports a malformed project marker without crashing", () => {
 test("status reports a malformed library manifest without crashing", () => {
   const { home, project } = tempDirs();
   try {
-    const manifestDir = join(project, ".junamis", "installed");
+    const manifestDir = join(project, ".config", "junamis", "installed");
     mkdirSync(manifestDir, { recursive: true });
     writeFileSync(join(manifestDir, "library-opencode.json"), JSON.stringify({ files: "not-an-array" }));
     const result = spawnSync(process.execPath, [CLI, "status", "--dir", project], {

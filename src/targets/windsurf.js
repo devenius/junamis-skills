@@ -8,10 +8,17 @@ export default {
   globalSkillsDir() {
     return join(homedir(), ".codeium", "windsurf", "skills");
   },
+  // This target has one skills directory: library and external skills share it.
+  librarySkillsDir() {
+    return join(homedir(), ".codeium", "windsurf", "skills");
+  },
   libraryAgentsDir() {
     return join(homedir(), ".config", "devin", "agents");
   },
   projectSkillsDir(projectDir) {
+    return join(projectDir, ".windsurf", "skills");
+  },
+  projectLibrarySkillsDir(projectDir) {
     return join(projectDir, ".windsurf", "skills");
   },
   projectAgentsDir(projectDir) {

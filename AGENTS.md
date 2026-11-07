@@ -38,6 +38,7 @@ The old agent layer (`.agents/`, `.opencode/`) was removed from the repo. It is 
 ## Install design
 
 - **Global by default.** Skills are installed into the agent's global skills directory so they can be shared across projects. An install is a snapshot. Editing this repo does not change installed skills until the user reinstalls.
+- **Layout split.** For OpenCode, internal (library) skills install to `~/.config/junamis/skills`, shared docs to `~/.config/junamis/`, and the install manifest to `~/.config/junamis/installed/library-<agent>.json`. External skills stay in the target's external skills directory (`~/.agents/skills` for OpenCode). Other targets keep one skills directory for both. Project scope mirrors the internal side under `<project>/.config/junamis/`; external skills and project agents stay at the target's project paths.
 - External skills are installed by this package: it fetches the locked commit with the system `git` CLI, verifies each skill tree SHA, then passes the local checkout to the pinned `skillsio` scanner.
 - Never fall back to a branch head, direct raw-file download, or unscanned installer. Existing skill directories are conflicts and are not overwritten.
 - Package-managed external installs support only OpenCode and Claude Code. Other targets can receive the owned library, but do not claim scanned external-install support until verified.

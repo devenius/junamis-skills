@@ -29,7 +29,7 @@ test("install-library rolls back created files on failure", () => {
     }
     assert.equal(threw, true, "install should fail");
     // A skill written before the failure should have been rolled back.
-    assert.equal(existsSync(join(home, ".agents", "skills", "route", "SKILL.md")), false);
+    assert.equal(existsSync(join(home, ".config", "junamis", "skills", "route", "SKILL.md")), false);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

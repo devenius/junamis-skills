@@ -9,10 +9,17 @@ export default {
   globalSkillsDir() {
     return join(homedir(), ".cursor", "skills");
   },
+  // This target has one skills directory: library and external skills share it.
+  librarySkillsDir() {
+    return join(homedir(), ".cursor", "skills");
+  },
   libraryAgentsDir() {
     return join(homedir(), ".cursor", "agents");
   },
   projectSkillsDir(projectDir) {
+    return join(projectDir, ".cursor", "skills");
+  },
+  projectLibrarySkillsDir(projectDir) {
     return join(projectDir, ".cursor", "skills");
   },
   projectAgentsDir(projectDir) {

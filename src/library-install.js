@@ -13,13 +13,12 @@ export const SHARED_DOCS = ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md"];
 export const ORCHESTRATOR = "orchestrator";
 
 export function sharedDocsDir(scope = "global", projectDir = process.cwd()) {
-  if (scope === "project") return join(projectDir, ".junamis", "library");
-  return join(homedir(), ".junamis", "library");
+  if (scope === "project") return join(projectDir, ".config", "junamis");
+  return join(homedir(), ".config", "junamis");
 }
 
 export function manifestPath(agentId, scope = "global", projectDir = process.cwd()) {
-  if (scope === "project") return join(projectDir, ".junamis", "installed", `library-${agentId}.json`);
-  return join(homedir(), ".junamis", "installed", `library-${agentId}.json`);
+  return join(sharedDocsDir(scope, projectDir), "installed", `library-${agentId}.json`);
 }
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
@@ -83,7 +82,7 @@ export async function planLibraryInstall({ packageRoot, agent, scope = "global",
   const libDir = join(packageRoot, "library");
   const files = [];
 
-  const skillsDir = scope === "project" ? target.projectSkillsDir(projectDir) : target.globalSkillsDir();
+  const skillsDir = scope === "project" ? target.projectLibrarySkillsDir(projectDir) : target.librarySkillsDir();
   const agentsDir = scope === "project" ? target.projectAgentsDir(projectDir) : target.libraryAgentsDir();
 
   const skillsRoot = join(libDir, "skills");
@@ -116,9 +115,12 @@ const HEX64 = /^[a-f0-9]{64}$/;
 function managedRoots(agentId, scope, projectDir) {
   const target = getTarget(agentId);
   if (!target) throw new Error(`unknown agent "${agentId}"`);
+  // The internal skills directory may be nested inside the shared docs
+  // directory (OpenCode). Both stay roots so each is checked for symlinks; a
+  // destination may therefore belong to more than one valid root.
   return scope === "project"
-    ? [target.projectSkillsDir(projectDir), target.projectAgentsDir(projectDir), sharedDocsDir("project", projectDir)]
-    : [target.globalSkillsDir(), target.libraryAgentsDir(), sharedDocsDir("global")];
+    ? [target.projectLibrarySkillsDir(projectDir), target.projectAgentsDir(projectDir), sharedDocsDir("project", projectDir)]
+    : [target.librarySkillsDir(), target.libraryAgentsDir(), sharedDocsDir("global")];
 }
 
 function isInside(root, target) {
@@ -240,12 +242,12 @@ export function assertPlannedDestinations(files, roots, actualRoots, scope) {
     }
     const target = resolve(f.path);
     const owners = roots.filter((root) => isInside(root, target));
-    if (owners.length !== 1) {
+    if (owners.length === 0) {
       throw new Error(`invalid library destination ${f.path}: path is outside the managed ${scope} roots`);
     }
     const actualTarget = actualPath(f.path);
     const actualOwners = actualRoots.filter((root) => isInside(root, actualTarget));
-    if (actualOwners.length !== 1) {
+    if (actualOwners.length === 0) {
       throw new Error(`invalid library destination ${f.path}: path escapes the managed ${scope} roots through a symlink`);
     }
   }
@@ -286,7 +288,7 @@ export function validateLibraryManifest(agentId, manifest, scope = "global", pro
 
     const target = resolve(entry.path);
     const owners = roots.filter((root) => isInside(root, target));
-    if (owners.length !== 1) {
+    if (owners.length === 0) {
       fail(`path is outside the managed ${scope} roots: ${entry.path}`);
     }
 
@@ -302,7 +304,7 @@ export function validateLibraryManifest(agentId, manifest, scope = "global", pro
     // that redirects the write outside the managed roots.
     const actualTarget = actualPath(entry.path);
     const actualOwners = actualRoots.filter((root) => isInside(root, actualTarget));
-    if (actualOwners.length !== 1) {
+    if (actualOwners.length === 0) {
       fail(`path escapes the managed ${scope} roots through a symlink: ${entry.path}`);
     }
   }

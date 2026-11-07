@@ -109,7 +109,7 @@ test("a skill path that resolves to a symlink or blob is not a tree", async () =
   }
 });
 
-test("a skill tree containing a symlink is rejected", async () => {
+test("a skill tree containing an escaping symlink is rejected", async () => {
   const directory = makeRepo();
   try {
     mkdirSync(join(directory, "skills", "with-link"), { recursive: true });
@@ -119,8 +119,42 @@ test("a skill tree containing a symlink is rejected", async () => {
 
     await assert.rejects(
       getSkillTreeSha(directory, "skills/with-link/SKILL.md"),
-      /contains a symlink/,
+      /escapes the skill folder/,
     );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a skill tree containing an absolute symlink is rejected", async () => {
+  const directory = makeRepo();
+  try {
+    mkdirSync(join(directory, "skills", "upstream-link"), { recursive: true });
+    writeFileSync(join(directory, "skills", "upstream-link", "SKILL.md"), "---\nname: upstream-link\n---\n");
+    symlinkSync("/etc/passwd", join(directory, "skills", "upstream-link", "link"));
+    commitAll(directory);
+
+    await assert.rejects(
+      getSkillTreeSha(directory, "skills/upstream-link/SKILL.md"),
+      /absolute symlink/,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("an in-tree symlink is allowed and the tree SHA is returned", async () => {
+  const directory = makeRepo();
+  try {
+    const dir = join(directory, "skills", "with-link");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "SKILL.md"), "---\nname: with-link\n---\n");
+    writeFileSync(join(dir, "AGENTS.md"), "# Agents\n");
+    symlinkSync("AGENTS.md", join(dir, "CLAUDE.md"));
+    commitAll(directory);
+
+    const actual = await getSkillTreeSha(directory, "skills/with-link/SKILL.md");
+    assert.match(actual, /^[a-f0-9]{40}$/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

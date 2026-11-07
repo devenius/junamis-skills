@@ -4,7 +4,8 @@ An orchestrated set of Agent Skills and agents for AI coding tools. The package 
 
 - **The library** (`library/`): the orchestrator, eight specialist agents, and the skills they use.
 - **The manifest** (`skills-lock.json`): external skill sources, immutable commits, per-skill tree SHAs, and licenses.
-- **An installer** (`junamis-agents-skills`): installs the library and the external skills, and writes a setup guide into your project.
+- **A scan record** (`SECURITY.md`): per-skill kind, source, license, scan status, and last scan month.
+- **An installer** (`junamis-agents-skills`): one `init` command installs the library and every external skill, and writes a setup guide into your project.
 
 ## Quick start
 
@@ -13,62 +14,29 @@ Run these in the project that will use the skills. Use `--dry-run` first to see 
 ### Option A: Run directly from GitHub (no setup)
 
 ```bash
-# 1. Write the setup guide into the project (once).
+# 1. Preview the whole install, then apply it.
+npx github:devenius/junamis-agents-skills init --dry-run
 npx github:devenius/junamis-agents-skills init
 
-# 1b. (Optional) Also install all external skills now.
-npx github:devenius/junamis-agents-skills init --with-external
-
-# 2. Install the library: skills, agents, and shared docs.
-#    Preview first:
-npx github:devenius/junamis-agents-skills install-library --agent opencode --dry-run
-#    Then apply:
-npx github:devenius/junamis-agents-skills install-library --agent opencode
-
 # For Claude Code instead of OpenCode:
-npx github:devenius/junamis-agents-skills install-library --agent claude
+npx github:devenius/junamis-agents-skills init --agent claude
 
-# 3. Install the external skills. skillsio shows its security scan.
-npx github:devenius/junamis-agents-skills install-external --agent opencode
+# Install into the project instead of globally:
+npx github:devenius/junamis-agents-skills init --scope project
 
-# 4. (Optional) Write opencode.json with secret deny rules + webfetch allowlist.
-npx github:devenius/junamis-agents-skills init-config --scope project
-# or globally:
-npx github:devenius/junamis-agents-skills init-config --scope global
-
-# 5. Check state.
+# 2. Check state.
 npx github:devenius/junamis-agents-skills status
 ```
+
+`init` writes the setup guide, writes `opencode.json` when it is missing (OpenCode only), installs the library, and installs every pinned external skill. Use `--force` to overwrite a guide, config, or library file you edited.
 
 ### Option B: Install from GitHub Packages (faster after first setup)
 
 Configure `~/.npmrc` once (see [Installing from GitHub Packages](#installing-from-github-packages)), then use the normal npx form:
 
 ```bash
-# 1. Write the setup guide into the project (once).
+npx @devenius/junamis-agents-skills init --dry-run
 npx @devenius/junamis-agents-skills init
-
-# 1b. (Optional) Also install all external skills now.
-npx @devenius/junamis-agents-skills init --with-external
-
-# 2. Install the library: skills, agents, and shared docs.
-#    Preview first:
-npx @devenius/junamis-agents-skills install-library --agent opencode --dry-run
-#    Then apply:
-npx @devenius/junamis-agents-skills install-library --agent opencode
-
-# For Claude Code instead of OpenCode:
-npx @devenius/junamis-agents-skills install-library --agent claude
-
-# 3. Install the external skills. skillsio shows its security scan.
-npx @devenius/junamis-agents-skills install-external --agent opencode
-
-# 4. (Optional) Write opencode.json with secret deny rules + webfetch allowlist.
-npx @devenius/junamis-agents-skills init-config --scope project
-# or globally:
-npx @devenius/junamis-agents-skills init-config --scope global
-
-# 5. Check state.
 npx @devenius/junamis-agents-skills status
 ```
 
@@ -76,14 +44,13 @@ Then open the project in your agent and send your first request to `orchestrator
 
 ## Commands
 
+The CLI has two working commands and `help`.
+
 | Command | What it does |
 |---|---|
-| `init [--force] [--with-external] [--with-library] [--with-all]` | Writes `junamis-agents-skills-guide.md` at the project root, once. `--with-external` also runs `install-external`; `--with-library` also installs the library; `--with-all` does both. |
-| `install-library --agent <a> [--dry-run] [--force]` | Copies library skills, agent definitions, and shared docs to the agent's directories. Never overwrites a file you edited unless `--force`. |
-| `install-external --agent <a> [--installer skillsio]` | Verifies each locked commit and skill tree SHA, then installs through the pinned `skillsio` scanner. Existing skills are left unchanged and reported as conflicts. |
-| `status [--dir <path>] [--scope global\|project\|all]` | Shows guide state and library installs in both scopes by default. |
-| `doctor [--dir <path>] [--scope global\|project\|all]` | Checks Node, selected library scopes, manifest licenses, and `opencode.json`. Defaults to global scope. |
-| `sync [--agent <a>] [--dry-run] [--force]` | Reinstalls/refreshes the library for an agent (alias of `install-library`). |
+| `init [--agent opencode\|claude] [--scope global\|project] [--dir <path>] [--force] [--dry-run]` | In order: writes `junamis-agents-skills-guide.md` and its marker; writes/refreshes `opencode.json` for OpenCode (only when missing, or with `--force`); installs the library; installs every pinned external skill non-interactively. Exits 1 only when an external install fails. |
+| `status [--dir <path>] [--scope global\|project\|all]` | Reports the guide, marker, per-target internal/external skill counts, library manifest validity, `opencode.json` validity, external skill coverage, and the `SECURITY.md` scan record. Exits 1 only when a detected target's manifest or config is invalid, or project JSON is malformed. Default scope: `global` (matching `init`). |
+| `help` | Prints usage. |
 
 ## Supported agents
 
@@ -91,13 +58,13 @@ Then open the project in your agent and send your first request to `orchestrator
 |---|---|---|---|---|
 | `opencode` | `~/.agents/skills` | `~/.config/junamis/skills` | `~/.config/opencode/agents` | `skillsio` |
 | `claude` | `~/.claude/skills` | `~/.claude/skills` | `~/.claude/agents` | `skillsio` |
-| `cursor` | `~/.cursor/skills` | `~/.cursor/skills` | `~/.cursor/agents` | Not supported by `install-external` yet |
-| `windsurf` | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/skills` | `~/.config/devin/agents` | Not supported by `install-external` yet |
-| `cline` | `~/.cline/skills` | `~/.cline/skills` | `~/.cline/agents` | Not supported by `install-external` yet |
+| `cursor` | `~/.cursor/skills` | `~/.cursor/skills` | `~/.cursor/agents` | Library only |
+| `windsurf` | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/skills` | `~/.config/devin/agents` | Library only |
+| `cline` | `~/.cline/skills` | `~/.cline/skills` | `~/.cline/agents` | Library only |
 
 For OpenCode, the shipped `opencode.json` registers both skill roots, so internal and external skills resolve side by side. Other targets keep a single skills directory shared by both kinds.
 
-Library installation supports all five targets. Scanned external installation currently accepts only OpenCode and Claude Code.
+Library installation supports all five targets. Scanned external installation (`init`) currently accepts only OpenCode and Claude Code.
 The Windsurf target keeps project skills in the legacy `.windsurf/skills` directory and installs subagents using Devin's current `.devin/agents` format and locations.
 
 Other agents are added on request, one target file each under `src/targets/`.
@@ -107,10 +74,12 @@ Other agents are added on request, one target file each under `src/targets/`.
 - External skills: `<external skills directory>/<name>/SKILL.md`
 - Internal (library) skills: `<internal skills directory>/<name>/SKILL.md`
 - Agents: `<agent directory>/<name>.md`
-- Shared rules the agents read: `~/.config/junamis/` (`HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`)
+- Shared rules the agents read: `~/.config/junamis/` (`HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`, `SECURITY.md`)
 - Install record: `~/.config/junamis/installed/library-<agent>.json`
 - Project scope: `<project>/.config/junamis/` mirrors the internal skills, shared docs, and install record. External skills stay at the target's project skills directory, and project agents stay at its project agents directory.
 - Session state and the guide marker stay in `.junamis/` (`handoff.md`, `install.json`).
+
+For OpenCode the split is: internal skills in `~/.config/junamis/skills`, shared docs in `~/.config/junamis/*.md`, the install manifest in `~/.config/junamis/installed/library-opencode.json`, agent definitions in `~/.config/opencode/agents`, and external skills in `~/.agents/skills`. Other targets keep one skills directory for both kinds.
 
 ## External skills (manifest)
 
@@ -145,6 +114,10 @@ These are installed from `skills-lock.json` into the agent's global skills direc
 
 Each lock entry pins an upstream commit and skill tree SHA. Maintainers should follow the [external skill review and pinning procedure](docs/external-skills-maintenance.md) when changing this manifest.
 
+## Security record (`SECURITY.md`)
+
+[`SECURITY.md`](SECURITY.md) is the recorded vetting record for every skill the package installs. It lists each internal skill and each locked external skill with its source, license, scan status (`first-party`, `pass`, or `flagged`), and the month it was last reviewed. Install-time scanning is skipped by design (`--skip-scan`); `SECURITY.md` plus `library/SAFETY.md` is the vetting record. `Last external scan` records when the pinned `skillsio 1.1.3` scan (Trust Hub, Socket, Snyk) was last recorded. `scripts/check-security.mjs` fails CI when a skill is added and not recorded, or when that line is missing. `pnpm run check:pins` re-fetches every locked source and confirms its tree SHA.
+
 ## Installing from GitHub Packages
 
 This package is published to GitHub Packages as `@devenius/junamis-agents-skills`.
@@ -169,7 +142,10 @@ A GitHub personal access token with `read:packages` (and `write:packages` for pu
 ## Safety
 
 - The installer never runs a command through a shell. Every value is checked against a strict pattern before use.
-- The security scan of external skills is never skipped. Critical findings still ask you to confirm.
+- The scanner is pinned to `skillsio@1.1.3` with a verified registry, tarball URL, and SHA-512 integrity. Each locked commit, tree SHA, and checkout HEAD is verified before it runs.
+- A skill folder must be a Git tree. An in-tree symlink such as `CLAUDE.md -> AGENTS.md` is allowed; an absolute or escaping symlink is rejected, as is a gitlink.
+- `init` passes `-y` and `--skip-scan` so it can install every skill non-interactively. `-y` cannot bypass the scanner's high/critical prompt, so install-time scanning is skipped by design; the recorded scan is the gate. After each group it verifies that every expected `<name>/SKILL.md` exists and counts only verified installs.
+- Flagged findings are vetted in `SECURITY.md` and gated in `library/SAFETY.md`.
 - Destructive or external actions in the library need your explicit approval. See `library/SAFETY.md`.
 
 ## Development

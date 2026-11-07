@@ -28,5 +28,6 @@ jobs:
       - run: pnpm run check:yaml
       - run: pnpm run check:config
       - run: pnpm run check:skills-lock
+      - run: pnpm run check:security
       - run: pnpm test
       - run: pnpm run check:pack

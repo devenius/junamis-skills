@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { devNull, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 
 const SOURCE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const SHA = /^[a-f0-9]{40}$/;
@@ -196,9 +196,16 @@ export async function getSkillTreeSha(directory, skillPath, { timeout = 300000 }
   const listing = await runCheckedGit(["-C", directory, "ls-tree", "-r", sha], timeout, { maxBytes: 0 });
   for (const line of listing.split("\n")) {
     if (!line) continue;
-    const mode = line.split(/\s+/)[0];
+    const match = line.match(/^(\d+)\s+\w+\s+([0-9a-f]+)\t(.+)$/);
+    if (!match) continue;
+    const [, mode, object, entryPath] = match;
     if (mode === "120000") {
-      throw new Error(`pinned path for ${skillPath} contains a symlink: ${line}`);
+      // In-tree symlinks are legitimate (for example CLAUDE.md -> AGENTS.md).
+      // Read the blob and allow it only when its target stays inside the skill
+      // folder; an absolute or escaping target is rejected.
+      const target = await runCheckedGit(["-C", directory, "cat-file", "blob", object], timeout, { maxBytes: 0 });
+      assertContainedSymlink(entryPath, target, skillPath, line);
+      continue;
     }
     if (mode === "160000") {
       throw new Error(`pinned path for ${skillPath} contains a gitlink: ${line}`);
@@ -206,4 +213,17 @@ export async function getSkillTreeSha(directory, skillPath, { timeout = 300000 }
   }
 
   return sha;
+}
+
+// Resolve a symlink target lexically from the link's own directory using POSIX
+// rules. Reject absolute targets and anything that climbs above the skill folder.
+function assertContainedSymlink(entryPath, target, skillPath, line) {
+  if (posix.isAbsolute(target)) {
+    throw new Error(`pinned path for ${skillPath} contains an absolute symlink: ${line}`);
+  }
+  const base = posix.dirname(entryPath);
+  const resolved = posix.normalize(posix.join(base === "." ? "" : base, target));
+  if (posix.isAbsolute(resolved) || resolved === ".." || resolved.startsWith("../")) {
+    throw new Error(`pinned path for ${skillPath} contains a symlink that escapes the skill folder: ${line}`);
+  }
 }

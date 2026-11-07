@@ -9,7 +9,9 @@ import { getTarget } from "./targets/index.js";
 // Copies by default. Records every written file in a manifest so later runs can
 // update our files and never overwrite files the user changed by hand.
 
-export const SHARED_DOCS = ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md"];
+// Shared docs are read from library/, except SECURITY.md, which lives at the
+// package root because it is also the repository's public scan record.
+export const SHARED_DOCS = ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md", "SECURITY.md"];
 export const ORCHESTRATOR = "orchestrator";
 
 export function sharedDocsDir(scope = "global", projectDir = process.cwd()) {
@@ -104,7 +106,8 @@ export async function planLibraryInstall({ packageRoot, agent, scope = "global",
   }
 
   for (const doc of SHARED_DOCS) {
-    files.push({ path: join(sharedDocsDir(scope, projectDir), doc), content: await readFile(join(libDir, doc)) });
+    const source = doc === "SECURITY.md" ? join(packageRoot, "SECURITY.md") : join(libDir, doc);
+    files.push({ path: join(sharedDocsDir(scope, projectDir), doc), content: await readFile(source) });
   }
 
   return files.map((f) => ({ ...f, sha256: sha256(f.content) }));
@@ -213,7 +216,9 @@ export function assertManagedRoots(agentId, scope = "global", projectDir = proce
     // The base directory may itself be reached through a symlink: relative()
     // keeps the same suffix, so only a symlink in the root's own location fails.
     const base = resolve(projectDir);
-    const realBase = realpathSync.native(base);
+    // The project directory may not exist yet (init --dir <new>), so fall back
+    // to the lexical path. actualPath() above already handles missing segments.
+    const realBase = realpathOrNull(base) ?? base;
     for (const [index, actualRoot] of actualRoots.entries()) {
       const expected = join(realBase, relative(base, roots[index]));
       if (actualRoot !== expected) {
@@ -221,7 +226,8 @@ export function assertManagedRoots(agentId, scope = "global", projectDir = proce
       }
     }
   } else {
-    const realHome = realpathSync.native(resolve(homedir()));
+    const home = resolve(homedir());
+    const realHome = realpathOrNull(home) ?? home;
     for (const [index, actualRoot] of actualRoots.entries()) {
       if (actualRoot !== realHome && !isInside(realHome, actualRoot)) {
         throw new Error(`managed root contains a symlink or escapes its expected location: ${roots[index]}`);

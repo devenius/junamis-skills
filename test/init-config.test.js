@@ -1,14 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const CLI = join(HERE, "..", "bin", "junamis-agents-skills.js");
+import { writeOpencodeConfig } from "../src/cli.js";
 
 function tempDirs() {
   const home = mkdtempSync(join(tmpdir(), "junamis-home-"));
@@ -16,13 +11,21 @@ function tempDirs() {
   return { home, project };
 }
 
-test("init-config writes opencode.json in project scope", () => {
+async function withHome(home, fn) {
+  const previous = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    return await fn();
+  } finally {
+    process.env.HOME = previous;
+  }
+}
+
+test("writeOpencodeConfig writes opencode.json in project scope", async () => {
   const { home, project } = tempDirs();
   try {
-    execFileSync(process.execPath, [CLI, "init-config", "--scope", "project", "--dir", project], {
-      encoding: "utf8",
-      env: { ...process.env, HOME: home },
-    });
+    const result = await writeOpencodeConfig({ dir: project, scope: "project" });
+    assert.equal(result.status, "written");
     assert.ok(existsSync(join(project, "opencode.json")));
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -30,16 +33,13 @@ test("init-config writes opencode.json in project scope", () => {
   }
 });
 
-test("init-config ignores existing file when user chooses ignore", () => {
+test("writeOpencodeConfig leaves a different existing file unchanged without force", async () => {
   const { home, project } = tempDirs();
   try {
     const target = join(project, "opencode.json");
     writeFileSync(target, "EXISTING\n");
-    execFileSync(process.execPath, [CLI, "init-config", "--scope", "project", "--dir", project], {
-      encoding: "utf8",
-      input: "i\n",
-      env: { ...process.env, HOME: home },
-    });
+    const result = await writeOpencodeConfig({ dir: project, scope: "project" });
+    assert.equal(result.status, "kept");
     assert.equal(readFileSync(target, "utf8"), "EXISTING\n");
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -47,35 +47,27 @@ test("init-config ignores existing file when user chooses ignore", () => {
   }
 });
 
-test("init-config backs up existing file when user chooses backup", () => {
+test("writeOpencodeConfig reports an identical existing file as unchanged", async () => {
   const { home, project } = tempDirs();
   try {
-    const target = join(project, "opencode.json");
-    writeFileSync(target, "EXISTING\n");
-    execFileSync(process.execPath, [CLI, "init-config", "--scope", "project", "--dir", project], {
-      encoding: "utf8",
-      input: "b\n",
-      env: { ...process.env, HOME: home },
-    });
-    assert.notEqual(readFileSync(target, "utf8"), "EXISTING\n");
-    const backups = readdirSync(project).filter((f) => f.startsWith("opencode.json.bak."));
-    assert.ok(backups.length > 0, "backup file should exist");
+    await writeOpencodeConfig({ dir: project, scope: "project" });
+    const before = readFileSync(join(project, "opencode.json"), "utf8");
+    const result = await writeOpencodeConfig({ dir: project, scope: "project" });
+    assert.equal(result.status, "unchanged");
+    assert.equal(readFileSync(join(project, "opencode.json"), "utf8"), before);
   } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });
   }
 });
 
-test("init-config overwrites existing file when user chooses overwrite", () => {
+test("writeOpencodeConfig --force overwrites without a prompt", async () => {
   const { home, project } = tempDirs();
   try {
     const target = join(project, "opencode.json");
     writeFileSync(target, "EXISTING\n");
-    execFileSync(process.execPath, [CLI, "init-config", "--scope", "project", "--dir", project], {
-      encoding: "utf8",
-      input: "o\n",
-      env: { ...process.env, HOME: home },
-    });
+    const result = await writeOpencodeConfig({ dir: project, scope: "project", force: true });
+    assert.equal(result.status, "written");
     assert.notEqual(readFileSync(target, "utf8"), "EXISTING\n");
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -83,13 +75,10 @@ test("init-config overwrites existing file when user chooses overwrite", () => {
   }
 });
 
-test("init-config project scope uses project-relative skill paths", () => {
+test("writeOpencodeConfig project scope uses project-relative skill paths", async () => {
   const { home, project } = tempDirs();
   try {
-    execFileSync(process.execPath, [CLI, "init-config", "--scope", "project", "--dir", project, "--force"], {
-      encoding: "utf8",
-      env: { ...process.env, HOME: home },
-    });
+    await writeOpencodeConfig({ dir: project, scope: "project" });
     const text = readFileSync(join(project, "opencode.json"), "utf8");
     assert.match(text, /"\.\/\.agents\/skills"/);
     assert.match(text, /"\.\/\.config\/junamis\/skills"/);
@@ -100,12 +89,11 @@ test("init-config project scope uses project-relative skill paths", () => {
   }
 });
 
-test("init-config global scope uses home-relative skill paths", () => {
+test("writeOpencodeConfig global scope uses home-relative skill paths", async () => {
   const { home, project } = tempDirs();
   try {
-    execFileSync(process.execPath, [CLI, "init-config", "--scope", "global", "--dir", project, "--force"], {
-      encoding: "utf8",
-      env: { ...process.env, HOME: home },
+    await withHome(home, async () => {
+      await writeOpencodeConfig({ dir: project, scope: "global" });
     });
     const text = readFileSync(join(home, ".config", "opencode", "opencode.json"), "utf8");
     assert.match(text, /"\{env:HOME\}\/\.agents\/skills"/);
@@ -117,16 +105,12 @@ test("init-config global scope uses home-relative skill paths", () => {
   }
 });
 
-test("init-config --force overwrites without prompt", () => {
+test("writeOpencodeConfig dry-run writes nothing", async () => {
   const { home, project } = tempDirs();
   try {
-    const target = join(project, "opencode.json");
-    writeFileSync(target, "EXISTING\n");
-    execFileSync(process.execPath, [CLI, "init-config", "--scope", "project", "--dir", project, "--force"], {
-      encoding: "utf8",
-      env: { ...process.env, HOME: home },
-    });
-    assert.notEqual(readFileSync(target, "utf8"), "EXISTING\n");
+    const result = await writeOpencodeConfig({ dir: project, scope: "project", dryRun: true });
+    assert.equal(result.status, "would-write");
+    assert.equal(existsSync(join(project, "opencode.json")), false);
   } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });

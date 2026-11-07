@@ -14,6 +14,7 @@ const REQUIRED_FILES = [
   "library/agents/orchestrator.md",
   "library/skills/route/SKILL.md",
   "skills-lock.json",
+  "SECURITY.md",
 ];
 const EXCLUDED_PREFIXES = ["skills/", "nestjs-agent-skills/"];
 

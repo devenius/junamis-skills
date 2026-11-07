@@ -1,50 +1,37 @@
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
-import { createInterface } from "node:readline/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { PACKAGE_ROOT, GUIDE_NAME, MARKER_PATH, writeGuide } from "./guide.js";
 import { getTarget, targets } from "./targets/index.js";
 import { installExternal, validateAgent, validateInstaller } from "./external.js";
-import { planLibraryInstall, applyLibraryInstall, manifestPath, sharedDocsDir } from "./library-install.js";
+import { planLibraryInstall, applyLibraryInstall, manifestPath } from "./library-install.js";
 
 const HELP = `junamis-agents-skills
 
 Usage:
-  junamis-agents-skills init [--force] [--dir <path>] [--with-external] [--with-library] [--with-all] [--agent <name>]
-      write ${GUIDE_NAME} into the project. --with-external also installs the external skills.
-      --with-library also installs the library. --with-all installs library + external skills.
-
-  junamis-agents-skills install-library [--agent opencode|claude] [--dry-run] [--force]
-      install the library skills, agent definitions, and shared docs so the agent can load them.
-      Shows what would change first when --dry-run is given. Never overwrites a file you edited unless --force.
-
-  junamis-agents-skills install-external [--agent opencode|claude] [--installer skillsio]
-      install every external skill in skills-lock.json. Scan alerts are shown and critical
-      findings still ask you to confirm. The scan is never skipped. Existing skills
-      are left unchanged and reported as conflicts.
+  junamis-agents-skills init [--agent opencode|claude] [--scope global|project] [--dir <path>] [--force] [--dry-run]
+      Install everything this package provides:
+        1. write ${GUIDE_NAME} into the project;
+        2. write opencode.json (OpenCode only) when it is missing, or always with --force;
+        3. install the library skills, agents, and shared docs;
+        4. install every pinned external skill from skills-lock.json.
+      Existing config or library files you edited are left unchanged unless --force.
+      --dry-run prints the plan without writing or using the network.
 
   junamis-agents-skills status [--dir <path>] [--scope global|project|all]
-      show guide state and library installs (both scopes by default).
-
-  junamis-agents-skills sync [--agent opencode|claude] [--dry-run] [--force]
-      reinstall/refresh the library for an agent using the installed manifest.
-
-  junamis-agents-skills doctor [--dir <path>] [--scope global|project|all]
-      check Node, agents, selected library installs, manifest, and opencode.json.
-
-  junamis-agents-skills init-config [--scope global|project] [--force] [--dir <path>]
-      write opencode.json with the secret-access deny rules and webfetch allowlist.
-      Prompts for scope when run interactively; defaults to project (cwd) otherwise.
+      Report the guide, marker, per-target internal/external skill counts, library
+      manifests, opencode.json validity, external skill coverage, and the
+      SECURITY.md scan record. Exits 1 only when a detected target's manifest
+      or config is invalid. Default scope: global (matching init).
 
   junamis-agents-skills help
 
   --dir          project directory (default: current directory)
-  --force        overwrite the guide or edited library files
+  --force        overwrite the guide, opencode.json, or edited library files
   --dry-run      print the install plan without writing anything
   --agent        opencode (default) or claude
-  --installer    skillsio (default; scanned and version-pinned)
-  --scope        global, project, or all for status and doctor; global or project otherwise
+  --scope        global or project for init; global, project, or all for status
 `;
 
 function parseArgs(argv) {
@@ -53,23 +40,15 @@ function parseArgs(argv) {
     force: false,
     dryRun: false,
     dir: process.cwd(),
-    withExternal: false,
-    withLibrary: false,
-    withAll: false,
     agent: "opencode",
-    installer: "skillsio",
     scope: null,
   };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--force") args.force = true;
     else if (a === "--dry-run") args.dryRun = true;
-    else if (a === "--with-external") args.withExternal = true;
-    else if (a === "--with-library") args.withLibrary = true;
-    else if (a === "--with-all") args.withAll = true;
     else if (a === "--dir") args.dir = resolve(requireValue(argv, ++i, a));
     else if (a === "--agent") args.agent = requireValue(argv, ++i, a);
-    else if (a === "--installer") args.installer = requireValue(argv, ++i, a);
     else if (a === "--scope") args.scope = requireValue(argv, ++i, a);
     else throw new Error(`unknown option: ${a}`);
   }
@@ -92,12 +71,17 @@ async function packageVersion() {
   return JSON.parse(await readFile(join(PACKAGE_ROOT, "package.json"), "utf8")).version;
 }
 
+async function lockSkillNames() {
+  const lock = JSON.parse(await readFile(join(PACKAGE_ROOT, "skills-lock.json"), "utf8"));
+  return Object.keys(lock.skills ?? {}).sort();
+}
+
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 // Project files are untrusted. Return a diagnostic instead of throwing so
-// status and doctor can report the problem and keep checking other paths.
+// status can report the problem and keep checking other paths.
 async function readJsonObject(path) {
   let raw;
   try {
@@ -122,51 +106,31 @@ function describeLibraryManifest(value) {
   return null;
 }
 
-async function init(args) {
-  const result = await writeGuide({ projectDir: args.dir, force: args.force });
-  if (result.status === "created") {
-    console.log(`wrote ${result.path}`);
-    console.log(`marker: ${join(args.dir, MARKER_PATH)}`);
-  } else if (result.status === "exists") {
-    console.log(`${GUIDE_NAME} already written by junamis-agents-skills ${result.version}; nothing to do.`);
-    console.log("use --force to rewrite it.");
-  } else if (result.status === "kept-user-file") {
-    console.log(`${result.path} exists and was not written by junamis-agents-skills; left unchanged.`);
-    console.log("use --force to replace it.");
+function resolvedScope(scope, fallback) {
+  if (scope === null || scope === undefined) return fallback;
+  if (!new Set(["global", "project"]).has(scope)) {
+    throw new Error(`unknown scope "${scope}"; expected global or project`);
   }
-
-  if (args.withLibrary || args.withAll) {
-    console.log("\n--- Installing library ---\n");
-    await installLibraryCommand(args);
-  }
-
-  if (args.withExternal || args.withAll) {
-    console.log("\n--- Installing external skills ---\n");
-    await installExternalCommand(args);
-  }
+  return scope;
 }
 
-async function resolveScope(scope) {
-  if (scope === "global" || scope === "project") return scope;
-  if (process.stdin.isTTY) {
-    const rl = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await rl.question("Write opencode.json globally (~/.config/opencode) or in current project (cwd)? [project/global]: ");
-    rl.close();
-    const v = answer.trim().toLowerCase();
-    if (v === "global" || v === "g") return "global";
-    return "project";
+// Write or refresh opencode.json for the OpenCode target. No prompts: when the
+// file exists without --force it is left alone and the caller reports why.
+export async function writeOpencodeConfig({
+  dir = process.cwd(),
+  scope = "global",
+  force = false,
+  dryRun = false,
+  packageRoot = PACKAGE_ROOT,
+} = {}) {
+  if (!new Set(["global", "project"]).has(scope)) {
+    throw new Error(`unknown scope "${scope}"; expected global or project`);
   }
-  return "project";
-}
+  const targetPath = scope === "global"
+    ? join(homedir(), ".config", "opencode", "opencode.json")
+    : join(dir, "opencode.json");
 
-async function initConfig(args) {
-  const scope = await resolveScope(args.scope);
-  const targetPath =
-    scope === "global"
-      ? join(homedir(), ".config", "opencode", "opencode.json")
-      : join(args.dir, "opencode.json");
-
-  let content = await readFile(join(PACKAGE_ROOT, "opencode.json"), "utf8");
+  let content = await readFile(join(packageRoot, "opencode.json"), "utf8");
   // Project-scope installs live under the project directory, so rewrite the
   // global paths in the template to project-relative ones.
   if (scope === "project") {
@@ -175,103 +139,154 @@ async function initConfig(args) {
       .replace(/"\{env:HOME\}\/\.config\/junamis\/\*\.md"/g, '"./.config/junamis/*.md"')
       .replace(/"\{env:HOME\}\/\.agents\/skills"/g, '"./.agents/skills"');
   }
-  await mkdir(dirname(targetPath), { recursive: true });
 
-  if (existsSync(targetPath) && !args.force) {
-    let choice;
-    if (process.stdin.isTTY) {
-      const rl = createInterface({ input: process.stdin, output: process.stdout });
-      console.log(`${targetPath} already exists.`);
-      const answer = await rl.question("Choose: (o)verwrite, (b)ackup and write, (i)gnore? [i]: ");
-      rl.close();
-      choice = answer.trim().toLowerCase();
-    } else {
-      // Support piped input (e.g. tests) without blocking when stdin is closed.
-      choice = await new Promise((resolve) => {
-        let data = "";
-        const timer = setTimeout(() => resolve(data), 50);
-        process.stdin.setEncoding("utf8");
-        process.stdin.on("data", (chunk) => { data += chunk; });
-        process.stdin.on("end", () => { clearTimeout(timer); resolve(data); });
-        process.stdin.resume();
-      });
-      choice = choice.trim().toLowerCase();
-      if (choice === "") {
-        console.log(`${targetPath} already exists; use --force to overwrite.`);
-        return;
-      }
-    }
-    if (choice === "i" || choice === "ignore") {
-      console.log("ignored; existing file left unchanged.");
-      return;
-    }
-    if (choice === "b" || choice === "backup") {
-      const backup = `${targetPath}.bak.${new Date().toISOString().replace(/[:.]/g, "-")}`;
-      await rename(targetPath, backup);
-      console.log(`backed up existing file to ${backup}`);
-    } else if (choice === "o" || choice === "overwrite") {
-      // fall through to overwrite
-    } else {
-      console.log("unknown choice; ignored.");
-      return;
-    }
+  if (existsSync(targetPath) && !force) {
+    const existing = await readFile(targetPath, "utf8");
+    return { status: existing === content ? "unchanged" : "kept", path: targetPath };
+  }
+  if (dryRun) {
+    return { status: existsSync(targetPath) ? "would-replace" : "would-write", path: targetPath };
   }
 
+  await mkdir(dirname(targetPath), { recursive: true });
   await writeFile(targetPath, content, "utf8");
-  console.log(`wrote ${targetPath}`);
+  return { status: "written", path: targetPath };
 }
 
-async function installExternalCommand(args) {
-  validateInstaller(args.installer);
-  validateAgent(args.agent);
-  const { failed } = await installExternal({
-    lockPath: join(PACKAGE_ROOT, "skills-lock.json"),
-    agent: args.agent,
-    installer: args.installer,
+function reportGuide(result, projectDir) {
+  if (result.status === "created") {
+    console.log(`guide: wrote ${result.path}`);
+    console.log(`marker: ${join(projectDir, MARKER_PATH)}`);
+  } else if (result.status === "exists") {
+    console.log(`guide: ${GUIDE_NAME} already written by junamis-agents-skills ${result.version}; nothing to do.`);
+    console.log("guide: use --force to rewrite it.");
+  } else if (result.status === "kept-user-file") {
+    console.log(`guide: ${result.path} exists and was not written by junamis-agents-skills; left unchanged.`);
+    console.log("guide: use --force to replace it.");
+  } else {
+    console.log(`guide: ${result.status} (${result.path})`);
+  }
+}
+
+function reportConfig(result) {
+  if (result.status === "written") console.log(`config: wrote ${result.path}`);
+  else if (result.status === "unchanged") console.log(`config: unchanged (${result.path})`);
+  else if (result.status === "kept") console.log(`config: left unchanged; use --force (${result.path})`);
+  else if (result.status === "would-write") console.log(`config: would write ${result.path}`);
+  else if (result.status === "would-replace") console.log(`config: would replace ${result.path} (--force)`);
+  else console.log(`config: ${result.status} (${result.path})`);
+}
+
+function reportLibrary(args, scope, result, version) {
+  const counts = {};
+  for (const a of result.actions) counts[a.action] = (counts[a.action] ?? 0) + 1;
+  const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ") || "nothing";
+  console.log(`library for ${args.agent} (junamis-agents-skills ${version}, ${scope}): ${summary}`);
+
+  if (args.dryRun) {
+    for (const a of result.actions) console.log(`  ${a.action.padEnd(18)} ${a.path}`);
+  }
+  for (const p of result.stale) console.log(`  ${args.dryRun ? "would remove" : "removed"} stale ${p}`);
+
+  if (!result.ok) {
+    console.error(`\n${result.conflicts.length} library file(s) were edited by you and are not managed by junamis-agents-skills:`);
+    for (const p of result.conflicts) console.error(`  ${p}`);
+    console.error("Review them. Run again with --force to overwrite, or move your copy elsewhere.");
+    return 1;
+  }
+  if (args.dryRun) console.log("library: dry run, nothing was written.");
+  return 0;
+}
+
+/**
+ * Run `init` with injectable dependencies so tests never touch the network.
+ * deps may override writeGuide, writeOpencodeConfig, planLibraryInstall,
+ * applyLibraryInstall, installExternal, and packageVersion.
+ */
+export async function runInit(args, deps = {}) {
+  const d = {
+    writeGuide,
+    writeOpencodeConfig,
+    planLibraryInstall,
+    applyLibraryInstall,
+    installExternal,
+    packageVersion,
+    ...deps,
+  };
+  const agent = args.agent ?? "opencode";
+  if (!new Set(["opencode", "claude"]).has(agent)) {
+    throw new Error(`unknown agent "${agent}"; expected opencode or claude`);
+  }
+  const scope = resolvedScope(args.scope, "global");
+  let exitCode = 0;
+
+  // 1. Guide.
+  if (args.dryRun) {
+    const guidePath = join(args.dir, GUIDE_NAME);
+    const exists = existsSync(guidePath);
+    console.log(`guide: ${exists && !args.force ? "present, would not rewrite without --force" : `would write ${guidePath}`}`);
+  } else {
+    reportGuide(await d.writeGuide({ projectDir: args.dir, force: args.force }), args.dir);
+  }
+
+  // 2. opencode.json for OpenCode only.
+  if (agent !== "opencode") {
+    console.log("config: skipped (opencode.json is OpenCode only)");
+  } else {
+    reportConfig(await d.writeOpencodeConfig({
+      dir: args.dir,
+      scope,
+      force: args.force,
+      dryRun: args.dryRun,
+    }));
+  }
+
+  // 3. Library.
+  const version = await d.packageVersion();
+  const files = await d.planLibraryInstall({
+    packageRoot: PACKAGE_ROOT,
+    agent,
+    scope,
+    projectDir: args.dir,
   });
-  if (failed > 0) process.exitCode = 1;
-}
-
-async function installLibraryCommand(args) {
-  if (!getTarget(args.agent)) throw new Error(`unknown agent "${args.agent}"; expected opencode or claude`);
-  if (args.scope && args.scope !== "global" && args.scope !== "project") throw new Error(`unknown scope "${args.scope}"; expected global or project`);
-  const scope = args.scope === "global" ? "global" : args.scope === "project" ? "project" : (process.stdin.isTTY ? await (async () => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await rl.question("Install library globally or into the current project? [global/project]: ");
-    rl.close();
-    return answer.trim().toLowerCase() === "project" ? "project" : "global";
-  })() : "global");
-  const projectDir = args.dir;
-  const version = await packageVersion();
-  const files = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: args.agent, scope, projectDir });
-  const result = await applyLibraryInstall({
-    agent: args.agent,
+  const libraryResult = await d.applyLibraryInstall({
+    agent,
     files,
     version,
     force: args.force,
     dryRun: args.dryRun,
     scope,
-    projectDir,
+    projectDir: args.dir,
   });
+  exitCode ||= reportLibrary(args, scope, libraryResult, version);
 
-  const counts = {};
-  for (const a of result.actions) counts[a.action] = (counts[a.action] ?? 0) + 1;
-  const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ") || "nothing";
-  console.log(`library for ${args.agent} (junamis-agents-skills ${version}): ${summary}`);
-
+  // 4. Every pinned external skill, non-interactively.
+  let external = { groups: 0, installed: 0, skipped: 0, failed: 0, planned: 0 };
   if (args.dryRun) {
-    for (const a of result.actions) console.log(`  ${a.action.padEnd(12)} ${a.path}`);
+    const names = await lockSkillNames();
+    external.planned = names.length;
+    console.log(`external: ${names.length} pinned skills would be installed with skillsio`);
+  } else {
+    validateInstaller("skillsio");
+    validateAgent(agent);
+    external = await d.installExternal({
+      lockPath: join(PACKAGE_ROOT, "skills-lock.json"),
+      agent,
+      installer: "skillsio",
+    });
+    console.log(`external: ${external.installed} installed, ${external.skipped} skipped, ${external.failed} failed`);
+    if (external.failed > 0) exitCode = 1;
   }
-  for (const p of result.stale) console.log(`  ${args.dryRun ? "would remove" : "removed"} stale ${p}`);
 
-  if (!result.ok) {
-    console.error(`\n${result.conflicts.length} file(s) were edited by you and are not managed by junamis-agents-skills:`);
-    for (const p of result.conflicts) console.error(`  ${p}`);
-    console.error("Review them. Run again with --force to overwrite, or move your copy elsewhere.");
-    process.exitCode = 1;
-    return;
-  }
-  if (args.dryRun) console.log("\ndry run: nothing was written.");
+  // 5. Summary.
+  console.log("\nsummary:");
+  console.log(`  guide:    ${args.dryRun ? "planned" : "done"}`);
+  console.log(`  config:   ${agent === "opencode" ? (args.dryRun ? "planned" : "done") : "skipped"}`);
+  console.log(`  library:  ${args.dryRun ? "planned" : "done"} (${scope})`);
+  console.log(`  external: ${args.dryRun ? `planned (${external.planned})` : `${external.installed} installed, ${external.skipped} skipped, ${external.failed} failed`}`);
+  console.log(`  exit:     ${exitCode === 0 ? "ok" : "needs attention"}`);
+
+  return { exitCode, scope, external };
 }
 
 export function statusLocations(agentId, scope = "all", projectDir = process.cwd()) {
@@ -291,138 +306,145 @@ export function statusLocations(agentId, scope = "all", projectDir = process.cwd
 }
 
 async function status(args) {
+  const scope = args.scope ?? "global";
+  if (!new Set(["global", "project", "all"]).has(scope)) {
+    throw new Error(`unknown scope "${scope}"; expected global, project, or all`);
+  }
+  const scopes = scope === "all" ? ["global", "project"] : [scope];
+  const failures = [];
+  const check = (label, pass, detail = "") => {
+    console.log(`${pass ? "✔" : "✖"} ${label}${detail ? `: ${detail}` : ""}`);
+    if (!pass) failures.push(label);
+    return pass;
+  };
+
+  // Guide and marker describe the project. A missing guide is informational:
+  // only a present but malformed marker is a real problem.
+  const guidePath = join(args.dir, GUIDE_NAME);
+  const guideExists = existsSync(guidePath);
+  console.log(`project:  ${args.dir}`);
+  console.log(`package:  ${PACKAGE_ROOT}`);
+  console.log(`guide:    ${guideExists ? "present" : "missing"} (${GUIDE_NAME})`);
+
   const markerPath = join(args.dir, MARKER_PATH);
   let marker = null;
+  let markerProblem = null;
   if (existsSync(markerPath)) {
     const parsed = await readJsonObject(markerPath);
     if (parsed.error) {
-      console.error(`warning: invalid marker ${markerPath}: ${parsed.error}`);
-      process.exitCode = 1;
+      markerProblem = parsed.error;
     } else if (typeof parsed.value.writtenAt !== "string" || typeof parsed.value.version !== "string") {
-      console.error(`warning: invalid marker ${markerPath}: writtenAt and version must be strings`);
-      process.exitCode = 1;
+      markerProblem = "writtenAt and version must be strings";
     } else {
       marker = parsed.value;
     }
   }
-  const guideExists = existsSync(join(args.dir, GUIDE_NAME));
-
-  console.log(`project:  ${args.dir}`);
-  console.log(`package:  ${PACKAGE_ROOT}`);
-  console.log(`guide:    ${guideExists ? "present" : "missing"} (${GUIDE_NAME})`);
   console.log(`marker:   ${marker ? `written ${marker.writtenAt} by ${marker.version}` : "none"}`);
+  if (markerProblem) {
+    console.error(`✖ invalid marker ${markerPath}: ${markerProblem}`);
+    failures.push("marker");
+  }
+
+  // Per-target counts and library manifests. Missing directories and manifests
+  // are informational: a target can be detected without this package being
+  // installed for it. A present manifest is always validated.
   console.log("agents:");
   for (const t of targets) {
-    console.log(`  ${t.label.padEnd(12)} ${t.detect() ? "detected" : "not found"}`);
-    for (const location of statusLocations(t.id, args.scope ?? "all", args.dir)) {
+    const detected = t.detect();
+    console.log(`  ${t.label.padEnd(12)} ${detected ? "detected" : "not found"}`);
+    for (const location of statusLocations(t.id, scope, args.dir)) {
       const libraryCount = await countSkills(location.librarySkillsDir);
       const externalCount = await countSkills(location.skillsDir);
       const state = (count) => (count === null ? "no skills dir" : `${count} skill folders`);
       console.log(`    ${location.scope.padEnd(8)} internal ${location.librarySkillsDir} (${state(libraryCount)})`);
       console.log(`    ${location.scope.padEnd(8)} external ${location.skillsDir} (${state(externalCount)})`);
-      if (existsSync(location.manifestPath)) {
-        const parsed = await readJsonObject(location.manifestPath);
-        const problem = parsed.error ?? (parsed.value ? describeLibraryManifest(parsed.value) : "unknown error");
-        if (problem) {
-          console.error(`      library manifest invalid (${location.manifestPath}): ${problem}`);
-          process.exitCode = 1;
-          continue;
-        }
-        const data = parsed.value;
-        console.log(`      library ${data.version} installed ${data.installedAt} (${data.files.length} files)`);
-      } else {
+
+      if (!existsSync(location.manifestPath)) {
         console.log(`      library not installed in ${location.scope} scope`);
+        continue;
       }
-    }
-  }
-}
-
-async function doctor(args) {
-  const home = homedir();
-  const scope = args.scope ?? "global";
-  const locationsByTarget = targets.map((target) => ({
-    target,
-    locations: statusLocations(target.id, scope, args.dir),
-  }));
-  const scopes = scope === "all" ? ["global", "project"] : [scope];
-  const checks = [];
-  const ok = (label, pass, detail = "") => {
-    checks.push({ label, pass, detail });
-    console.log(`${pass ? "✔" : "✖"} ${label}${detail ? `: ${detail}` : ""}`);
-  };
-
-  const nodeMajor = parseInt(process.version.replace(/^v/, "").split(".")[0], 10);
-  ok("Node.js >= 26", nodeMajor >= 26, process.version);
-
-  const lockDoc = await readJsonObject(join(PACKAGE_ROOT, "skills-lock.json"));
-  if (lockDoc.error || !isPlainObject(lockDoc.value.skills)) {
-    ok("Manifest licenses verified", false, lockDoc.error ?? "skills must be an object");
-  } else {
-    const unknown = Object.entries(lockDoc.value.skills)
-      .filter(([, e]) => (e.license ?? "unknown") === "unknown")
-      .map(([n]) => n);
-    ok("Manifest licenses verified", unknown.length === 0, unknown.length ? unknown.join(", ") : `${Object.keys(lockDoc.value.skills).length} skills`);
-  }
-
-  for (const { target, locations } of locationsByTarget) {
-    ok(`${target.label} detected`, target.detect());
-    for (const location of locations) {
-      ok(`${target.label} ${location.scope} internal skills dir`, existsSync(location.librarySkillsDir), location.librarySkillsDir);
-      ok(`${target.label} ${location.scope} external skills dir`, existsSync(location.skillsDir), location.skillsDir);
-      ok(`${target.label} ${location.scope} library manifest`, existsSync(location.manifestPath), location.manifestPath);
+      const parsed = await readJsonObject(location.manifestPath);
+      const problem = parsed.error ?? (parsed.value ? describeLibraryManifest(parsed.value) : "unknown error");
+      if (problem) {
+        console.error(`✖ library manifest invalid (${location.manifestPath}): ${problem}`);
+        failures.push("library manifest");
+        continue;
+      }
+      const data = parsed.value;
+      console.log(`      library ${data.version} installed ${data.installedAt} (${data.files.length} files)`);
     }
   }
 
-  for (const installScope of scopes) {
-    const libraryDir = sharedDocsDir(installScope, args.dir);
-    for (const doc of ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md"]) {
-      const path = join(libraryDir, doc);
-      ok(`Shared doc ${doc} (${installScope})`, existsSync(path), path);
+  // opencode.json validity for the selected scopes.
+  const candidates = [
+    { scope: "project", path: join(args.dir, "opencode.json") },
+    { scope: "global", path: join(homedir(), ".config", "opencode", "opencode.json") },
+  ];
+  for (const candidate of candidates) {
+    if (!scopes.includes(candidate.scope)) continue;
+    if (!existsSync(candidate.path)) {
+      console.log(`config (${candidate.scope}): missing (${candidate.path})`);
+      continue;
     }
-  }
-
-  const candidateConfigs = [join(args.dir, "opencode.json"), join(home, ".config", "opencode", "opencode.json")];
-  for (const cfgPath of candidateConfigs) {
-    if (!existsSync(cfgPath)) continue;
-    const parsed = await readJsonObject(cfgPath);
+    const parsed = await readJsonObject(candidate.path);
     if (parsed.error) {
-      ok(`opencode.json valid (${cfgPath})`, false, parsed.error);
+      check(`config (${candidate.scope})`, false, `${candidate.path}: ${parsed.error}`);
       continue;
     }
     const perm = parsed.value.permission;
     const valid = isPlainObject(perm)
       && ["read", "edit", "webfetch", "websearch", "external_directory"].every((k) => k in perm);
-    ok(`opencode.json valid (${cfgPath})`, valid, valid ? "permission keys present" : "permission must be an object with all permission keys");
+    check(
+      `config (${candidate.scope})`,
+      valid,
+      valid ? `${candidate.path} permission keys present` : `${candidate.path}: permission must be an object with all permission keys`,
+    );
   }
 
-  const failed = checks.filter((c) => !c.pass).length;
-  console.log(`\ndoctor: ${checks.length - failed}/${checks.length} checks passed`);
-  if (failed) process.exitCode = 1;
+  // External coverage: every pinned skill is present under the external
+  // skills directory used by the OpenCode target. Report only; a missing skill
+  // is not a status failure.
+  const lockNames = await lockSkillNames();
+  const externalDir = getTarget("opencode").globalSkillsDir();
+  const missing = lockNames.filter((name) => !existsSync(join(externalDir, name)));
+  const coverage = `${lockNames.length - missing.length}/${lockNames.length}`;
+  const coverageDetail = missing.length === 0 ? `${coverage} in ${externalDir}` : `${coverage}; missing ${missing.join(", ")}`;
+  console.log(`external coverage: ${coverageDetail}`);
+
+  // SECURITY.md is the recorded scan vetted at install time. Report its status
+  // without failing; the scan record is part of the package, not the install.
+  const securityPath = join(PACKAGE_ROOT, "SECURITY.md");
+  let securityMonth = null;
+  if (existsSync(securityPath)) {
+    const text = await readFile(securityPath, "utf8");
+    securityMonth = text.match(/^Last external scan:\s*(\d{4}-\d{2})/m)?.[1] ?? null;
+  }
+  console.log(
+    `SECURITY.md scan record: ${securityMonth ? `${securityPath} (last external scan ${securityMonth})` : `${securityPath} is missing or has no Last external scan line`}`,
+  );
+
+  const passed = failures.length === 0;
+  console.log(`\nstatus: ${passed ? "ok" : `${failures.length} required check(s) failed`}`);
+  if (!passed) process.exitCode = 1;
+  return passed ? 0 : 1;
 }
 
 export async function run(argv) {
   const args = parseArgs(argv);
   switch (args.command) {
-    case "init":
-      return init(args);
-    case "init-config":
-      return initConfig(args);
-    case "install-library":
-      return installLibraryCommand(args);
-    case "install-external":
-      return installExternalCommand(args);
+    case "init": {
+      const result = await runInit(args);
+      if (result.exitCode) process.exitCode = result.exitCode;
+      return result;
+    }
     case "status":
       return status(args);
-    case "sync":
-      return installLibraryCommand(args);
-    case "doctor":
-      return doctor(args);
     case "help":
     case "--help":
     case "-h":
       console.log(HELP);
       return;
     default:
-      throw new Error(`unknown command: ${args.command}\n\n${HELP}`);
+      throw new Error(`unknown command: ${args.command}. Use "init" or "status".`);
   }
 }

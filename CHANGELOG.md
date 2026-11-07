@@ -4,7 +4,17 @@ All notable changes to this project are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+### Added
+- `init` now installs everything in one non-interactive run: the guide, `opencode.json` for OpenCode (when missing or with `--force`), the library, and every pinned external skill. Injected dependencies make `init` testable without network access.
+- `SECURITY.md` as the recorded scan record for all 18 internal and 24 external skills: kind, source, license, scan status, last review month, and the pinned scanner. It is published, installed as a shared doc, and enforced by `check:security` in CI and `release:check`.
+- `status` replaces `doctor` and reports the guide, marker, per-target internal/external skill counts, library manifest validity, config validity, external coverage, and the `SECURITY.md` scan record. It exits 1 only when a detected target's manifest or config is invalid, or project JSON is malformed.
+
 ### Security
+- Always pass `--skip-scan` to the pinned scanner. `-y` does not bypass its high/critical "Install anyway?" prompt; a real run prompted on four source groups and silently left skills uninstalled while counting them. Install-time scanning is skipped by design, and `SECURITY.md` plus `library/SAFETY.md` is the vetting record.
+- After each successful scanner group, verify that every expected `<name>/SKILL.md` exists under the target's global skills directory. Only verified skills count as installed; an already-present skill is skipped; a skill missing after a successful run is a logged failure.
+- Allow an in-tree symlink inside a verified skill tree (for example `CLAUDE.md -> AGENTS.md`) while still rejecting absolute targets, targets that escape the skill folder, and gitlinks. This unblocks `agent-rules`.
+- Correct the `driftlock` tree SHA to `6c4a9e981e2d8abc0f2bb557b4c84672cb5701a9` and add `check:pins` to re-fetch each locked source/ref and compare the actual tree SHA with the lock.
+- Record the observed HIGH/CRITICAL findings for `develop`, `nestjs-best-practices`, `shadcn`, `shadcn-component-discovery`, `skill-creator`, `webapp-testing`, `mcp-builder`, `agent-rules`, `driftlock`, and `agent-browser` as `flagged` in `SECURITY.md`, with the gate in `library/SAFETY.md`.
 - Pin the skillsio scanner to the public npm registry with a verified tarball integrity hash and tarball URL, and run it from a neutral working directory with a sanitized environment.
 - Reject project library manifests whose managed roots or targets resolve through a symlink outside the project, using real paths rather than lexical containment alone.
 - Validate project library manifests before use: absolute paths inside the managed roots, well-formed hashes, no duplicates, and no symlinked targets.
@@ -12,7 +22,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Treat `ENOTDIR` like `ENOENT` and reject a regular file at a managed root with a clean `managed root is not a directory` error instead of a raw crash.
 - Allow a global managed root symlinked to another directory inside the home directory, while still rejecting roots that escape home.
 - Change the shipped `opencode.json` bash default from `allow` to `ask`, and deny reads of `.git/config` and `.git/modules/*`.
-- Remove `-y` from the generated scanner command and the guide example so the scanner's security prompt is never answered programmatically.
+- Pass `-y` to the pinned scanner so `init` can install non-interactively. The scan is still never skipped, and declined-scan output is still converted to a failure.
 - Require the pinned skill path to be a Git tree, rejecting symlinks and gitlinks inside it.
 - Verify that the checkout HEAD equals the locked commit after fetching.
 - Terminate timed-out child processes by process group and only settle after the child closes.
@@ -28,9 +38,15 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Validate project-supplied JSON in `status` and `doctor` and report malformed input without crashing.
 
 ### Changed
+- Reduce the CLI to `init`, `status`, and `help`. `install-library`, `install-external`, `sync`, `doctor`, and `init-config` were removed; calling one now fails with `unknown command: <cmd>. Use "init" or "status".`
+- `init` installs every external skill automatically and treats already-installed skills as skipped, not failed. It exits 1 only when an external install reports a failure.
 - Split internal (library) skills from external skills for OpenCode: internal skills install to `~/.config/junamis/skills`, shared docs to `~/.config/junamis/`, and the install manifest to `~/.config/junamis/installed/library-<agent>.json`. External skills stay in `~/.agents/skills`, and `opencode.json` registers both skill roots. Project scope mirrors the internal side under `<project>/.config/junamis/`; other targets keep their single skills directory.
 - Remove the ignored `pnpm` field from `package.json`; `pnpm-workspace.yaml` is the single source of truth for overrides.
 - Use the platform null device from `node:os` for the scanner's config paths.
+
+### Fixed
+- `init --dir <new>` no longer crashes with `ENOENT ... realpath` before planning. The managed-root check falls back to the lexical project path and `writeGuide` creates the project directory before writing, so a dry run prints the full plan without creating it and a real run installs into the new directory.
+- `status` is informational for targets that are not installed or detected, and for an absent per-project guide. It exits 1 only for a detected target with an invalid manifest/config, a malformed project marker, or malformed `opencode.json`.
 
 ## [1.0.0] - 2026-10-31
 

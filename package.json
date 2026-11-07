@@ -24,6 +24,7 @@
     "src",
     "library",
     "skills-lock.json",
+    "SECURITY.md",
     "opencode.json",
     "README.md",
     "CHANGELOG.md",
@@ -38,8 +39,9 @@
     "check:config": "node scripts/check-opencode-config.mjs",
     "check:skills-lock": "node scripts/check-skills-lock.mjs",
     "check:pack": "node scripts/check-pack.mjs",
+    "check:security": "node scripts/check-security.mjs",
+    "check:pins": "node scripts/check-pins.mjs",
     "release:check": "node scripts/release-check.mjs",
-    "install:external": "node src/install-external.js",
     "check:yaml": "node scripts/check-yaml.js"
   },
   "packageManager": "pnpm@12.15.0",

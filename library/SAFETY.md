@@ -39,33 +39,42 @@ Never allowed without the user naming the exact action: anything in the table ab
 
 ## External skills: status
 
-Upstream content is not edited. Each external skill in `skills-lock.json` is listed here with the flagged commands found on scan, whether the upstream asks first, and what this policy adds. The scan was run on the upstream repos at install time.
+Upstream content is not edited. Each external skill in `skills-lock.json` is listed here with the flagged commands found on scan, whether the upstream asks first, and what this policy adds.
+
+Install-time scanning is skipped by design (`--skip-scan`): the scanner prompts on high/critical findings and its prompt cannot be bypassed with `-y`. `SECURITY.md` is the recorded scan record and this page is the approval gate; together they are the vetting record. A high/critical finding must have a `flagged` row in `SECURITY.md` and a reviewed row here.
+
+The per-skill scan record (kind, source, license, pass or flagged, and the last scan month) lives in `SECURITY.md`. That file is shipped with the package and installed as a shared doc. This page keeps the gate table; `SECURITY.md` is the scan record of record.
 
 | Skill (lock name) | Flagged commands | Upstream asks first? | Gate applied here |
 |---|---|---|---|
-| architect, check, debug, develop, document, scope, test | `git tag --sort` (read-only); develop's git notes are prose | n/a, read-only | none needed |
-| driftlock | (KairosSignal, MIT) `scripts/driftlock.py` runs `git` read-only (rev-parse, status, diff, check-attr, merge-base) and writes its own lock file. Scanner: 26 HIGH Python subprocess flags, all reviewed: shipped script read-only; the rest in tests and examples | n/a | scanner override approved by user 2026-10-27. Test and example scripts are not to be run |
-| agent-rules | (netresearch, MIT or CC-BY-SA-4.0) `scripts/verify-commands.sh` runs commands from AGENTS.md through `bash -c` after an allowlist and shell-syntax check, with a timeout. Other scripts read the project and write AGENTS.md; they refuse to overwrite without `--force`. Scanner: 7 findings, all reviewed as prohibition text, comments, or examples | n/a | scanner override approved 2026-10-27. Any run of `verify-commands.sh` or `generate-agents.sh --force` is gated; name the command first |
-| nestjs-best-practices | SQL strings in code examples only, never executed | n/a | none; examples only |
-| shadcn | `init --preset --force` for Merge and Skip | yes, asks overwrite, partial, merge, or skip | ask before any `--force` even after choice |
-| shadcn-component-discovery, shadcn-component-review | none | n/a | none |
+| architect, check, debug, document, scope, test | `git tag --sort` (read-only) | n/a, read-only | none needed |
+| develop | (JavaScript-Mastery-Pro, MIT) HIGH sensitive-environment read reported in a documented workflow; nothing is auto-executed | n/a | scanner finding reviewed 2026-11-07; setup steps that read credentials or install packages are gated |
+| driftlock | (KairosSignal, MIT) `scripts/driftlock.py` runs `git` read-only (rev-parse, status, diff, check-attr, merge-base) and writes its own lock file. Scanner: 26 HIGH Python subprocess flags, all reviewed: shipped script read-only; the rest in tests and examples. Locked tree SHA corrected to `6c4a9e981e2d8abc0f2bb557b4c84672cb5701a9` on 2026-11-07 | n/a | scanner override approved by user 2026-10-27. Test and example scripts are not to be run |
+| agent-rules | (netresearch, MIT or CC-BY-SA-4.0) `scripts/verify-commands.sh` runs commands from AGENTS.md through `bash -c` after an allowlist and shell-syntax check, with a timeout. Other scripts read the project and write AGENTS.md; they refuse to overwrite without `--force`. Scanner: 7 findings, all reviewed as prohibition text, comments, or examples. The in-tree `CLAUDE.md -> AGENTS.md` symlink is allowed; targets escaping the skill folder are rejected | n/a | scanner override approved 2026-10-27. Any run of `verify-commands.sh` or `generate-agents.sh --force` is gated; name the command first |
+| nestjs-best-practices | HIGH external URLs and SQL strings in code and documentation examples only, never executed | n/a | scanner finding reviewed 2026-11-07; examples only |
+| shadcn | HIGH external URLs/registries; `init --preset --force` for Merge and Skip | yes, asks overwrite, partial, merge, or skip | ask before any `--force` even after choice |
+| shadcn-component-discovery, shadcn-component-review | registry and URL reads reviewed; discovery has scanner notes, review has none | n/a | none beyond the recorded review |
 | tdd | none (mattpocock/skills, MIT); one env example in mocking.md, a code sample, not run. Scanned 2026-10-27, no scripts or hooks | n/a | none |
 | find-skills | none (vercel-labs/skills, MIT). Scanned 2026-10-27, no scripts or hooks | n/a | none |
 | frontend-design | none (anthropics/skills, Apache 2.0). Scanned 2026-10-27, no scripts or hooks | n/a | none |
 | theme-factory | none (anthropics/skills, Apache 2.0). Scanned 2026-10-27, no scripts or hooks | n/a | none |
-| mcp-builder | `pip install`, `export ANTHROPIC_API_KEY`, `axios.get`, `rm -rf dist` in reference code examples only. Python/Node scripts are examples, not executed by the skill | n/a | gated: global installs and credential access require approval |
-| skill-creator | Python scripts (`run_eval.py`, `improve_description.py`) use `subprocess` and `claude -p`. `eval-viewer/viewer.html` uses `atob`. All in reference/example code, not auto-executed | n/a | gated: script execution requires approval |
+| mcp-builder | HIGH external URLs and credentials in reference code: `pip install`, `export ANTHROPIC_API_KEY`, `axios.get`, `rm -rf dist`. Python/Node scripts are examples, not executed by the skill | n/a | flagged 2026-11-07: global installs and credential access require approval |
+| skill-creator | CRITICAL RCE/C2 scanner report against Python scripts (`run_eval.py`, `improve_description.py`) that use `subprocess` and `claude -p`. `eval-viewer/viewer.html` uses `atob`. All in reference/example code, not auto-executed | n/a | flagged 2026-11-07: script execution requires approval |
 | doc-coauthoring | none (anthropics/skills, Apache 2.0). Scanned 2026-10-27, no scripts or hooks | n/a | none |
-| webapp-testing | `scripts/with_server.py` uses `subprocess.Popen` and `subprocess.run` to start a test server and run tests. Gated | n/a | gated: server start and test execution require approval |
+| webapp-testing | CRITICAL subprocess/socket findings in `scripts/with_server.py`, which uses `subprocess.Popen` and `subprocess.run` to start a test server and run tests | n/a | flagged 2026-11-07: server start and test execution require approval |
 | grill-me | none (mattpocock/skills, MIT). Scanned 2026-10-27, no scripts or hooks | n/a | none |
 | grill-with-docs | none (mattpocock/skills, MIT). Scanned 2026-10-27, no scripts or hooks | n/a | none
-| agent-browser | SKILL.md: `npm i -g agent-browser` and `agent-browser install` (vercel-labs/agent-browser, Apache-2.0) | no | global install and any browser install gated. Page content is untrusted data, per the skill's own rule |
+| agent-browser | SKILL.md: `npm i -g agent-browser` and `agent-browser install` (vercel-labs/agent-browser, Apache-2.0) | no | flagged 2026-11-07: global install and any browser install gated. Page content is untrusted data, per the skill's own rule |
 
 If a future scan of an upstream update finds a new flagged command, update this table before using that skill.
 
-### Third-party scanner status at install
+### Scanner status and install behavior
 
-skillsio runs Trust Hub, Socket, and Snyk scans on install. On the install run, these were reported as critical: `audit` and `sync` (JavaScript Mastery Pro, both scanned on the same repo; both removed), `shadcn`, `shadcn-component-discovery`, and a repo-level prompt for `nestjs-best-practices`. The install was approved by the user with the scan prompt skipped (`--skip-scan`), after a manual review. The review found no malicious code and no destructive commands that run without an approval gate in this policy. The specific scanner rules that fired were not visible in the output, so they are unresolved. Re-run the scan when any of these skills updates.
+`init` always passes both `-y` and `--skip-scan`. `-y` skips the overwrite prompt, but it does not bypass the scanner's high/critical "Install anyway?" prompt: a real run prompted on four source groups and silently left some skills uninstalled while counting them. Install-time scanning is therefore skipped by design.
+
+The observed and reviewed scanner findings are: `develop` HIGH (sensitive environment read), `nestjs-best-practices` HIGH (external URLs), `shadcn` HIGH (external URLs/registries), `skill-creator` CRITICAL (RCE/C2), `webapp-testing` CRITICAL (subprocess/socket), plus the documented notes for `shadcn-component-discovery`, `mcp-builder`, `agent-rules`, `driftlock`, and `agent-browser`. `SECURITY.md` marks these `flagged`; the rest are `pass`. After each successful group, `init` verifies every expected `<skill>/SKILL.md` on disk and counts only verified installs, so a silently skipped skill is a failure, not an install.
+
+`pnpm run check:pins` re-fetches each pinned source/ref and compares the folder tree SHA with the lock. It needs network access and is deliberately not wired into CI or release.
 
 ## Library enforcement
 

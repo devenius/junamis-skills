@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, existsSync, writeFileSync, rmSync, mkdirSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { writeGuide, renderGuide, GUIDE_NAME, MARKER_PATH, PACKAGE_ROOT } from "../src/guide.js";
@@ -100,14 +100,12 @@ test("a failed atomic write removes its temp file", async () => {
   }
 });
 
-test("CLI init writes the guide into --dir", () => {
+test("CLI init --dry-run plans the guide without writing it", () => {
   const dir = tempProject();
   try {
-    const out = execFileSync(process.execPath, [CLI, "init", "--dir", dir], { encoding: "utf8" });
-    assert.match(out, /wrote /);
-    assert.ok(existsSync(join(dir, GUIDE_NAME)));
-    const again = execFileSync(process.execPath, [CLI, "init", "--dir", dir], { encoding: "utf8" });
-    assert.match(again, /nothing to do/);
+    const out = execFileSync(process.execPath, [CLI, "init", "--dry-run", "--dir", dir], { encoding: "utf8" });
+    assert.match(out, /guide: would write/);
+    assert.equal(existsSync(join(dir, GUIDE_NAME)), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -115,13 +113,20 @@ test("CLI init writes the guide into --dir", () => {
 
 test("CLI status reports guide and agents without writing anything", () => {
   const dir = tempProject();
+  const home = mkdtempSync(join(tmpdir(), "junamis-home-"));
   try {
-    const out = execFileSync(process.execPath, [CLI, "status", "--dir", dir], { encoding: "utf8" });
-    assert.match(out, /guide:\s+missing/);
-    assert.match(out, /OpenCode/);
-    assert.match(out, /Claude Code/);
+    const result = spawnSync(process.execPath, [CLI, "status", "--dir", dir, "--scope", "project"], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: home },
+    });
+    assert.equal(result.status, 0, "a missing guide or an undetected target must not fail");
+    assert.match(result.stdout, /guide:\s+missing/);
+    assert.match(result.stdout, /OpenCode/);
+    assert.match(result.stdout, /Claude Code/);
+    assert.match(result.stdout, /status: ok/);
     assert.equal(existsSync(join(dir, GUIDE_NAME)), false, "status must not write");
   } finally {
+    rmSync(home, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });

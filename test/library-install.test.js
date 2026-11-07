@@ -587,7 +587,7 @@ test("--force does not overwrite a file outside the managed roots through a syml
   });
 });
 
-test("install-library rejects a symlinked project root instead of reporting creates", async () => {
+test("init --dry-run rejects a symlinked project root instead of reporting creates", async () => {
   const home = mkdtempSync(join(tmpdir(), "junamis-home-"));
   const project = mkdtempSync(join(tmpdir(), "junamis-proj-"));
   const outside = mkdtempSync(join(tmpdir(), "junamis-outside-"));
@@ -595,7 +595,7 @@ test("install-library rejects a symlinked project root instead of reporting crea
     symlinkSync(outside, join(project, ".config"));
     const result = spawnSync(
       process.execPath,
-      [CLI, "install-library", "--agent", "opencode", "--scope", "project", "--dir", project],
+      [CLI, "init", "--dry-run", "--agent", "opencode", "--scope", "project", "--dir", project],
       { encoding: "utf8", env: { ...process.env, HOME: home } },
     );
 

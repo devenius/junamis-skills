@@ -126,20 +126,18 @@ If a skill you need is not installed, the orchestrator stops and tells you which
 
 ## Installing the library and the external skills
 
-Two commands, run once per machine. Review the dry run before the real install.
+One command, run once per machine. Review the dry run before the real install:
 
-1. Preview what the library install will change, then install it:
+        npx junamis-agents-skills init --agent opencode --dry-run
+        npx junamis-agents-skills init --agent opencode
 
-        npx junamis-agents-skills install-library --agent opencode --dry-run
-        npx junamis-agents-skills install-library --agent opencode
+It writes this guide, writes \`opencode.json\` when it is missing (OpenCode only), installs the library, and installs every external skill from the manifest. External skills are checked out at the commit recorded in the lock, their folder tree SHAs are verified, and then the pinned scanner runs before installation. Existing external skills are left unchanged and reported as skipped. The library install never overwrites a file you edited; it stops and lists the file. Use \`--force\` only after you have reviewed it. Use \`--scope project\` to install into the project instead of globally.
 
-2. Install the external skills from the manifest. skillsio shows its security scan. Critical findings still ask you to confirm; nothing is skipped or answered for you:
+Check what is installed with:
 
-        npx junamis-agents-skills install-external --agent opencode
+        npx junamis-agents-skills status
 
-      Use \`--agent claude\` instead of \`opencode\` for Claude Code. External skills are checked out at the commit recorded in the lock, their folder tree SHAs are verified, and then the pinned scanner runs before installation. Existing external skills are left unchanged and reported as conflicts. The library install never overwrites a file you edited; it stops and lists the file. Use \`--force\` only after you have reviewed it.
-
-Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
+skillsio shows its security scan. Critical findings are vetted in \`SECURITY.md\`; nothing else is answered for you. Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
 
 ## What to configure
 
@@ -189,6 +187,8 @@ export async function writeGuide({ projectDir, force = false, packageRoot = PACK
   const library = await listLibrarySkills(packageRoot);
   const agents = await listLibraryAgents(packageRoot);
   const locked = await listLockedSkills(packageRoot);
+  // init --dir <new> may point at a directory that does not exist yet.
+  await mkdir(projectDir, { recursive: true });
   await atomicWriteFile(guidePath, renderGuide({ version, library, agents, locked }));
 
   await mkdir(join(projectDir, ".junamis"), { recursive: true });

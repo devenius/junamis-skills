@@ -44,9 +44,10 @@ test("external installation uses only the pinned scanner-enabled installer", () 
     "dlx",
     "skillsio@1.1.3",
   ]);
-  assert.ok(!command.includes("--skip-scan"));
+  assert.ok(command.includes("--skip-scan"), "the scanner prompt must be bypassed non-interactively");
   assert.ok(!command.includes("--silent"));
-  assert.ok(!command.includes("-y"));
+  assert.equal(command.at(-1), "-y", "init must install non-interactively");
+  assert.ok(command.indexOf("-y") > command.indexOf("-g"), "-y follows -g");
 });
 
 test("the pinned scanner receives a local checkout path", () => {
@@ -293,10 +294,61 @@ test("failed external installs use the pinned local checkout and remain failures
 
   assert.ok(result.groups > 0);
   assert.equal(result.failed, result.groups);
+  assert.equal(result.installed, 0);
+  assert.equal(result.skipped, 0);
   assert.equal(scannerCalls, result.groups);
   assert.equal(cleanupCalls, result.groups);
   assert.ok(messages.some((message) => message.includes("FAILED:")));
   assert.ok(messages.every((message) => !message.includes("direct GitHub fetch")));
+});
+
+test("successful runs count only skills that exist on disk after the install", async () => {
+  const lockPath = fileURLToPath(new URL("../skills-lock.json", import.meta.url));
+
+  const result = await installExternal({
+    lockPath,
+    agent: "opencode",
+    verifyScanner: async () => {},
+    run: async () => 0,
+    prepareSource: async (group) => ({
+      path: `/tmp/pinned-${group.ref}`,
+      cleanup: async () => {},
+    }),
+    verifyTree: async () => {},
+    // Directory probes (partitionExistingSkills) miss; SKILL.md probes hit.
+    exists: (path) => path.endsWith("/SKILL.md"),
+    retries: 0,
+    log: () => {},
+  });
+
+  assert.equal(result.failed, 0);
+  assert.equal(result.skipped, 0);
+  assert.equal(result.installed, 24, "every verified skill counts as installed");
+});
+
+test("a skill missing after a successful run counts as a failure", async () => {
+  const lockPath = fileURLToPath(new URL("../skills-lock.json", import.meta.url));
+  const messages = [];
+
+  const result = await installExternal({
+    lockPath,
+    agent: "opencode",
+    verifyScanner: async () => {},
+    run: async () => 0,
+    prepareSource: async (group) => ({
+      path: `/tmp/pinned-${group.ref}`,
+      cleanup: async () => {},
+    }),
+    verifyTree: async () => {},
+    exists: (path) => path.endsWith("/SKILL.md") && !path.includes("/skill-creator/"),
+    retries: 0,
+    log: (message) => messages.push(message),
+  });
+
+  assert.equal(result.installed, 23);
+  assert.equal(result.failed, 1, "a silently skipped skill is a failure, not an install");
+  assert.equal(result.skipped, 0);
+  assert.ok(messages.some((message) => message.includes("MISSING skill-creator")));
 });
 
 test("tree mismatch blocks scanner installation and cleans the checkout", async () => {
@@ -386,7 +438,9 @@ test("existing external skills block all checkout and scanner writes", async () 
   });
 
   assert.ok(result.groups > 0);
-  assert.equal(result.failed, result.groups);
+  assert.equal(result.failed, 0, "already-installed skills are not failures");
+  assert.equal(result.installed, 0);
+  assert.ok(result.skipped > 0, "existing skills are counted as skipped");
   assert.equal(checkoutCalls, 0);
   assert.equal(scannerCalls, 0);
   assert.ok(messages.some((message) => message.includes("existing skill was not overwritten")));
@@ -415,7 +469,9 @@ test("skills that appear during checkout are rechecked before scanner installati
   });
 
   assert.ok(result.groups > 0);
-  assert.equal(result.failed, result.groups);
+  assert.equal(result.failed, 0, "skills that appear during checkout are skipped, not failed");
+  assert.equal(result.installed, 0);
+  assert.ok(result.skipped > 0);
   assert.equal(checkoutCalls, 1);
   assert.equal(scannerCalls, 0);
   assert.equal(cleanupCalls, checkoutCalls);

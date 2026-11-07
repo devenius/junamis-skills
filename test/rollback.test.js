@@ -3,34 +3,30 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
+import { planLibraryInstall, applyLibraryInstall } from "../src/library-install.js";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const CLI = join(HERE, "..", "bin", "junamis-agents-skills.js");
+const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("install-library rolls back created files on failure", () => {
+test("applyLibraryInstall rolls back created files on failure", async () => {
   const home = mkdtempSync(join(tmpdir(), "junamis-home-"));
+  const previousHome = process.env.HOME;
+  process.env.HOME = home;
   try {
     // Block the agents directory so a later write fails after skills are written.
     mkdirSync(join(home, ".config", "opencode"), { recursive: true });
     writeFileSync(join(home, ".config", "opencode", "agents"), "blocker");
 
-    let threw = false;
-    try {
-      execFileSync(process.execPath, [CLI, "install-library", "--agent", "opencode"], {
-        encoding: "utf8",
-        env: { ...process.env, HOME: home },
-        stdio: "pipe",
-      });
-    } catch {
-      threw = true;
-    }
-    assert.equal(threw, true, "install should fail");
+    const files = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: "opencode" });
+    await assert.rejects(
+      applyLibraryInstall({ agent: "opencode", files, version: "1.0.0" }),
+      /managed root is not a directory/,
+    );
     // A skill written before the failure should have been rolled back.
     assert.equal(existsSync(join(home, ".config", "junamis", "skills", "route", "SKILL.md")), false);
   } finally {
+    process.env.HOME = previousHome;
     rmSync(home, { recursive: true, force: true });
   }
 });

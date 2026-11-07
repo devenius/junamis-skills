@@ -39,6 +39,13 @@ async function main() {
     fail("yaml check failed");
   }
 
+  // Verify that every internal and external skill appears in SECURITY.md.
+  try {
+    execFileSync(process.execPath, [join(root, "scripts", "check-security.mjs")], { stdio: "inherit" });
+  } catch {
+    fail("security record check failed");
+  }
+
   // Validate the immutable external skill lock.
   try {
     execFileSync(process.execPath, [join(root, "scripts", "check-skills-lock.mjs")], { stdio: "inherit" });

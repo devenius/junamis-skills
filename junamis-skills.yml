@@ -1,0 +1,213 @@
+# junamis-agents-skills — complete project reference
+# This file is the single source of truth for the project's structure, features,
+# setup, runtime functionality, decisions, and validation. Keep it in sync with
+# bin/, src/, scripts/, library/, skills-lock.json, and SECURITY.md.
+Name: junamis-agents-skills
+CLI: junamis-agents-skills
+License: MIT
+Status: 1.0.x (Node 26+; ESM; external installs also need the system git CLI)
+
+Description: >
+  Install and manage Agent Skills (SKILL.md workflows) for AI coding agents. The
+  package ships the installer, a pinned external-skill manifest, and the owned
+  library (orchestrator plus specialist agents and their skills). It never
+  vendors third-party SKILL.md content: external skills are fetched at locked
+  commits, verified against the recorded scan, and installed non-interactively.
+
+Architecture:
+  PackageContent:
+    - "bin/junamis-agents-skills.js is the only executable entry point."
+    - "src/ holds the CLI, the external installer, the pinned-source checkout, the library installer, and the guide writer."
+    - "src/targets/ is the only place that knows agent-specific paths and agent-definition formats."
+    - "library/ holds owned skills, agents, and shared docs; it is published with the package."
+    - "skills-lock.json is the single source of truth for external skills."
+    - "SECURITY.md is the scan record for every internal and external skill."
+  InstallLayout:
+    - "OpenCode internal skills: ~/.config/junamis/skills/<name>/SKILL.md."
+    - "OpenCode shared docs: ~/.config/junamis/{HANDOFF,SAFETY,EXTERNAL,SECURITY}.md."
+    - "OpenCode install manifest: ~/.config/junamis/installed/library-opencode.json."
+    - "OpenCode agent definitions: ~/.config/opencode/agents/<name>.md."
+    - "OpenCode external skills: ~/.agents/skills/<name>/SKILL.md."
+    - "Claude Code uses one skills directory (~/.claude/skills) for internal and external skills."
+    - "Project scope mirrors the internal side under <project>/.config/junamis/; external skills stay at <project>/.agents/skills and project agents at <project>/.opencode/agents (OpenCode)."
+  SupplyChain:
+    - "skills-lock.json pins a 40-character upstream commit and a 40-character skill tree SHA for every external skill."
+    - "The checkout is a Git tree at the locked commit (HEAD === ref). In-tree symlinks are allowed; absolute and escaping symlinks and gitlinks are rejected."
+    - "The scanner is skillsio@1.1.3 from the public npm registry, with a pinned tarball URL and SHA-512 integrity."
+    - "Auto-install passes --skip-scan: -y cannot bypass the high/critical scan prompt, so the recorded scan is the gate."
+    - "After each successful group every expected <name>/SKILL.md is verified on disk; only verified skills count as installed."
+    - "No branch heads, raw-file downloads, or unscanned installers are used."
+  Targets:
+    - "claude, opencode, cursor, windsurf, cline. External auto-install supports OpenCode and Claude Code only."
+
+Features:
+
+  Init:
+    Description: >
+      One non-interactive command performs the whole install in order: guide,
+      OpenCode config, library, then every pinned external skill.
+    Order:
+      - "writeGuide writes junamis-agents-skills-guide.md and .junamis/install.json once."
+      - "writeOpencodeConfig writes opencode.json only when missing, or with --force; no prompt."
+      - "planLibraryInstall/applyLibraryInstall copy skills, agents, and shared docs."
+      - "installExternal installs every lock entry through the pinned scanner."
+    DryRun: "init --dry-run reports all four steps and writes nothing, with no network."
+
+  Status:
+    Description: >
+      Reports guide and marker state, per-target internal/external skill counts,
+      library manifest validity, opencode.json validity, external coverage
+      (every lock skill present under ~/.agents/skills), and the SECURITY.md
+      scan record and last external scan month.
+    Exit: "1 when a required piece is missing for the selected scope; 0 otherwise."
+
+  Library:
+    OwnedSkills: 18
+    OwnedAgents: 9
+    SharedDocs: [HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md]
+    ConflictRule: "Never overwrite a file the user edited unless --force."
+    Manifest: "Records every written file and its SHA-256; stale unmodified files are removed."
+
+  External:
+    Count: 24
+    ExistingSkills: "Skipped, not overwritten and not counted as failures."
+    Return: "{ groups, installed, skipped, failed }"
+    Verification: "After a successful group, installed counts only skills whose <name>/SKILL.md exists on disk; a missing skill is a logged failure."
+    Scan: "Always runs with --skip-scan because -y cannot bypass the high/critical prompt; SECURITY.md plus library/SAFETY.md is the vetting record."
+    FailureRule: "init exits 1 only when failed > 0; a declined or missing install is a failure and is not retried."
+
+  Security:
+    Record: "SECURITY.md lists kind, source, license, scan status, and last review month for all 42 skills."
+    Scanner: "skillsio 1.1.3 (Trust Hub, Socket, Snyk)"
+    Gate: "Install-time scanning is skipped by design (--skip-scan); SECURITY.md and library/SAFETY.md define the gate, and flagged findings are reviewed there."
+    PinCheck: "pnpm run check:pins fetches each locked source/ref and compares the actual tree SHA; network check, not in CI/release."
+
+Setup:
+  Install:
+    - "pnpm install"
+    - "node bin/junamis-agents-skills.js help"
+  Prerequisites:
+    - "Node.js 26 or newer"
+    - "pnpm 12.15.0 for development"
+    - "git CLI for external checkouts"
+    - "skillsio is never installed globally; it runs through pnpm dlx at the pinned version"
+  Run:
+    - "npx github:devenius/junamis-agents-skills init"
+    - "npx @devenius/junamis-agents-skills init"
+  Validate:
+    - "pnpm test"
+    - "pnpm lint"
+    - "pnpm run check:config"
+    - "pnpm run check:skills-lock"
+    - "pnpm run check:security"
+    - "pnpm run check:pins"
+    - "pnpm run check:pack"
+    - "pnpm run check:yaml"
+  Scripts:
+    - "test: node --test test/*.test.js"
+    - "check:config: validates the shipped opencode.json invariants."
+    - "check:skills-lock: validates every lock pin and license."
+    - "check:security: requires every internal and external skill in SECURITY.md plus a Last external scan line."
+    - "check:pins: fetches every locked source/ref and compares the actual folder tree SHA with skills-lock.json (network; not in CI)."
+    - "check:pack: asserts the published file set and no nested upstream clones."
+    - "release:check: runs the full gate, including tests and SECURITY.md coverage."
+
+Functionality:
+
+  InitFlow:
+    - "Resolve scope: global (default) or project; reject any agent other than opencode or claude."
+    - "Guide: write once, keep a user-authored file, rewrite only with --force."
+    - "Config: for OpenCode only; identical file is unchanged, a different file is left unchanged with a --force hint, --force replaces it."
+    - "Library: plan, then apply; conflicts are listed and set exit 1; --dry-run never writes."
+    - "External: install every source group through the scanner; existing skill directories are skipped."
+    - "Summary: prints guide, config, library, external counts, and the exit state."
+
+  StatusChecks:
+    - "Guide and marker are required when the project scope is selected."
+    - "At least one target must have a valid library manifest per selected scope."
+    - "An existing opencode.json must have all permission keys; a malformed file fails."
+    - "External coverage is required when the global scope is selected."
+    - "SECURITY.md and its Last external scan line are always required."
+
+  ExternalInstall:
+    - "Group lock entries by source and commit; one scanner call per group."
+    - "Partition existing skills before checkout and again after checkout; both are skipped."
+    - "Verify every skill tree SHA (in-tree symlinks allowed, escapes rejected), then verify the scanner integrity once per run."
+    - "Run with --skip-scan so the high/critical prompt cannot silently skip skills; install-time scanning is skipped by design."
+    - "After a successful group, count only skills whose <name>/SKILL.md exists; log and fail a missing one."
+    - "Run with a sanitized environment, neutral cwd, inherited stdin, no shell, and a timeout that kills the process group."
+    - "Convert scanner cancellation output to exit 125 and never retry it."
+
+  LibraryInstall:
+    - "Plan every owned skill file, rendered agent definition, and shared doc."
+    - "Reject symlinked managed roots and destinations before any write or delete."
+    - "Write atomically, back up changes, and roll back on failure."
+
+CLIOptions:
+  - "init [--agent opencode|claude] [--scope global|project] [--dir <path>] [--force] [--dry-run] : install guide, config, library, and every pinned external skill"
+  - "status [--dir <path>] [--scope global|project|all] : report install and security state; exits 1 when a required piece is missing"
+  - "help, --help, -h : usage"
+  - "--force : overwrite the guide, opencode.json, or edited library files"
+  - "--dry-run : print the plan; no writes and no network"
+  - "--dir : project directory (default: current directory)"
+  - "--scope : global or project for init; global, project, or all for status"
+  - "removed commands : install-library, install-external, sync, doctor, init-config; each fails with a pointer to init/status"
+
+InstalledPaths:
+  "~/.config/junamis/skills": "internal (library) skills, OpenCode"
+  "~/.config/junamis/*.md": "shared docs: HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md"
+  "~/.config/junamis/installed/library-<agent>.json": "library install manifest"
+  "~/.config/opencode/agents": "OpenCode agent definitions"
+  "~/.agents/skills": "external skills, OpenCode"
+  "~/.claude/skills": "internal and external skills, Claude Code"
+  "~/.claude/agents": "Claude Code agent definitions"
+  "<project>/.config/junamis/...": "project-scope internal skills, docs, and manifest"
+  "<project>/.agents/skills": "project-scope external skills, OpenCode"
+  "<project>/.opencode/agents": "project-scope OpenCode agent definitions"
+  "<project>/.junamis/install.json": "guide marker"
+  "<project>/junamis-agents-skills-guide.md": "setup guide (project file, not a skill)"
+
+Utilities:
+  - "bin/junamis-agents-skills.js : executable entry point"
+  - "src/cli.js : parseArgs, runInit, writeOpencodeConfig, status, run"
+  - "src/external.js : lock grouping, scanner command, integrity check, sandboxed runner, installExternal"
+  - "src/pinned-source.js : pinned Git checkout and skill tree SHA verification"
+  - "src/library-install.js : plan/apply, manifest validation, containment, rollback"
+  - "src/guide.js : guide rendering and atomic writer"
+  - "src/targets/ : one adapter per agent"
+  - "scripts/check-*.mjs : config, lock, security, pack, and YAML checks"
+  - "scripts/release-check.mjs : release gate"
+
+Decisions:
+  - "0001: External skills are auto-installed by init and are never vendored."
+  - "0002: The scanner is pinned and integrity-checked; -y is required for non-interactive init."
+  - "0003: A declined security scan is a failure, not a prompt to skip."
+  - "0004: Existing external skills are skipped, not failures."
+  - "0005: SECURITY.md is the scan record; SAFETY.md keeps the approval gate."
+  - "0006: Only init, status, and help remain as commands."
+  - "0007: OpenCode splits internal skills, shared docs, and external skills; other targets share one skills directory."
+  - "0008: Project scope mirrors the internal side and keeps external skills at the target's project paths."
+  - "0009: Library files edited by the user are conflicts unless --force."
+  - "0010: Install-time scanning is skipped with --skip-scan; SECURITY.md plus SAFETY.md is the vetting record, and every install is verified on disk."
+  - "0011: An in-tree symlink inside a verified skill folder is allowed; absolute and escaping symlinks are rejected."
+  - "0012: check:pins is a manual network check, not part of CI or release."
+
+Limitations:
+  - "No third-party skill content is shipped; init needs network access to fetch and scan external skills."
+  - "Scanned external auto-install supports only OpenCode and Claude Code; other targets receive the library only."
+  - "Scanner trust is pinned to skillsio@1.1.3 and its recorded scan results; new upstream content needs a fresh scan."
+  - "Auto-install skips scanning (--skip-scan) because -y cannot bypass the high/critical prompt; on-disk verification is the runtime backstop."
+  - "Global installs are shared: a second agent with the same skills directory can see files from another target."
+  - "The legacy .agents/, .opencode/ agent layer and nested upstream clones (skills/, nestjs-agent-skills/) are not part of the package."
+
+Validation:
+  - "pnpm test (146 tests)"
+  - "pnpm lint"
+  - "pnpm audit"
+  - "pnpm run check:config"
+  - "pnpm run check:skills-lock"
+  - "pnpm run check:security"
+  - "pnpm run check:pins"
+  - "pnpm run check:pack"
+  - "pnpm run check:yaml"
+  - "pnpm run release:check"

@@ -5,11 +5,17 @@ All notable changes to this project are documented here. Format follows [Keep a 
 ## [Unreleased]
 
 ### Added
+- Renamed the package to `@devenius/junamis-skills` and the binary to `junamis-skills` (`bin/junamis-skills.js`). The guide is now `junamis-skills-guide.md` and the project marker `.junamis/junamis-skills.json`.
+- Adopted the nested config layout: config root `~/.config/junamis/skills/`, internal skills in `.../skills/skills/<name>/SKILL.md`, canonical agents in `.../skills/agents/<name>.md`, shared docs in `.../skills/*.md`, and the manifest in `.../skills/installed/library-<agent>.json`. Project scope mirrors this under `<project>/.config/junamis/skills/`.
+- Agent definitions are written once to the canonical agents directory and symlinked into each target's agents directory. An identical regular file is adopted, a differing file or wrong symlink is a conflict unless `--force`, and a failed symlink falls back to a copy with a warning.
+- `status` reports each canonical agent and whether its target link is correct, and reports legacy flat files as informational.
+- `src/paths.js` is the single source of truth for the config root and install paths.
 - `init` now installs everything in one non-interactive run: the guide, `opencode.json` for OpenCode (when missing or with `--force`), the library, and every pinned external skill. Injected dependencies make `init` testable without network access.
 - `SECURITY.md` as the recorded scan record for all 18 internal and 24 external skills: kind, source, license, scan status, last review month, and the pinned scanner. It is published, installed as a shared doc, and enforced by `check:security` in CI and `release:check`.
 - `status` replaces `doctor` and reports the guide, marker, per-target internal/external skill counts, library manifest validity, config validity, external coverage, and the `SECURITY.md` scan record. It exits 1 only when a detected target's manifest or config is invalid, or project JSON is malformed.
 
 ### Security
+- Keep link destinations inside a managed root by checking their parent directory, so a wrong symlink target is reported as a conflict instead of being followed. Canonical link targets must also resolve inside a managed root. Existing realpath, symlink, and ENOTDIR protections are unchanged.
 - Always pass `--skip-scan` to the pinned scanner. `-y` does not bypass its high/critical "Install anyway?" prompt; a real run prompted on four source groups and silently left skills uninstalled while counting them. Install-time scanning is skipped by design, and `SECURITY.md` plus `library/SAFETY.md` is the vetting record.
 - After each successful scanner group, verify that every expected `<name>/SKILL.md` exists under the target's global skills directory. Only verified skills count as installed; an already-present skill is skipped; a skill missing after a successful run is a logged failure.
 - Allow an in-tree symlink inside a verified skill tree (for example `CLAUDE.md -> AGENTS.md`) while still rejecting absolute targets, targets that escape the skill folder, and gitlinks. This unblocks `agent-rules`.
@@ -38,9 +44,11 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Validate project-supplied JSON in `status` and `doctor` and report malformed input without crashing.
 
 ### Changed
+- The shipped `opencode.json` registers `{env:HOME}/.config/junamis/skills/skills` and `{env:HOME}/.agents/skills`, with instructions at `{env:HOME}/.config/junamis/skills/*.md`. Project scope rewrites them to `./.config/junamis/skills/...`.
+- No automatic migration: `init` writes only the new layout. `status` reports old flat files under `~/.config/junamis/` and flat skill folders under `~/.config/junamis/skills/` as legacy and never deletes them.
 - Reduce the CLI to `init`, `status`, and `help`. `install-library`, `install-external`, `sync`, `doctor`, and `init-config` were removed; calling one now fails with `unknown command: <cmd>. Use "init" or "status".`
 - `init` installs every external skill automatically and treats already-installed skills as skipped, not failed. It exits 1 only when an external install reports a failure.
-- Split internal (library) skills from external skills for OpenCode: internal skills install to `~/.config/junamis/skills`, shared docs to `~/.config/junamis/`, and the install manifest to `~/.config/junamis/installed/library-<agent>.json`. External skills stay in `~/.agents/skills`, and `opencode.json` registers both skill roots. Project scope mirrors the internal side under `<project>/.config/junamis/`; other targets keep their single skills directory.
+- Split internal (library) skills from external skills for OpenCode: internal skills install to `~/.config/junamis/skills/skills`, canonical agents to `~/.config/junamis/skills/agents`, shared docs to `~/.config/junamis/skills/`, and the install manifest to `~/.config/junamis/skills/installed/library-<agent>.json`. External skills stay in `~/.agents/skills`, and `opencode.json` registers both skill roots. Other targets keep their single skills directory but share the canonical agents directory.
 - Remove the ignored `pnpm` field from `package.json`; `pnpm-workspace.yaml` is the single source of truth for overrides.
 - Use the platform null device from `node:os` for the scanner's config paths.
 
@@ -51,7 +59,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 ## [1.0.0] - 2026-10-31
 
 ### Added
-- Initial release: `junamis-agents-skills` package with manifest, guide writer, and CLI.
+- Initial release: `junamis-skills` package with manifest, guide writer, and CLI.
 - `pnpm init` and publishable `package.json` (MIT, ESM, Node 26+).
 - 24 external skills tracked in `skills-lock.json`.
 - CI workflow (`.github/workflows/ci.yml`) running the test suite on Node 26 and a pack dry run.
@@ -65,7 +73,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Node 26-native GitHub Actions.
 - Custom OpenCode configuration (`opencode.json`) that sets `orchestrator` as the default agent, auto-registers `~/.agents/skills` and library instructions, and defaults unreferenced tools to `ask`.
 - `test/release.test.js` validating that `CHANGELOG.md` has an entry and sufficient detail for releases.
-- Scoped package name `@devenius/junamis-agents-skills` for GitHub Packages.
+- Scoped package name `@devenius/junamis-skills` for GitHub Packages.
 - `publishConfig` pointing to the GitHub Packages registry.
 - `.github/workflows/publish.yml` to publish on `v*` tag pushes.
 - `.github/workflows/release.yml` generating GitHub Releases from `CHANGELOG.md`.
@@ -82,5 +90,5 @@ All notable changes to this project are documented here. Format follows [Keep a 
 ### Fixed
 - External installer retry/timeout handling.
 - Lint and content-quality test coverage.
-- Renamed package to `junamis-agents-skills`.
+- Renamed package to `junamis-skills`.
 - Suppressed noisy `git describe` stderr in `test/release.test.js`.

@@ -1,11 +1,11 @@
-# junamis-agents-skills
+# junamis-skills
 
 An orchestrated set of Agent Skills and agents for AI coding tools. The package ships:
 
 - **The library** (`library/`): the orchestrator, eight specialist agents, and the skills they use.
 - **The manifest** (`skills-lock.json`): external skill sources, immutable commits, per-skill tree SHAs, and licenses.
 - **A scan record** (`SECURITY.md`): per-skill kind, source, license, scan status, and last scan month.
-- **An installer** (`junamis-agents-skills`): one `init` command installs the library and every external skill, and writes a setup guide into your project.
+- **An installer** (`junamis-skills`): one `init` command installs the library and every external skill, and writes a setup guide into your project.
 
 ## Quick start
 
@@ -15,17 +15,17 @@ Run these in the project that will use the skills. Use `--dry-run` first to see 
 
 ```bash
 # 1. Preview the whole install, then apply it.
-npx github:devenius/junamis-agents-skills init --dry-run
-npx github:devenius/junamis-agents-skills init
+npx github:devenius/junamis-skills init --dry-run
+npx github:devenius/junamis-skills init
 
 # For Claude Code instead of OpenCode:
-npx github:devenius/junamis-agents-skills init --agent claude
+npx github:devenius/junamis-skills init --agent claude
 
 # Install into the project instead of globally:
-npx github:devenius/junamis-agents-skills init --scope project
+npx github:devenius/junamis-skills init --scope project
 
 # 2. Check state.
-npx github:devenius/junamis-agents-skills status
+npx github:devenius/junamis-skills status
 ```
 
 `init` writes the setup guide, writes `opencode.json` when it is missing (OpenCode only), installs the library, and installs every pinned external skill. Use `--force` to overwrite a guide, config, or library file you edited.
@@ -35,9 +35,9 @@ npx github:devenius/junamis-agents-skills status
 Configure `~/.npmrc` once (see [Installing from GitHub Packages](#installing-from-github-packages)), then use the normal npx form:
 
 ```bash
-npx @devenius/junamis-agents-skills init --dry-run
-npx @devenius/junamis-agents-skills init
-npx @devenius/junamis-agents-skills status
+npx @devenius/junamis-skills init --dry-run
+npx @devenius/junamis-skills init
+npx @devenius/junamis-skills status
 ```
 
 Then open the project in your agent and send your first request to `orchestrator`.
@@ -48,19 +48,21 @@ The CLI has two working commands and `help`.
 
 | Command | What it does |
 |---|---|
-| `init [--agent opencode\|claude] [--scope global\|project] [--dir <path>] [--force] [--dry-run]` | In order: writes `junamis-agents-skills-guide.md` and its marker; writes/refreshes `opencode.json` for OpenCode (only when missing, or with `--force`); installs the library; installs every pinned external skill non-interactively. Exits 1 only when an external install fails. |
-| `status [--dir <path>] [--scope global\|project\|all]` | Reports the guide, marker, per-target internal/external skill counts, library manifest validity, `opencode.json` validity, external skill coverage, and the `SECURITY.md` scan record. Exits 1 only when a detected target's manifest or config is invalid, or project JSON is malformed. Default scope: `global` (matching `init`). |
+| `init [--agent opencode\|claude] [--scope global\|project] [--dir <path>] [--force] [--dry-run]` | In order: writes `junamis-skills-guide.md` and its marker; writes/refreshes `opencode.json` for OpenCode (only when missing, or with `--force`); installs the library; installs every pinned external skill non-interactively. Exits 1 only when an external install fails. |
+| `status [--dir <path>] [--scope global\|project\|all]` | Reports the guide, marker, per-target internal/external skill counts, canonical agents and link state, legacy leftovers (informational), library manifest validity, `opencode.json` validity, external skill coverage, and the `SECURITY.md` scan record. Exits 1 only when a detected target's manifest or config is invalid, or project JSON is malformed. Default scope: `global` (matching `init`). |
 | `help` | Prints usage. |
 
 ## Supported agents
 
-| Agent (`--agent`) | External skills directory | Internal (library) skills directory | Agent definitions | External install support |
+| Agent (`--agent`) | External skills directory | Internal (library) skills directory | Agent definitions (canonical → link) | External install support |
 |---|---|---|---|---|
-| `opencode` | `~/.agents/skills` | `~/.config/junamis/skills` | `~/.config/opencode/agents` | `skillsio` |
-| `claude` | `~/.claude/skills` | `~/.claude/skills` | `~/.claude/agents` | `skillsio` |
-| `cursor` | `~/.cursor/skills` | `~/.cursor/skills` | `~/.cursor/agents` | Library only |
-| `windsurf` | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/skills` | `~/.config/devin/agents` | Library only |
-| `cline` | `~/.cline/skills` | `~/.cline/skills` | `~/.cline/agents` | Library only |
+| `opencode` | `~/.agents/skills` | `~/.config/junamis/skills/skills` | `~/.config/junamis/skills/agents` → `~/.config/opencode/agents` | `skillsio` |
+| `claude` | `~/.claude/skills` | `~/.claude/skills` | `~/.config/junamis/skills/agents` → `~/.claude/agents` | `skillsio` |
+| `cursor` | `~/.cursor/skills` | `~/.cursor/skills` | `~/.config/junamis/skills/agents` → `~/.cursor/agents` | Library only |
+| `windsurf` | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/skills` | `~/.config/junamis/skills/agents` → `~/.config/devin/agents` | Library only |
+| `cline` | `~/.cline/skills` | `~/.cline/skills` | `~/.config/junamis/skills/agents` → `~/.cline/agents` | Library only |
+
+Agent definitions are written once to the canonical directory and symlinked into the target's agents directory. If a link cannot be created (for example Windows without developer mode), the file is copied instead and a warning is printed.
 
 For OpenCode, the shipped `opencode.json` registers both skill roots, so internal and external skills resolve side by side. Other targets keep a single skills directory shared by both kinds.
 
@@ -73,13 +75,16 @@ Other agents are added on request, one target file each under `src/targets/`.
 
 - External skills: `<external skills directory>/<name>/SKILL.md`
 - Internal (library) skills: `<internal skills directory>/<name>/SKILL.md`
-- Agents: `<agent directory>/<name>.md`
-- Shared rules the agents read: `~/.config/junamis/` (`HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`, `SECURITY.md`)
-- Install record: `~/.config/junamis/installed/library-<agent>.json`
-- Project scope: `<project>/.config/junamis/` mirrors the internal skills, shared docs, and install record. External skills stay at the target's project skills directory, and project agents stay at its project agents directory.
-- Session state and the guide marker stay in `.junamis/` (`handoff.md`, `install.json`).
+- Canonical agents: `~/.config/junamis/skills/agents/<name>.md`
+- Agent links: `<target agents directory>/<name>.md` → the canonical file
+- Shared rules the agents read: `~/.config/junamis/skills/` (`HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`, `SECURITY.md`)
+- Install record: `~/.config/junamis/skills/installed/library-<agent>.json`
+- Project scope: `<project>/.config/junamis/skills/{skills,agents,*.md,installed}` mirrors the internal side. External skills stay at the target's project skills directory, and project agent links stay at its project agents directory.
+- Session state and the guide marker stay in `.junamis/` (`handoff.md`, `junamis-skills.json`).
 
-For OpenCode the split is: internal skills in `~/.config/junamis/skills`, shared docs in `~/.config/junamis/*.md`, the install manifest in `~/.config/junamis/installed/library-opencode.json`, agent definitions in `~/.config/opencode/agents`, and external skills in `~/.agents/skills`. Other targets keep one skills directory for both kinds.
+For OpenCode the split is: internal skills in `~/.config/junamis/skills/skills`, canonical agents in `~/.config/junamis/skills/agents`, shared docs in `~/.config/junamis/skills/*.md`, the install manifest in `~/.config/junamis/skills/installed/library-opencode.json`, links in `~/.config/opencode/agents`, and external skills in `~/.agents/skills`. Other targets keep one skills directory for both kinds.
+
+`init` writes only the nested layout. There is no automatic migration: older flat files under `~/.config/junamis/` and flat skill folders directly under `~/.config/junamis/skills/` are reported by `status` as legacy leftovers and are never deleted. Move or remove them yourself once the new install is verified.
 
 ## External skills (manifest)
 
@@ -120,7 +125,7 @@ Each lock entry pins an upstream commit and skill tree SHA. Maintainers should f
 
 ## Installing from GitHub Packages
 
-This package is published to GitHub Packages as `@devenius/junamis-agents-skills`.
+This package is published to GitHub Packages as `@devenius/junamis-skills`.
 
 1. Create or edit `~/.npmrc` (or project `.npmrc`):
 
@@ -132,9 +137,9 @@ This package is published to GitHub Packages as `@devenius/junamis-agents-skills
 2. Install or run:
 
 ```bash
-npm install -g @devenius/junamis-agents-skills
+npm install -g @devenius/junamis-skills
 # or run without installing:
-npx github:devenius/junamis-agents-skills init
+npx github:devenius/junamis-skills init
 ```
 
 A GitHub personal access token with `read:packages` (and `write:packages` for publishing) is required.
@@ -158,7 +163,7 @@ pnpm test
 ## Reporting issues
 
 If an external skill is missing or an install fails, open an issue at
-https://github.com/devenius/junamis-agents-skills/issues with these details:
+https://github.com/devenius/junamis-skills/issues with these details:
 version, Node version, agent, installer, failing skill, and the command output.
 
 ## License

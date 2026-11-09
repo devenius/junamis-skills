@@ -24,7 +24,7 @@ test("applyLibraryInstall rolls back created files on failure", async () => {
       /managed root is not a directory/,
     );
     // A skill written before the failure should have been rolled back.
-    assert.equal(existsSync(join(home, ".config", "junamis", "skills", "route", "SKILL.md")), false);
+    assert.equal(existsSync(join(home, ".config", "junamis", "skills", "skills", "route", "SKILL.md")), false);
   } finally {
     process.env.HOME = previousHome;
     rmSync(home, { recursive: true, force: true });

@@ -1,9 +1,16 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, realpathSync, statSync } from "node:fs";
-import { mkdir, readFile, readdir, rm, writeFile, rename } from "node:fs/promises";
+import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync, statSync } from "node:fs";
+import { mkdir, readFile, readdir, rm, writeFile, rename, symlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { getTarget } from "./targets/index.js";
+import {
+  configRoot,
+  manifestPath,
+  sharedDocsDir,
+} from "./paths.js";
+
+export { manifestPath, sharedDocsDir };
 
 // Installs the library (skills, agents, shared docs) so an agent can load it.
 // Copies by default. Records every written file in a manifest so later runs can
@@ -13,15 +20,6 @@ import { getTarget } from "./targets/index.js";
 // package root because it is also the repository's public scan record.
 export const SHARED_DOCS = ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md", "SECURITY.md"];
 export const ORCHESTRATOR = "orchestrator";
-
-export function sharedDocsDir(scope = "global", projectDir = process.cwd()) {
-  if (scope === "project") return join(projectDir, ".config", "junamis");
-  return join(homedir(), ".config", "junamis");
-}
-
-export function manifestPath(agentId, scope = "global", projectDir = process.cwd()) {
-  return join(sharedDocsDir(scope, projectDir), "installed", `library-${agentId}.json`);
-}
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 
@@ -83,9 +81,15 @@ export async function planLibraryInstall({ packageRoot, agent, scope = "global",
   if (!target) throw new Error(`unknown agent "${agent}"`);
   const libDir = join(packageRoot, "library");
   const files = [];
+  const links = [];
 
   const skillsDir = scope === "project" ? target.projectLibrarySkillsDir(projectDir) : target.librarySkillsDir();
+  // Agent definitions are written once to the canonical directory and linked
+  // into the target's agents directory.
   const agentsDir = scope === "project" ? target.projectAgentsDir(projectDir) : target.libraryAgentsDir();
+  const canonicalDir = scope === "project"
+    ? target.projectLibraryAgentsCanonicalDir(projectDir)
+    : target.libraryAgentsCanonicalDir();
 
   const skillsRoot = join(libDir, "skills");
   for (const name of (await readdir(skillsRoot, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort()) {
@@ -99,10 +103,12 @@ export async function planLibraryInstall({ packageRoot, agent, scope = "global",
   for (const file of (await readdir(agentsRoot)).filter((f) => f.endsWith(".md")).sort()) {
     const name = file.replace(/\.md$/, "");
     const text = await readFile(join(agentsRoot, file), "utf8");
+    const canonicalPath = join(canonicalDir, `${name}.md`);
     files.push({
-      path: join(agentsDir, `${name}.md`),
+      path: canonicalPath,
       content: Buffer.from(renderAgent(text, { name, format: target.libraryAgentFormat }), "utf8"),
     });
+    links.push({ path: join(agentsDir, `${name}.md`), target: canonicalPath });
   }
 
   for (const doc of SHARED_DOCS) {
@@ -110,7 +116,12 @@ export async function planLibraryInstall({ packageRoot, agent, scope = "global",
     files.push({ path: join(sharedDocsDir(scope, projectDir), doc), content: await readFile(source) });
   }
 
-  return files.map((f) => ({ ...f, sha256: sha256(f.content) }));
+  const plan = files.map((f) => ({ ...f, sha256: sha256(f.content) }));
+  // Kept non-enumerable so the array stays the files list for existing callers.
+  // `plan.files` is also exposed so callers may treat the plan as { files, links }.
+  Object.defineProperty(plan, "files", { value: plan, enumerable: false });
+  Object.defineProperty(plan, "links", { value: links, enumerable: false });
+  return plan;
 }
 
 const HEX64 = /^[a-f0-9]{64}$/;
@@ -118,12 +129,24 @@ const HEX64 = /^[a-f0-9]{64}$/;
 function managedRoots(agentId, scope, projectDir) {
   const target = getTarget(agentId);
   if (!target) throw new Error(`unknown agent "${agentId}"`);
-  // The internal skills directory may be nested inside the shared docs
-  // directory (OpenCode). Both stay roots so each is checked for symlinks; a
-  // destination may therefore belong to more than one valid root.
-  return scope === "project"
-    ? [target.projectLibrarySkillsDir(projectDir), target.projectAgentsDir(projectDir), sharedDocsDir("project", projectDir)]
-    : [target.librarySkillsDir(), target.libraryAgentsDir(), sharedDocsDir("global")];
+  // The config root contains the internal skills, canonical agents, shared
+  // docs, and the manifest. The target's skills and agents directories are
+  // link destinations and may live outside the config root. Deduplicate so a
+  // nested root (OpenCode's skills dir) never makes ownership ambiguous.
+  const roots = scope === "project"
+    ? [
+      configRoot("project", projectDir),
+      target.projectLibrarySkillsDir(projectDir),
+      target.projectLibraryAgentsCanonicalDir(projectDir),
+      target.projectAgentsDir(projectDir),
+    ]
+    : [
+      configRoot("global"),
+      target.librarySkillsDir(),
+      target.libraryAgentsCanonicalDir(),
+      target.libraryAgentsDir(),
+    ];
+  return [...new Set(roots.map((root) => resolve(root)))];
 }
 
 function isInside(root, target) {
@@ -240,7 +263,7 @@ export function assertManagedRoots(agentId, scope = "global", projectDir = proce
 
 // Planned destinations are checked before anything is written, even when there
 // is no manifest or the manifest is empty. Each destination must resolve to a
-// path strictly inside exactly one actual managed root.
+// path strictly inside at least one managed root; nested roots are allowed.
 export function assertPlannedDestinations(files, roots, actualRoots, scope) {
   for (const f of files) {
     if (typeof f.path !== "string" || !isAbsolute(f.path)) {
@@ -255,6 +278,43 @@ export function assertPlannedDestinations(files, roots, actualRoots, scope) {
     const actualOwners = actualRoots.filter((root) => isInside(root, actualTarget));
     if (actualOwners.length === 0) {
       throw new Error(`invalid library destination ${f.path}: path escapes the managed ${scope} roots through a symlink`);
+    }
+  }
+}
+
+// A link destination is expected to be a symlink, so only its parent directory
+// is resolved. A wrong target is a conflict to report, not an escape.
+function actualParentPath(path) {
+  return join(actualPath(dirname(path)), basename(path));
+}
+
+// Link destinations must sit inside a managed root (the target's agents
+// directory), and their canonical target must sit inside a managed root too.
+export function assertLinkDestinations(links, roots, actualRoots, scope) {
+  for (const link of links) {
+    if (typeof link.path !== "string" || !isAbsolute(link.path)) {
+      throw new Error(`invalid library link ${String(link.path)}: path must be an absolute path`);
+    }
+    if (typeof link.target !== "string" || !isAbsolute(link.target)) {
+      throw new Error(`invalid library link target ${String(link.target)}: path must be an absolute path`);
+    }
+    const linkPath = resolve(link.path);
+    if (linkPath === resolve(link.target)) {
+      throw new Error(`invalid library link ${link.path}: link and target are the same path`);
+    }
+    if (!roots.some((root) => isInside(root, linkPath))) {
+      throw new Error(`invalid library link ${link.path}: path is outside the managed ${scope} roots`);
+    }
+    const actualLink = actualParentPath(link.path);
+    if (!actualRoots.some((root) => isInside(root, actualLink))) {
+      throw new Error(`invalid library link ${link.path}: path escapes the managed ${scope} roots through a symlink`);
+    }
+    if (!roots.some((root) => isInside(root, resolve(link.target)))) {
+      throw new Error(`invalid library link target ${link.target}: path is outside the managed ${scope} roots`);
+    }
+    const actualTarget = actualPath(link.target);
+    if (!actualRoots.some((root) => isInside(root, actualTarget))) {
+      throw new Error(`invalid library link target ${link.target}: path escapes the managed ${scope} roots through a symlink`);
     }
   }
 }
@@ -336,12 +396,86 @@ async function readManifest(agentId, scope = "global", projectDir = process.cwd(
   return validateLibraryManifest(agentId, parsed, scope, projectDir);
 }
 
+function isSameLinkTarget(linkPath, current, target) {
+  return resolve(dirname(linkPath), current) === resolve(target);
+}
+
+// Decides per link: create, link unchanged, adopt (identical regular file),
+// replace/relink with --force, or conflict. Canonical content is used so a
+// first install can compare an existing regular file without reading it.
+function planLinks(links, canonicalContent, force) {
+  const actions = [];
+  const conflicts = [];
+  for (const link of links) {
+    const stat = lstatOrNull(link.path);
+    if (!stat) {
+      actions.push({ path: link.path, action: "create link", target: link.target });
+      continue;
+    }
+    if (stat.isSymbolicLink()) {
+      const current = readlinkSync(link.path);
+      if (isSameLinkTarget(link.path, current, link.target)) {
+        actions.push({ path: link.path, action: "link unchanged", target: link.target });
+      } else if (force) {
+        actions.push({ path: link.path, action: "relink (--force)", target: link.target });
+      } else {
+        conflicts.push(link.path);
+      }
+      continue;
+    }
+    if (!stat.isFile()) {
+      // A directory or special file at a link destination is never touched.
+      conflicts.push(link.path);
+      continue;
+    }
+    const canonical = canonicalContent.get(link.target);
+    const current = readFileSync(link.path);
+    if (canonical && current.equals(canonical)) {
+      actions.push({ path: link.path, action: "adopt link", target: link.target });
+    } else if (force) {
+      actions.push({ path: link.path, action: "replace with link (--force)", target: link.target });
+    } else {
+      conflicts.push(link.path);
+    }
+  }
+  return { actions, conflicts };
+}
+
+function backupFileLike(path) {
+  const stat = lstatOrNull(path);
+  if (!stat) return null;
+  if (stat.isSymbolicLink()) return { kind: "symlink", target: readlinkSync(path) };
+  if (stat.isFile()) return { kind: "file", content: readFileSync(path) };
+  return { kind: "none" };
+}
+
+async function restoreBackup(path, backup) {
+  const stat = lstatOrNull(path);
+  if (stat) await rm(path, { force: true });
+  if (!backup || backup.kind === "none") return;
+  await mkdir(dirname(path), { recursive: true });
+  if (backup.kind === "symlink") await symlink(backup.target, path);
+  else if (backup.kind === "file") await writeFile(path, backup.content);
+}
+
 // Decides per file: create, update (ours, unmodified), unchanged, or conflict (user-edited or unmanaged).
-export async function applyLibraryInstall({ agent, files, version, force = false, dryRun = false, scope = "global", projectDir = process.cwd() }) {
+// Links the canonical agent definitions into the target agents directory.
+export async function applyLibraryInstall({
+  agent,
+  files,
+  links,
+  version,
+  force = false,
+  dryRun = false,
+  scope = "global",
+  projectDir = process.cwd(),
+}) {
   // Containment is checked before any write or delete, even when no manifest
   // exists or the manifest is empty and --force is given.
   const { roots, actualRoots } = assertManagedRoots(agent, scope, projectDir);
   assertPlannedDestinations(files, roots, actualRoots, scope);
+  const linkPlan = links ?? files.links ?? [];
+  assertLinkDestinations(linkPlan, roots, actualRoots, scope);
   const previous = await readManifest(agent, scope, projectDir);
   const owned = new Set(previous.files.map((f) => f.path));
   const previousHash = new Map(previous.files.map((f) => [f.path, f.sha256]));
@@ -382,6 +516,9 @@ export async function applyLibraryInstall({ agent, files, version, force = false
     }
   }
 
+  const canonicalContent = new Map(files.map((f) => [f.path, f.content]));
+  const { actions: linkActions, conflicts: linkConflicts } = planLinks(linkPlan, canonicalContent, force);
+
   const planned = new Set(files.map((f) => f.path));
   const stale = previous.files.map((f) => f.path).filter((p) => !planned.has(p));
 
@@ -407,24 +544,31 @@ export async function applyLibraryInstall({ agent, files, version, force = false
     if (current !== last && !force) staleConflicts.push(p);
     else removableStale.push(p);
   }
-  const allConflicts = [...conflicts, ...staleConflicts];
+  const allConflicts = [...new Set([...conflicts, ...staleConflicts, ...linkConflicts])];
+  const summary = { actions, linkActions, conflicts: allConflicts, stale };
 
-  if (allConflicts.length > 0) return { ok: false, actions, conflicts: allConflicts, stale };
-  if (dryRun) return { ok: true, dryRun: true, actions, conflicts: [], stale };
+  if (allConflicts.length > 0) return { ok: false, ...summary };
+  if (dryRun) return { ok: true, dryRun: true, ...summary, conflicts: [] };
 
   // Back up everything we are about to change so a failure can be rolled back.
   const backups = new Map();
   for (const f of files) {
     const act = actions.find((a) => a.path === f.path);
     if (!act || act.action === "unchanged") continue;
-    backups.set(f.path, existsSync(f.path) ? await readFile(f.path) : null);
+    backups.set(f.path, backupFileLike(f.path));
   }
   for (const p of removableStale) {
-    if (existsSync(p)) backups.set(p, await readFile(p));
+    if (!backups.has(p)) backups.set(p, backupFileLike(p));
+  }
+  for (const link of linkPlan) {
+    const act = linkActions.find((a) => a.path === link.path);
+    if (!act || act.action === "link unchanged") continue;
+    if (!backups.has(link.path)) backups.set(link.path, backupFileLike(link.path));
   }
   const mPath = manifestPath(agent, scope, projectDir);
-  if (existsSync(mPath)) backups.set(mPath, await readFile(mPath));
+  if (existsSync(mPath)) backups.set(mPath, { kind: "file", content: await readFile(mPath) });
 
+  const warnings = [];
   try {
     for (const f of files) {
       const act = actions.find((a) => a.path === f.path);
@@ -434,6 +578,24 @@ export async function applyLibraryInstall({ agent, files, version, force = false
     }
     for (const p of removableStale) {
       if (existsSync(p)) await rm(p, { force: true });
+    }
+    for (const link of linkPlan) {
+      const act = linkActions.find((a) => a.path === link.path);
+      if (!act || act.action === "link unchanged") continue;
+      await mkdir(dirname(link.path), { recursive: true });
+      if (lstatOrNull(link.path)) await rm(link.path, { force: true });
+      try {
+        await symlink(link.target, link.path);
+      } catch (error) {
+        // Windows without developer mode, or a filesystem that forbids links.
+        if (error && typeof error === "object" && (error.code === "EPERM" || error.code === "EACCES")) {
+          const content = canonicalContent.get(link.target) ?? await readFile(link.target);
+          await writeFile(link.path, content);
+          warnings.push(`could not create symlink ${link.path}; copied instead`);
+        } else {
+          throw error;
+        }
+      }
     }
 
     const manifest = {
@@ -447,14 +609,9 @@ export async function applyLibraryInstall({ agent, files, version, force = false
   } catch (error) {
     // Best-effort rollback to the pre-install state.
     const root = scope === "project" ? projectDir : homedir();
-    for (const [path, content] of backups) {
+    for (const [path, backup] of backups) {
       try {
-        if (content === null) {
-          if (existsSync(path)) await rm(path, { force: true });
-        } else {
-          await mkdir(dirname(path), { recursive: true });
-          await writeFile(path, content);
-        }
+        await restoreBackup(path, backup);
       } catch {
         // Ignore rollback errors; rethrow the original.
       }
@@ -474,5 +631,5 @@ export async function applyLibraryInstall({ agent, files, version, force = false
     throw error;
   }
 
-  return { ok: true, actions, conflicts: [], stale };
+  return { ok: true, ...summary, conflicts: [], warnings };
 }

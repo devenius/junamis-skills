@@ -1,9 +1,9 @@
 <!-- Managed by agent: agent-rules | Last updated: 2026-10-27 -->
-# AGENTS.md: junamis-agents-skills
+# AGENTS.md: junamis-skills
 
 ## What this repo is
 
-`junamis-agents-skills` is a public package. It installs Agent Skills (folders containing `SKILL.md`) into the global skill directories of AI coding agents.
+`junamis-skills` is a public package. It installs Agent Skills (folders containing `SKILL.md`) into the global skill directories of AI coding agents.
 
 The package ships the installer and a manifest. It does not ship third-party skill content.
 
@@ -38,16 +38,17 @@ The old agent layer (`.agents/`, `.opencode/`) was removed from the repo. It is 
 ## Install design
 
 - **Global by default.** Skills are installed into the agent's global skills directory so they can be shared across projects. An install is a snapshot. Editing this repo does not change installed skills until the user reinstalls.
-- **Layout split.** For OpenCode, internal (library) skills install to `~/.config/junamis/skills`, shared docs to `~/.config/junamis/`, and the install manifest to `~/.config/junamis/installed/library-<agent>.json`. External skills stay in the target's external skills directory (`~/.agents/skills` for OpenCode). Other targets keep one skills directory for both. Project scope mirrors the internal side under `<project>/.config/junamis/`; external skills and project agents stay at the target's project paths.
+- **Layout split.** The config root is `~/.config/junamis/skills/` (project segment `skills`). Internal (library) skills install to `~/.config/junamis/skills/skills/<name>/SKILL.md`, canonical agents to `~/.config/junamis/skills/agents/<name>.md`, shared docs to `~/.config/junamis/skills/*.md`, and the install manifest to `~/.config/junamis/skills/installed/library-<agent>.json`. Agent definitions are symlinked from the target agents directory (`~/.config/opencode/agents` for OpenCode) to the canonical file; if a link cannot be created, the file is copied with a warning. External skills stay in the target's external skills directory (`~/.agents/skills` for OpenCode). Other targets keep one skills directory for both kinds. Project scope mirrors the config root under `<project>/.config/junamis/skills/{skills,agents,*.md,installed}`; external skills and project agent links stay at the target's project paths.
 - External skills are installed by this package: it fetches the locked commit with the system `git` CLI, verifies each skill tree SHA (an in-tree symlink is allowed; an absolute or escaping symlink is rejected), then passes the local checkout to the pinned `skillsio` scanner with `--skip-scan`.
 - Never fall back to a branch head, direct raw-file download, or unscanned installer. Existing skill directories are skipped, not overwritten and not counted as failures.
 - Package-managed external installs support only OpenCode and Claude Code. Other targets can receive the owned library, but do not claim scanned external-install support until verified.
-  The guide is written only by `npx junamis-agents-skills init`. No install hook runs it: npm 11 and pnpm block dependency install scripts by default, so a postinstall hook is unreliable. Skill installers never run it.
-- **Guide.** `npx junamis-agents-skills init` writes `junamis-agents-skills-guide.md` at the project root once, and records `.junamis/install.json`. Run it in each project that needs the guide. The guide is a project file, not a skill, so skill installers never touch it. It is never overwritten unless `--force` is given.
+  The guide is written only by `npx junamis-skills init`. No install hook runs it: npm 11 and pnpm block dependency install scripts by default, so a postinstall hook is unreliable. Skill installers never run it.
+- **Guide.** `npx junamis-skills init` writes `junamis-skills-guide.md` at the project root once, and records `.junamis/junamis-skills.json`. Run it in each project that needs the guide. The guide is a project file, not a skill, so skill installers never touch it. It is never overwritten unless `--force` is given.
 - **Config.** `init` writes `opencode.json` for the OpenCode target only when it is missing, or with `--force`. It never prompts. If the file exists and differs, it is left unchanged and the output says to use `--force`.
 - **External skills.** `init` installs every locked skill automatically through `skillsio@1.1.3` with `-y` and `--skip-scan`. `-y` only skips the overwrite prompt; it does not bypass the scanner's high/critical "Install anyway?" prompt, so install-time scanning is skipped by design and the recorded scan is the gate. After each successful group, `init` verifies that every expected `<name>/SKILL.md` exists under the target's global skills directory. Only verified skills count as installed; an already-present skill counts as skipped; a skill missing after a successful run counts as failed and is logged by name. `init` exits 1 when any install failed.
 - **Scan record.** `SECURITY.md` at the repo root is the recorded vetting record for every internal and external skill (kind, source, license, scan status, last scan month). Install-time scanning is skipped by design (`--skip-scan`), so `SECURITY.md` plus `library/SAFETY.md` is the gate. `pnpm run check:pins` re-fetches every locked source/ref and compares the actual tree SHA with the lock; it is a network check and is not wired into CI or release. `check:security` fails CI when a skill is missing from `SECURITY.md` or the `Last external scan` line is absent.
-- **CLI surface.** Only `init`, `status`, and `help` remain. `status` reports guide, marker, per-target counts, manifest and config validity, external coverage, and the scan record, and exits 1 when a required piece is missing.
+- **CLI surface.** Only `init`, `status`, and `help` remain. `status` reports guide, marker, per-target counts, canonical agents and their link state, legacy leftovers, manifest and config validity, external coverage, and the scan record, and exits 1 when a required piece is missing. Legacy leftovers are informational and are never deleted.
+- **No migration.** `init` writes only the nested layout. Older flat files under `~/.config/junamis/` and flat skill folders directly under `~/.config/junamis/skills/` are left in place; `status` reports them as legacy.
 - Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
 
 ## Supported agents (targets)
@@ -60,7 +61,7 @@ Target-specific logic lives only in `src/targets/`.
 
 To add a new agent or model:
 
-1. Create `src/targets/<id>.js` exporting `{ id, label, globalSkillsDir(), libraryAgentsDir(), projectSkillsDir(projectDir), projectAgentsDir(projectDir), libraryAgentFormat, detect() }`.
+1. Create `src/targets/<id>.js` exporting `{ id, label, globalSkillsDir(), librarySkillsDir(), libraryAgentsCanonicalDir(), libraryAgentsDir(), projectSkillsDir(projectDir), projectLibrarySkillsDir(projectDir), projectLibraryAgentsCanonicalDir(projectDir), projectAgentsDir(projectDir), libraryAgentFormat, detect() }`.
 2. Register it in `src/targets/index.js`.
 3. Add a test in `test/targets.test.js` covering the directory it resolves to.
 4. Add a row to the target table in `README.md`.

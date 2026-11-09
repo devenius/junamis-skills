@@ -10,9 +10,9 @@ test("opencode target resolves external and internal skill directories separatel
   const projectDir = join(homedir(), "opencode-project");
 
   assert.equal(target.globalSkillsDir(), join(homedir(), ".agents", "skills"));
-  assert.equal(target.librarySkillsDir(), join(homedir(), ".config", "junamis", "skills"));
+  assert.equal(target.librarySkillsDir(), join(homedir(), ".config", "junamis", "skills", "skills"));
   assert.equal(target.projectSkillsDir(projectDir), join(projectDir, ".agents", "skills"));
-  assert.equal(target.projectLibrarySkillsDir(projectDir), join(projectDir, ".config", "junamis", "skills"));
+  assert.equal(target.projectLibrarySkillsDir(projectDir), join(projectDir, ".config", "junamis", "skills", "skills"));
 });
 
 test("claude target resolves to ~/.claude/skills", () => {
@@ -44,8 +44,10 @@ test("every registered target exposes the complete install adapter", () => {
     assert.equal(typeof t.globalSkillsDir, "function");
     assert.equal(typeof t.librarySkillsDir, "function");
     assert.equal(typeof t.libraryAgentsDir, "function");
+    assert.equal(typeof t.libraryAgentsCanonicalDir, "function");
     assert.equal(typeof t.projectSkillsDir, "function");
     assert.equal(typeof t.projectLibrarySkillsDir, "function");
+    assert.equal(typeof t.projectLibraryAgentsCanonicalDir, "function");
     assert.equal(typeof t.projectAgentsDir, "function");
     assert.equal(typeof t.libraryAgentFormat, "string");
     assert.equal(typeof t.detect, "function");
@@ -62,8 +64,10 @@ test("status locations include global and project manifests", () => {
 
   assert.deepEqual(locations.map(({ scope }) => scope), ["global", "project"]);
   assert.equal(locations[1].skillsDir, join(projectDir, ".agents", "skills"));
-  assert.equal(locations[1].librarySkillsDir, join(projectDir, ".config", "junamis", "skills"));
-  assert.equal(locations[1].manifestPath, join(projectDir, ".config", "junamis", "installed", "library-opencode.json"));
+  assert.equal(locations[1].librarySkillsDir, join(projectDir, ".config", "junamis", "skills", "skills"));
+  assert.equal(locations[1].manifestPath, join(projectDir, ".config", "junamis", "skills", "installed", "library-opencode.json"));
+  assert.equal(locations[1].canonicalAgentsDir, join(projectDir, ".config", "junamis", "skills", "agents"));
+  assert.equal(locations[1].agentsDir, join(projectDir, ".opencode", "agents"));
 });
 
 test("every non-OpenCode target shares one library and external skills directory", () => {

@@ -81,8 +81,8 @@ test("writeOpencodeConfig project scope uses project-relative skill paths", asyn
     await writeOpencodeConfig({ dir: project, scope: "project" });
     const text = readFileSync(join(project, "opencode.json"), "utf8");
     assert.match(text, /"\.\/\.agents\/skills"/);
-    assert.match(text, /"\.\/\.config\/junamis\/skills"/);
-    assert.match(text, /"\.\/\.config\/junamis\/\*\.md"/);
+    assert.match(text, /"\.\/\.config\/junamis\/skills\/skills"/);
+    assert.match(text, /"\.\/\.config\/junamis\/skills\/\*\.md"/);
   } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });
@@ -97,8 +97,8 @@ test("writeOpencodeConfig global scope uses home-relative skill paths", async ()
     });
     const text = readFileSync(join(home, ".config", "opencode", "opencode.json"), "utf8");
     assert.match(text, /"\{env:HOME\}\/\.agents\/skills"/);
-    assert.match(text, /"\{env:HOME\}\/\.config\/junamis\/skills"/);
-    assert.match(text, /"\{env:HOME\}\/\.config\/junamis\/\*\.md"/);
+    assert.match(text, /"\{env:HOME\}\/\.config\/junamis\/skills\/skills"/);
+    assert.match(text, /"\{env:HOME\}\/\.config\/junamis\/skills\/\*\.md"/);
   } finally {
     rmSync(home, { recursive: true, force: true });
     rmSync(project, { recursive: true, force: true });

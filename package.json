@@ -1,5 +1,5 @@
 {
-  "name": "@devenius/junamis-agents-skills",
+  "name": "@devenius/junamis-skills",
   "version": "1.0.0",
   "description": "Install and manage Agent Skills (SKILL.md workflows) for any AI coding agent. Pins third-party skills by manifest and copies them into each agent's global skills directory.",
   "keywords": [
@@ -17,7 +17,7 @@
   },
   "type": "module",
   "bin": {
-    "junamis-agents-skills": "bin/junamis-agents-skills.js"
+    "junamis-skills": "bin/junamis-skills.js"
   },
   "files": [
     "bin",
@@ -25,6 +25,7 @@
     "library",
     "skills-lock.json",
     "SECURITY.md",
+    "junamis-skills.yml",
     "opencode.json",
     "README.md",
     "CHANGELOG.md",
@@ -48,11 +49,11 @@
   "main": "src/cli.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/devenius/junamis-agents-skills.git"
+    "url": "git+https://github.com/devenius/junamis-skills.git"
   },
-  "homepage": "https://github.com/devenius/junamis-agents-skills#readme",
+  "homepage": "https://github.com/devenius/junamis-skills#readme",
   "bugs": {
-    "url": "https://github.com/devenius/junamis-agents-skills/issues"
+    "url": "https://github.com/devenius/junamis-skills/issues"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

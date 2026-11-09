@@ -34,8 +34,8 @@ test("opencode.json keeps the documented permission invariants", () => {
 });
 
 test("opencode.json registers both internal and external skill roots", () => {
-  assert.deepEqual(config.skills, ["{env:HOME}/.config/junamis/skills", "{env:HOME}/.agents/skills"]);
-  assert.deepEqual(config.instructions, ["{env:HOME}/.config/junamis/*.md"]);
+  assert.deepEqual(config.skills, ["{env:HOME}/.config/junamis/skills/skills", "{env:HOME}/.agents/skills"]);
+  assert.deepEqual(config.instructions, ["{env:HOME}/.config/junamis/skills/*.md"]);
   assert.equal(config.default_agent, "orchestrator");
 });
 

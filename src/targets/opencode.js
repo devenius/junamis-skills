@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { canonicalAgentsDir, internalSkillsDir } from "../paths.js";
 
 // Verified against https://opencode.ai/docs/skills and https://opencode.ai/docs/agents
 export default {
@@ -11,11 +12,18 @@ export default {
     return join(homedir(), ".agents", "skills");
   },
   // Internal (library) skills live apart from external skills so the two can be
-  // managed and resolved independently.
+  // managed and resolved independently. They are nested under the config root:
+  // ~/.config/junamis/skills/skills/<name>/SKILL.md
   librarySkillsDir() {
-    return join(homedir(), ".config", "junamis", "skills");
+    return internalSkillsDir("global");
   },
-  // Markdown agent definitions: ~/.config/opencode/agents/<name>.md
+  // Canonical agent definitions, shared by every target and linked into each
+  // target's agents directory.
+  libraryAgentsCanonicalDir() {
+    return canonicalAgentsDir("global");
+  },
+  // Markdown agent definitions: ~/.config/opencode/agents/<name>.md (symlinks
+  // to the canonical files in libraryAgentsCanonicalDir()).
   libraryAgentsDir() {
     return join(homedir(), ".config", "opencode", "agents");
   },
@@ -23,7 +31,10 @@ export default {
     return join(projectDir, ".agents", "skills");
   },
   projectLibrarySkillsDir(projectDir) {
-    return join(projectDir, ".config", "junamis", "skills");
+    return internalSkillsDir("project", projectDir);
+  },
+  projectLibraryAgentsCanonicalDir(projectDir) {
+    return canonicalAgentsDir("project", projectDir);
   },
   projectAgentsDir(projectDir) {
     return join(projectDir, ".opencode", "agents");

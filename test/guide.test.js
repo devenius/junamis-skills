@@ -9,7 +9,7 @@ import { dirname } from "node:path";
 import { writeGuide, renderGuide, GUIDE_NAME, MARKER_PATH, PACKAGE_ROOT } from "../src/guide.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CLI = join(HERE, "..", "bin", "junamis-agents-skills.js");
+const CLI = join(HERE, "..", "bin", "junamis-skills.js");
 
 function tempProject() {
   return mkdtempSync(join(tmpdir(), "junamis-proj-"));
@@ -58,7 +58,7 @@ test("guide lists library skills, locked externals, and the orchestrator rule", 
     assert.match(text, /\| architect \| JavaScript-Mastery-Pro\/skills \| MIT \|/);
     assert.match(text, /route/, "library skill route missing from guide");
     assert.doesNotMatch(text, /Licenses marked `unknown`/, "no unknown licenses remain, so the guide must not flag any");
-    assert.match(text, /~\/\.config\/junamis\/SAFETY\.md/);
+    assert.match(text, /~\/\.config\/junamis\/skills\/SAFETY\.md/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -102,11 +102,16 @@ test("a failed atomic write removes its temp file", async () => {
 
 test("CLI init --dry-run plans the guide without writing it", () => {
   const dir = tempProject();
+  const home = mkdtempSync(join(tmpdir(), "junamis-home-"));
   try {
-    const out = execFileSync(process.execPath, [CLI, "init", "--dry-run", "--dir", dir], { encoding: "utf8" });
+    const out = execFileSync(process.execPath, [CLI, "init", "--dry-run", "--dir", dir], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: home },
+    });
     assert.match(out, /guide: would write/);
     assert.equal(existsSync(join(dir, GUIDE_NAME)), false);
   } finally {
+    rmSync(home, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });
   }
 });

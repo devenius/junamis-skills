@@ -399,7 +399,7 @@ export async function installExternal({
         log(`    FAILED: ${group.source} (exit ${code})`);
       }
       log("    Some dependencies could not be installed. They may have been removed upstream.");
-      log("    Please report this at https://github.com/devenius/junamis-agents-skills/issues");
+      log("    Please report this at https://github.com/devenius/junamis-skills/issues");
     } catch (error) {
       failed++;
       log(`    FAILED: ${group.source} (${error instanceof Error ? error.message : String(error)})`);

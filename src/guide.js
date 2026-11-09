@@ -4,8 +4,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-export const GUIDE_NAME = "junamis-agents-skills-guide.md";
-export const MARKER_PATH = join(".junamis", "install.json");
+export const GUIDE_NAME = "junamis-skills-guide.md";
+export const MARKER_PATH = join(".junamis", "junamis-skills.json");
 
 async function atomicWriteFile(path, content) {
   const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.${Date.now()}.tmp`);
@@ -67,9 +67,9 @@ export function renderGuide({ version, library, agents, locked }) {
 
   const libraryLines = library.join(", ");
 
-  return `# junamis-agents-skills setup guide
+  return `# junamis-skills setup guide
 
-Installed junamis-agents-skills ${version}. This guide explains how the agents are wired together and how to drive them. It is a project file, not a skill, and no agent loads it automatically. Read it once, then keep it for reference or delete it.
+Installed junamis-skills ${version}. This guide explains how the agents are wired together and how to drive them. It is a project file, not a skill, and no agent loads it automatically. Read it once, then keep it for reference or delete it.
 
 ## What was installed
 
@@ -92,7 +92,7 @@ ${agentLines}
 1. You send a request to the **orchestrator**.
 2. The orchestrator runs the \`route\` skill, which classifies the request into one path: feature, bug, refactor, dependency, migration, release, deploy verification, rollback, incident, security, performance, environment, decision, skill, research, or question.
 3. The orchestrator looks up the owning agent and skill for that path and dispatches exactly one step.
-4. The specialist runs its skill and ends with a HANDOFF block (see \`~/.config/junamis/HANDOFF.md\` in the installed package).
+4. The specialist runs its skill and ends with a HANDOFF block (see \`~/.config/junamis/skills/HANDOFF.md\` in the installed package).
 5. The orchestrator reads only the HANDOFF block. It checks that every listed artifact exists on disk.
 6. It then decides: dispatch the \`next\` skill, ask you a question, or stop.
 
@@ -116,7 +116,7 @@ next: <one skill name, agent name, user, or none>
 
 ### Safety
 
-Destructive or external actions need your explicit approval for that exact command. The full list is in \`~/.config/junamis/SAFETY.md\` in the installed package. In short: deleting files, \`sudo\`, global installs, \`git push\`, production deploys, forced overwrites, and data changes. The \`-y\` flag is not approval.
+Destructive or external actions need your explicit approval for that exact command. The full list is in \`~/.config/junamis/skills/SAFETY.md\` in the installed package. In short: deleting files, \`sudo\`, global installs, \`git push\`, production deploys, forced overwrites, and data changes. The \`-y\` flag is not approval.
 
 ## Always start with the orchestrator
 
@@ -128,14 +128,14 @@ If a skill you need is not installed, the orchestrator stops and tells you which
 
 One command, run once per machine. Review the dry run before the real install:
 
-        npx junamis-agents-skills init --agent opencode --dry-run
-        npx junamis-agents-skills init --agent opencode
+        npx junamis-skills init --agent opencode --dry-run
+        npx junamis-skills init --agent opencode
 
 It writes this guide, writes \`opencode.json\` when it is missing (OpenCode only), installs the library, and installs every external skill from the manifest. External skills are checked out at the commit recorded in the lock, their folder tree SHAs are verified, and then the pinned scanner runs before installation. Existing external skills are left unchanged and reported as skipped. The library install never overwrites a file you edited; it stops and lists the file. Use \`--force\` only after you have reviewed it. Use \`--scope project\` to install into the project instead of globally.
 
 Check what is installed with:
 
-        npx junamis-agents-skills status
+        npx junamis-skills status
 
 skillsio shows its security scan. Critical findings are vetted in \`SECURITY.md\`; nothing else is answered for you. Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
 

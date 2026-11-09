@@ -9,7 +9,7 @@ import { dirname } from "node:path";
 import { runInit } from "../src/cli.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CLI = join(HERE, "..", "bin", "junamis-agents-skills.js");
+const CLI = join(HERE, "..", "bin", "junamis-skills.js");
 
 function tempDirs() {
   const home = mkdtempSync(join(tmpdir(), "junamis-home-"));
@@ -21,7 +21,7 @@ test("status reports a malformed project marker without crashing", () => {
   const { home, project } = tempDirs();
   try {
     mkdirSync(join(project, ".junamis"), { recursive: true });
-    writeFileSync(join(project, ".junamis", "install.json"), "{not json");
+    writeFileSync(join(project, ".junamis", "junamis-skills.json"), "{not json");
     const result = spawnSync(process.execPath, [CLI, "status", "--dir", project, "--scope", "project"], {
       encoding: "utf8",
       env: { ...process.env, HOME: home },
@@ -38,7 +38,7 @@ test("status reports a malformed project marker without crashing", () => {
 test("status reports a malformed library manifest without crashing", () => {
   const { home, project } = tempDirs();
   try {
-    const manifestDir = join(project, ".config", "junamis", "installed");
+    const manifestDir = join(project, ".config", "junamis", "skills", "installed");
     mkdirSync(manifestDir, { recursive: true });
     writeFileSync(join(manifestDir, "library-opencode.json"), JSON.stringify({ files: "not-an-array" }));
     const result = spawnSync(process.execPath, [CLI, "status", "--dir", project, "--scope", "project"], {
@@ -85,8 +85,8 @@ test("init --dry-run reports guide, config, library, and external plan without w
     assert.match(out, /config: would write/);
     assert.match(out, /library for opencode/);
     assert.match(out, /external: 24 pinned skills would be installed/);
-    assert.equal(existsSync(join(project, "junamis-agents-skills-guide.md")), false);
-    assert.equal(existsSync(join(project, ".junamis", "install.json")), false);
+    assert.equal(existsSync(join(project, "junamis-skills-guide.md")), false);
+    assert.equal(existsSync(join(project, ".junamis", "junamis-skills.json")), false);
     assert.equal(existsSync(join(project, "opencode.json")), false);
     assert.equal(existsSync(join(project, ".config")), false);
   } finally {
@@ -133,12 +133,12 @@ test("init --dir installs into a project directory that does not exist yet", asy
     );
     assert.equal(result.exitCode, 0);
     assert.ok(existsSync(project), "init must create the project directory");
-    assert.ok(existsSync(join(project, "junamis-agents-skills-guide.md")));
-    assert.ok(existsSync(join(project, ".junamis", "install.json")));
+    assert.ok(existsSync(join(project, "junamis-skills-guide.md")));
+    assert.ok(existsSync(join(project, ".junamis", "junamis-skills.json")));
     assert.ok(existsSync(join(project, "opencode.json")));
-    assert.ok(existsSync(join(project, ".config", "junamis", "skills", "route", "SKILL.md")));
+    assert.ok(existsSync(join(project, ".config", "junamis", "skills", "skills", "route", "SKILL.md")));
     assert.ok(existsSync(join(project, ".opencode", "agents", "orchestrator.md")));
-    assert.ok(existsSync(join(project, ".config", "junamis", "installed", "library-opencode.json")));
+    assert.ok(existsSync(join(project, ".config", "junamis", "skills", "installed", "library-opencode.json")));
   } finally {
     process.env.HOME = previousHome;
     rmSync(home, { recursive: true, force: true });
@@ -150,9 +150,9 @@ test("status exits 0 when only OpenCode is installed and other targets are absen
   const { home, project } = tempDirs();
   try {
     mkdirSync(join(home, ".config", "opencode"), { recursive: true });
-    mkdirSync(join(home, ".config", "junamis", "skills", "route"), { recursive: true });
+    mkdirSync(join(home, ".config", "junamis", "skills", "skills", "route"), { recursive: true });
     mkdirSync(join(home, ".agents", "skills", "route"), { recursive: true });
-    const manifestDir = join(home, ".config", "junamis", "installed");
+    const manifestDir = join(home, ".config", "junamis", "skills", "installed");
     mkdirSync(manifestDir, { recursive: true });
     writeFileSync(join(manifestDir, "library-opencode.json"), JSON.stringify({
       version: "1.0.0",
@@ -177,9 +177,9 @@ test("status exits 1 when a detected target has a malformed library manifest", (
   const { home, project } = tempDirs();
   try {
     mkdirSync(join(home, ".config", "opencode"), { recursive: true });
-    mkdirSync(join(home, ".config", "junamis", "skills", "route"), { recursive: true });
+    mkdirSync(join(home, ".config", "junamis", "skills", "skills", "route"), { recursive: true });
     mkdirSync(join(home, ".agents", "skills", "route"), { recursive: true });
-    const manifestDir = join(home, ".config", "junamis", "installed");
+    const manifestDir = join(home, ".config", "junamis", "skills", "installed");
     mkdirSync(manifestDir, { recursive: true });
     writeFileSync(join(manifestDir, "library-opencode.json"), JSON.stringify({ files: "not-an-array" }));
     const result = spawnSync(process.execPath, [CLI, "status", "--dir", project, "--scope", "global"], {

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { canonicalAgentsDir } from "../paths.js";
 
 export default {
   id: "windsurf",
@@ -12,6 +13,9 @@ export default {
   librarySkillsDir() {
     return join(homedir(), ".codeium", "windsurf", "skills");
   },
+  libraryAgentsCanonicalDir() {
+    return canonicalAgentsDir("global");
+  },
   libraryAgentsDir() {
     return join(homedir(), ".config", "devin", "agents");
   },
@@ -20,6 +24,9 @@ export default {
   },
   projectLibrarySkillsDir(projectDir) {
     return join(projectDir, ".windsurf", "skills");
+  },
+  projectLibraryAgentsCanonicalDir(projectDir) {
+    return canonicalAgentsDir("project", projectDir);
   },
   projectAgentsDir(projectDir) {
     return join(projectDir, ".devin", "agents");

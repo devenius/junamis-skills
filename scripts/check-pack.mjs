@@ -6,14 +6,16 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REQUIRED_FILES = [
-  "bin/junamis-agents-skills.js",
+  "bin/junamis-skills.js",
   "src/cli.js",
   "src/external.js",
   "src/pinned-source.js",
   "src/library-install.js",
+  "src/paths.js",
   "library/agents/orchestrator.md",
   "library/skills/route/SKILL.md",
   "skills-lock.json",
+  "junamis-skills.yml",
   "SECURITY.md",
 ];
 const EXCLUDED_PREFIXES = ["skills/", "nestjs-agent-skills/"];

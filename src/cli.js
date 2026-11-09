@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync, readlinkSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -6,26 +6,28 @@ import { PACKAGE_ROOT, GUIDE_NAME, MARKER_PATH, writeGuide } from "./guide.js";
 import { getTarget, targets } from "./targets/index.js";
 import { installExternal, validateAgent, validateInstaller } from "./external.js";
 import { planLibraryInstall, applyLibraryInstall, manifestPath } from "./library-install.js";
+import { configRoot, legacyConfigParent } from "./paths.js";
 
-const HELP = `junamis-agents-skills
+const HELP = `junamis-skills
 
 Usage:
-  junamis-agents-skills init [--agent opencode|claude] [--scope global|project] [--dir <path>] [--force] [--dry-run]
+  junamis-skills init [--agent opencode|claude] [--scope global|project] [--dir <path>] [--force] [--dry-run]
       Install everything this package provides:
         1. write ${GUIDE_NAME} into the project;
         2. write opencode.json (OpenCode only) when it is missing, or always with --force;
-        3. install the library skills, agents, and shared docs;
+        3. install the library skills, canonical agents, links, and shared docs;
         4. install every pinned external skill from skills-lock.json.
       Existing config or library files you edited are left unchanged unless --force.
       --dry-run prints the plan without writing or using the network.
 
-  junamis-agents-skills status [--dir <path>] [--scope global|project|all]
-      Report the guide, marker, per-target internal/external skill counts, library
-      manifests, opencode.json validity, external skill coverage, and the
-      SECURITY.md scan record. Exits 1 only when a detected target's manifest
-      or config is invalid. Default scope: global (matching init).
+  junamis-skills status [--dir <path>] [--scope global|project|all]
+      Report the guide, marker, per-target internal/external skill counts, canonical
+      agents and link state, legacy leftovers, library manifests, opencode.json
+      validity, external skill coverage, and the SECURITY.md scan record. Exits 1
+      only when a detected target's manifest or config is invalid. Default scope:
+      global (matching init).
 
-  junamis-agents-skills help
+  junamis-skills help
 
   --dir          project directory (default: current directory)
   --force        overwrite the guide, opencode.json, or edited library files
@@ -135,8 +137,8 @@ export async function writeOpencodeConfig({
   // global paths in the template to project-relative ones.
   if (scope === "project") {
     content = content
-      .replace(/"\{env:HOME\}\/\.config\/junamis\/skills"/g, '"./.config/junamis/skills"')
-      .replace(/"\{env:HOME\}\/\.config\/junamis\/\*\.md"/g, '"./.config/junamis/*.md"')
+      .replace(/"\{env:HOME\}\/\.config\/junamis\/skills\/skills"/g, '"./.config/junamis/skills/skills"')
+      .replace(/"\{env:HOME\}\/\.config\/junamis\/skills\/\*\.md"/g, '"./.config/junamis/skills/*.md"')
       .replace(/"\{env:HOME\}\/\.agents\/skills"/g, '"./.agents/skills"');
   }
 
@@ -158,10 +160,10 @@ function reportGuide(result, projectDir) {
     console.log(`guide: wrote ${result.path}`);
     console.log(`marker: ${join(projectDir, MARKER_PATH)}`);
   } else if (result.status === "exists") {
-    console.log(`guide: ${GUIDE_NAME} already written by junamis-agents-skills ${result.version}; nothing to do.`);
+    console.log(`guide: ${GUIDE_NAME} already written by junamis-skills ${result.version}; nothing to do.`);
     console.log("guide: use --force to rewrite it.");
   } else if (result.status === "kept-user-file") {
-    console.log(`guide: ${result.path} exists and was not written by junamis-agents-skills; left unchanged.`);
+    console.log(`guide: ${result.path} exists and was not written by junamis-skills; left unchanged.`);
     console.log("guide: use --force to replace it.");
   } else {
     console.log(`guide: ${result.status} (${result.path})`);
@@ -179,17 +181,21 @@ function reportConfig(result) {
 
 function reportLibrary(args, scope, result, version) {
   const counts = {};
-  for (const a of result.actions) counts[a.action] = (counts[a.action] ?? 0) + 1;
+  for (const a of [...result.actions, ...(result.linkActions ?? [])]) {
+    counts[a.action] = (counts[a.action] ?? 0) + 1;
+  }
   const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ") || "nothing";
-  console.log(`library for ${args.agent} (junamis-agents-skills ${version}, ${scope}): ${summary}`);
+  console.log(`library for ${args.agent} (junamis-skills ${version}, ${scope}): ${summary}`);
 
   if (args.dryRun) {
-    for (const a of result.actions) console.log(`  ${a.action.padEnd(18)} ${a.path}`);
+    for (const a of result.actions) console.log(`  ${a.action.padEnd(24)} ${a.path}`);
+    for (const a of result.linkActions ?? []) console.log(`  ${a.action.padEnd(24)} ${a.path} -> ${a.target}`);
   }
   for (const p of result.stale) console.log(`  ${args.dryRun ? "would remove" : "removed"} stale ${p}`);
+  for (const warning of result.warnings ?? []) console.warn(`  warning: ${warning}`);
 
   if (!result.ok) {
-    console.error(`\n${result.conflicts.length} library file(s) were edited by you and are not managed by junamis-agents-skills:`);
+    console.error(`\n${result.conflicts.length} library file(s) were edited by you and are not managed by junamis-skills:`);
     for (const p of result.conflicts) console.error(`  ${p}`);
     console.error("Review them. Run again with --force to overwrite, or move your copy elsewhere.");
     return 1;
@@ -301,8 +307,61 @@ export function statusLocations(agentId, scope = "all", projectDir = process.cwd
     scope: installScope,
     skillsDir: installScope === "project" ? target.projectSkillsDir(projectDir) : target.globalSkillsDir(),
     librarySkillsDir: installScope === "project" ? target.projectLibrarySkillsDir(projectDir) : target.librarySkillsDir(),
+    canonicalAgentsDir: installScope === "project"
+      ? target.projectLibraryAgentsCanonicalDir(projectDir)
+      : target.libraryAgentsCanonicalDir(),
+    agentsDir: installScope === "project" ? target.projectAgentsDir(projectDir) : target.libraryAgentsDir(),
     manifestPath: manifestPath(agentId, installScope, projectDir),
   }));
+}
+
+async function canonicalAgents(dir) {
+  if (!existsSync(dir)) return null;
+  const entries = await readdir(dir, { withFileTypes: true });
+  return entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
+}
+
+function describeAgentLink(canonicalPath, linkPath) {
+  let stat;
+  try {
+    stat = lstatSync(linkPath);
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") return "missing";
+    return `unreadable (${error?.code ?? "error"})`;
+  }
+  if (stat.isSymbolicLink()) {
+    const current = readlinkSync(linkPath);
+    return resolve(dirname(linkPath), current) === resolve(canonicalPath)
+      ? "linked"
+      : `wrong target (${current})`;
+  }
+  if (stat.isFile()) return "regular file (not a link)";
+  return "not a file";
+}
+
+// Legacy leftovers from the flat layout. Reported only; never deleted.
+async function legacyLeftovers(scope, projectDir) {
+  const parent = legacyConfigParent(scope, projectDir);
+  const found = [];
+  if (!existsSync(parent)) return found;
+  for (const entry of await readdir(parent, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith(".md")) {
+      found.push(`${join(parent, entry.name)} (legacy shared doc)`);
+    }
+  }
+  if (existsSync(join(parent, "installed"))) {
+    found.push(`${join(parent, "installed")} (legacy manifest directory)`);
+  }
+  const root = configRoot(scope, projectDir);
+  if (existsSync(root)) {
+    const known = new Set(["skills", "agents", "installed"]);
+    for (const entry of await readdir(root, { withFileTypes: true })) {
+      if (entry.isDirectory() && !known.has(entry.name)) {
+        found.push(`${join(root, entry.name)} (legacy flat skill folder)`);
+      }
+    }
+  }
+  return found;
 }
 
 async function status(args) {
@@ -359,6 +418,17 @@ async function status(args) {
       console.log(`    ${location.scope.padEnd(8)} internal ${location.librarySkillsDir} (${state(libraryCount)})`);
       console.log(`    ${location.scope.padEnd(8)} external ${location.skillsDir} (${state(externalCount)})`);
 
+      const agentNames = await canonicalAgents(location.canonicalAgentsDir);
+      if (agentNames === null) {
+        console.log(`    ${location.scope.padEnd(8)} canonical agents ${location.canonicalAgentsDir} (none)`);
+      } else {
+        console.log(`    ${location.scope.padEnd(8)} canonical agents ${location.canonicalAgentsDir} (${agentNames.length} agents)`);
+        for (const name of agentNames) {
+          const linkPath = join(location.agentsDir, name);
+          console.log(`      agent ${name.replace(/\.md$/, "")}: ${describeAgentLink(join(location.canonicalAgentsDir, name), linkPath)}`);
+        }
+      }
+
       if (!existsSync(location.manifestPath)) {
         console.log(`      library not installed in ${location.scope} scope`);
         continue;
@@ -373,6 +443,13 @@ async function status(args) {
       const data = parsed.value;
       console.log(`      library ${data.version} installed ${data.installedAt} (${data.files.length} files)`);
     }
+  }
+
+  // Older installs used a flat layout. Report leftovers without failing and
+  // without deleting anything; migration is the user's decision.
+  for (const installScope of scopes) {
+    const legacy = await legacyLeftovers(installScope, args.dir);
+    for (const item of legacy) console.log(`legacy (${installScope}, informational): ${item}`);
   }
 
   // opencode.json validity for the selected scopes.

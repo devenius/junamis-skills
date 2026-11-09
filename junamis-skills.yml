@@ -1,9 +1,9 @@
-# junamis-agents-skills — complete project reference
+# junamis-skills — complete project reference
 # This file is the single source of truth for the project's structure, features,
 # setup, runtime functionality, decisions, and validation. Keep it in sync with
 # bin/, src/, scripts/, library/, skills-lock.json, and SECURITY.md.
-Name: junamis-agents-skills
-CLI: junamis-agents-skills
+Name: junamis-skills
+CLI: junamis-skills
 License: MIT
 Status: 1.0.x (Node 26+; ESM; external installs also need the system git CLI)
 
@@ -16,20 +16,23 @@ Description: >
 
 Architecture:
   PackageContent:
-    - "bin/junamis-agents-skills.js is the only executable entry point."
+    - "bin/junamis-skills.js is the only executable entry point."
     - "src/ holds the CLI, the external installer, the pinned-source checkout, the library installer, and the guide writer."
     - "src/targets/ is the only place that knows agent-specific paths and agent-definition formats."
     - "library/ holds owned skills, agents, and shared docs; it is published with the package."
     - "skills-lock.json is the single source of truth for external skills."
     - "SECURITY.md is the scan record for every internal and external skill."
   InstallLayout:
-    - "OpenCode internal skills: ~/.config/junamis/skills/<name>/SKILL.md."
-    - "OpenCode shared docs: ~/.config/junamis/{HANDOFF,SAFETY,EXTERNAL,SECURITY}.md."
-    - "OpenCode install manifest: ~/.config/junamis/installed/library-opencode.json."
-    - "OpenCode agent definitions: ~/.config/opencode/agents/<name>.md."
+    - "Config root: ~/.config/junamis/skills/ (the project segment for junamis-skills is skills)."
+    - "OpenCode internal skills: ~/.config/junamis/skills/skills/<name>/SKILL.md."
+    - "Canonical agents: ~/.config/junamis/skills/agents/<name>.md."
+    - "OpenCode agent links: ~/.config/opencode/agents/<name>.md -> the canonical file."
+    - "OpenCode shared docs: ~/.config/junamis/skills/{HANDOFF,SAFETY,EXTERNAL,SECURITY}.md."
+    - "OpenCode install manifest: ~/.config/junamis/skills/installed/library-opencode.json."
     - "OpenCode external skills: ~/.agents/skills/<name>/SKILL.md."
-    - "Claude Code uses one skills directory (~/.claude/skills) for internal and external skills."
-    - "Project scope mirrors the internal side under <project>/.config/junamis/; external skills stay at <project>/.agents/skills and project agents at <project>/.opencode/agents (OpenCode)."
+    - "Claude Code uses one skills directory (~/.claude/skills) for internal and external skills; canonical agents are still linked into ~/.claude/agents."
+    - "Project scope mirrors the config root under <project>/.config/junamis/skills/{skills,agents,*.md,installed}; external skills stay at <project>/.agents/skills and project agent links at <project>/.opencode/agents (OpenCode)."
+    - "No automatic migration: init writes only the nested layout, and status reports old flat files as legacy without deleting them."
   SupplyChain:
     - "skills-lock.json pins a 40-character upstream commit and a 40-character skill tree SHA for every external skill."
     - "The checkout is a Git tree at the locked commit (HEAD === ref). In-tree symlinks are allowed; absolute and escaping symlinks and gitlinks are rejected."
@@ -47,24 +50,27 @@ Features:
       One non-interactive command performs the whole install in order: guide,
       OpenCode config, library, then every pinned external skill.
     Order:
-      - "writeGuide writes junamis-agents-skills-guide.md and .junamis/install.json once."
+      - "writeGuide writes junamis-skills-guide.md and .junamis/junamis-skills.json once."
       - "writeOpencodeConfig writes opencode.json only when missing, or with --force; no prompt."
-      - "planLibraryInstall/applyLibraryInstall copy skills, agents, and shared docs."
+      - "planLibraryInstall/applyLibraryInstall copy skills and shared docs, write canonical agents, and link them into the target agents directory."
       - "installExternal installs every lock entry through the pinned scanner."
     DryRun: "init --dry-run reports all four steps and writes nothing, with no network."
 
   Status:
     Description: >
       Reports guide and marker state, per-target internal/external skill counts,
+      canonical agents and their link state, legacy leftovers (informational),
       library manifest validity, opencode.json validity, external coverage
       (every lock skill present under ~/.agents/skills), and the SECURITY.md
       scan record and last external scan month.
-    Exit: "1 when a required piece is missing for the selected scope; 0 otherwise."
+    Exit: "1 when a required piece is missing for the selected scope; 0 otherwise. Legacy leftovers never fail status."
 
   Library:
     OwnedSkills: 18
     OwnedAgents: 9
     SharedDocs: [HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md]
+    CanonicalAgents: "Written once to <configRoot>/agents; linked into the target agents directory."
+    LinkRules: "A correct link is unchanged; a missing link is created; an identical regular file is adopted; a differing file or wrong link is a conflict unless --force; a failed symlink falls back to a copy with a warning."
     ConflictRule: "Never overwrite a file the user edited unless --force."
     Manifest: "Records every written file and its SHA-256; stale unmodified files are removed."
 
@@ -85,15 +91,15 @@ Features:
 Setup:
   Install:
     - "pnpm install"
-    - "node bin/junamis-agents-skills.js help"
+    - "node bin/junamis-skills.js help"
   Prerequisites:
     - "Node.js 26 or newer"
     - "pnpm 12.15.0 for development"
     - "git CLI for external checkouts"
     - "skillsio is never installed globally; it runs through pnpm dlx at the pinned version"
   Run:
-    - "npx github:devenius/junamis-agents-skills init"
-    - "npx @devenius/junamis-agents-skills init"
+    - "npx github:devenius/junamis-skills init"
+    - "npx @devenius/junamis-skills init"
   Validate:
     - "pnpm test"
     - "pnpm lint"
@@ -139,9 +145,10 @@ Functionality:
     - "Convert scanner cancellation output to exit 125 and never retry it."
 
   LibraryInstall:
-    - "Plan every owned skill file, rendered agent definition, and shared doc."
-    - "Reject symlinked managed roots and destinations before any write or delete."
-    - "Write atomically, back up changes, and roll back on failure."
+    - "Plan every owned skill file, canonical agent definition, shared doc, and the agent links."
+    - "Reject symlinked managed roots and destinations before any write or delete; link destinations check their parent only so a wrong target is a conflict, not an escape."
+    - "Write atomically, back up changes, apply links (adopt identical files, relink with --force), and roll back on failure."
+    - "Fall back to copying a canonical agent when symlink creation fails with EPERM or EACCES, and report a warning."
 
 CLIOptions:
   - "init [--agent opencode|claude] [--scope global|project] [--dir <path>] [--force] [--dry-run] : install guide, config, library, and every pinned external skill"
@@ -154,25 +161,27 @@ CLIOptions:
   - "removed commands : install-library, install-external, sync, doctor, init-config; each fails with a pointer to init/status"
 
 InstalledPaths:
-  "~/.config/junamis/skills": "internal (library) skills, OpenCode"
-  "~/.config/junamis/*.md": "shared docs: HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md"
-  "~/.config/junamis/installed/library-<agent>.json": "library install manifest"
-  "~/.config/opencode/agents": "OpenCode agent definitions"
+  "~/.config/junamis/skills/skills": "internal (library) skills, OpenCode"
+  "~/.config/junamis/skills/agents": "canonical agent definitions"
+  "~/.config/junamis/skills/*.md": "shared docs: HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md"
+  "~/.config/junamis/skills/installed/library-<agent>.json": "library install manifest"
+  "~/.config/opencode/agents": "OpenCode agent links to the canonical files"
   "~/.agents/skills": "external skills, OpenCode"
   "~/.claude/skills": "internal and external skills, Claude Code"
-  "~/.claude/agents": "Claude Code agent definitions"
-  "<project>/.config/junamis/...": "project-scope internal skills, docs, and manifest"
+  "~/.claude/agents": "Claude Code agent links"
+  "<project>/.config/junamis/skills/...": "project-scope internal skills, canonical agents, docs, and manifest"
   "<project>/.agents/skills": "project-scope external skills, OpenCode"
-  "<project>/.opencode/agents": "project-scope OpenCode agent definitions"
-  "<project>/.junamis/install.json": "guide marker"
-  "<project>/junamis-agents-skills-guide.md": "setup guide (project file, not a skill)"
+  "<project>/.opencode/agents": "project-scope OpenCode agent links"
+  "<project>/.junamis/junamis-skills.json": "guide marker"
+  "<project>/junamis-skills-guide.md": "setup guide (project file, not a skill)"
 
 Utilities:
-  - "bin/junamis-agents-skills.js : executable entry point"
+  - "bin/junamis-skills.js : executable entry point"
   - "src/cli.js : parseArgs, runInit, writeOpencodeConfig, status, run"
   - "src/external.js : lock grouping, scanner command, integrity check, sandboxed runner, installExternal"
   - "src/pinned-source.js : pinned Git checkout and skill tree SHA verification"
-  - "src/library-install.js : plan/apply, manifest validation, containment, rollback"
+  - "src/library-install.js : plan/apply, manifest validation, containment, canonical agents, links, rollback"
+  - "src/paths.js : single source of truth for the nested config root and install paths"
   - "src/guide.js : guide rendering and atomic writer"
   - "src/targets/ : one adapter per agent"
   - "scripts/check-*.mjs : config, lock, security, pack, and YAML checks"
@@ -191,6 +200,9 @@ Decisions:
   - "0010: Install-time scanning is skipped with --skip-scan; SECURITY.md plus SAFETY.md is the vetting record, and every install is verified on disk."
   - "0011: An in-tree symlink inside a verified skill folder is allowed; absolute and escaping symlinks are rejected."
   - "0012: check:pins is a manual network check, not part of CI or release."
+  - "0013: The config root is ~/.config/junamis/skills; skills, canonical agents, docs, and the manifest are nested under it."
+  - "0014: Agent definitions are written once to the canonical agents directory and symlinked into each target; a failed symlink falls back to a copy with a warning."
+  - "0015: No automatic migration; status reports legacy flat files and never deletes them."
 
 Limitations:
   - "No third-party skill content is shipped; init needs network access to fetch and scan external skills."
@@ -201,7 +213,7 @@ Limitations:
   - "The legacy .agents/, .opencode/ agent layer and nested upstream clones (skills/, nestjs-agent-skills/) are not part of the package."
 
 Validation:
-  - "pnpm test (146 tests)"
+  - "pnpm test (155 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

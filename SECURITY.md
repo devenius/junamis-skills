@@ -5,7 +5,8 @@ Last external scan: 2026-10
 Scanner: skillsio 1.1.3 (Trust Hub, Socket, Snyk)
 
 This file is the recorded vetting record for every skill the package installs. It
-is published with the package and installed as a shared doc next to `SAFETY.md`.
+is published with the package and installed as a shared doc at
+`~/.config/junamis/skills/SECURITY.md`, next to `SAFETY.md`.
 The approval gate itself is in `library/SAFETY.md`.
 
 > **Install-time scanning is skipped by design (`--skip-scan`).** The scanner
@@ -24,24 +25,24 @@ The approval gate itself is in `library/SAFETY.md`.
 
 | Skill | Kind | Source | License | Scan | Last updated at | Notes |
 |---|---|---|---|---|---|---|
-| db-migrate | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| decision-record | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| dependency-upgrade | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| deploy-verify | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| env-doctor | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| frontend | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| handoff | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| incident-response | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| nestjs | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| nextjs | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| perf-budget | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| refactor-safely | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| release-prep | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| research | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| rollback | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| route | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| security-audit | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
-| skill-author | internal | junamis-agents-skills | MIT | first-party | 2026-11 | |
+| db-migrate | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| decision-record | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| dependency-upgrade | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| deploy-verify | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| env-doctor | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| frontend | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| handoff | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| incident-response | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| nestjs | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| nextjs | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| perf-budget | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| refactor-safely | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| release-prep | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| research | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| rollback | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| route | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| security-audit | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| skill-author | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | agent-browser | external | vercel-labs/agent-browser | Apache-2.0 | flagged | 2026-10 | reviewed and accepted per SAFETY.md; global install and browser download are gated |
 | agent-rules | external | netresearch/agent-rules-skill | MIT OR CC-BY-SA-4.0 | flagged | 2026-10 | reviewed and accepted per SAFETY.md; 7 scanner findings (subprocess, --force); verify-commands and force runs are gated |
 | architect | external | JavaScript-Mastery-Pro/skills | MIT | pass | 2026-10 | no high or critical findings at install |

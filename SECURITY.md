@@ -1,6 +1,6 @@
 # Security and scan record
 
-Last updated: 2026-11-07
+Last updated: 2026-11-09
 Last external scan: 2026-10
 Scanner: skillsio 1.1.3 (Trust Hub, Socket, Snyk)
 
@@ -41,6 +41,7 @@ The approval gate itself is in `library/SAFETY.md`.
 | research | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | rollback | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | route | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| route-external | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | security-audit | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | skill-author | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | agent-browser | external | vercel-labs/agent-browser | Apache-2.0 | flagged | 2026-10 | reviewed and accepted per SAFETY.md; global install and browser download are gated |

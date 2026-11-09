@@ -13,7 +13,7 @@ Write one skill, in the library, that a fresh agent can run without asking quest
 - Folder name, `name` field, and parent folder are the same, lowercase, hyphenated.
 - `description` says when to use it and when not to, in one line. Under 1024 characters.
 - Body under 500 lines. Put long reference material in `references/` and say when to load each file.
-- Ends with a `Finish` section containing the HANDOFF block from `~/.config/junamis/HANDOFF.md`.
+- Ends with a `Finish` section containing the HANDOFF block from `~/.config/junamis/skills/HANDOFF.md`.
 - Every `next` value names a skill, an agent, `user`, or `none`.
 - Says what it does not do.
 
@@ -22,8 +22,8 @@ Write one skill, in the library, that a fresh agent can run without asking quest
 1. **Overlap check.** List `library/skills/`. If an existing skill covers the same trigger, stop and propose extending it instead.
 2. **Trigger check.** Write five prompts that should trigger the skill and five that should not. Confirm each negative belongs to another skill or to none. Put the prompts in the reply, not in a file.
 3. **Draft.** Write `library/skills/<name>/SKILL.md` with these sections: frontmatter, inputs, steps, gotchas, finish.
-4. **Assign.** Add the skill to exactly one agent's `skills:` list in `library/agents/`. If no agent fits, propose one. Do not create an agent without asking.
-5. **Test.** Run `pnpm test`. Fix every failure before reporting done.
+4. **Assign.** Add the skill to exactly one agent's `skills:` list in `library/agents/`. `route-external` is owned only by the orchestrator. If no agent fits, propose one. Do not create an agent without asking.
+5. **Test.** Run `pnpm test`. A new skill also needs a row in `SECURITY.md`, an updated `OwnedSkills` count in `junamis-skills.yml`, and the expected count in `test/library.test.js`. Fix every failure before reporting done.
 
 ## Gotchas
 

@@ -27,6 +27,7 @@ next: <one skill name, one agent name, "user", or "none">
 - `next` names exactly one target. A skill never calls a skill that is not its declared `next`.
 - A skill never edits another skill's artifacts. It reads them.
 - Chat is not state. Anything a later agent needs must be in a file.
+- An external skill runs only with an adapter from `route-external`. Without the adapter its run is not a completed step.
 
 ## Artifact locations
 
@@ -40,3 +41,4 @@ next: <one skill name, one agent name, "user", or "none">
 | Incident record | `docs/incidents/<YYYY-MM-DD>-<slug>.md` | `incident-response` |
 | Review findings | `docs/reviews/<kind>-<YYYY-MM-DD>.md` | `security-audit`, `perf-budget` |
 | Perf budgets | `docs/perf/budgets.md` | `perf-budget` (created on first run) |
+| External skill adapter | `.junamis/adapters/<skill>.md` | `route-external` |

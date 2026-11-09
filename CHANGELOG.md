@@ -11,8 +11,9 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - `status` reports each canonical agent and whether its target link is correct, and reports legacy flat files as informational.
 - `src/paths.js` is the single source of truth for the config root and install paths.
 - `init` now installs everything in one non-interactive run: the guide, `opencode.json` for OpenCode (when missing or with `--force`), the library, and every pinned external skill. Injected dependencies make `init` testable without network access.
-- `SECURITY.md` as the recorded scan record for all 18 internal and 24 external skills: kind, source, license, scan status, last review month, and the pinned scanner. It is published, installed as a shared doc, and enforced by `check:security` in CI and `release:check`.
+- `SECURITY.md` as the recorded scan record for all 19 internal and 24 external skills: kind, source, license, scan status, last review month, and the pinned scanner. It is published, installed as a shared doc, and enforced by `check:security` in CI and `release:check`.
 - `status` replaces `doctor` and reports the guide, marker, per-target internal/external skill counts, library manifest validity, config validity, external coverage, and the `SECURITY.md` scan record. It exits 1 only when a detected target's manifest or config is invalid, or project JSON is malformed.
+- Added the `route-external` internal skill, owned only by the orchestrator, which writes `.junamis/adapters/<skill>.md` so external skills report through the HANDOFF contract without editing upstream content.
 
 ### Security
 - Keep link destinations inside a managed root by checking their parent directory, so a wrong symlink target is reported as a conflict instead of being followed. Canonical link targets must also resolve inside a managed root. Existing realpath, symlink, and ENOTDIR protections are unchanged.
@@ -51,6 +52,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Split internal (library) skills from external skills for OpenCode: internal skills install to `~/.config/junamis/skills/skills`, canonical agents to `~/.config/junamis/skills/agents`, shared docs to `~/.config/junamis/skills/`, and the install manifest to `~/.config/junamis/skills/installed/library-<agent>.json`. External skills stay in `~/.agents/skills`, and `opencode.json` registers both skill roots. Other targets keep their single skills directory but share the canonical agents directory.
 - Remove the ignored `pnpm` field from `package.json`; `pnpm-workspace.yaml` is the single source of truth for overrides.
 - Use the platform null device from `node:os` for the scanner's config paths.
+- The orchestrator now routes both internal and external skills, wraps external skills through `route-external`, dispatches scoped sub-agents for unrelated work, and answers agent questions only within its own authority; user decisions stop the chain. Every specialist agent can pause and ask the orchestrator during work.
 
 ### Fixed
 - `init --dir <new>` no longer crashes with `ENOENT ... realpath` before planning. The managed-root check falls back to the lexical project path and `writeGuide` creates the project directory before writing, so a dry run prints the full plan without creating it and a real run installs into the new directory.

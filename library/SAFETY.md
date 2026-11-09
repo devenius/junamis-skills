@@ -43,7 +43,7 @@ Upstream content is not edited. Each external skill in `skills-lock.json` is lis
 
 Install-time scanning is skipped by design (`--skip-scan`): the scanner prompts on high/critical findings and its prompt cannot be bypassed with `-y`. `SECURITY.md` is the recorded scan record and this page is the approval gate; together they are the vetting record. A high/critical finding must have a `flagged` row in `SECURITY.md` and a reviewed row here.
 
-The per-skill scan record (kind, source, license, pass or flagged, and the last scan month) lives in `SECURITY.md`. That file is shipped with the package and installed as a shared doc. This page keeps the gate table; `SECURITY.md` is the scan record of record.
+The per-skill scan record (kind, source, license, pass or flagged, and the last scan month) lives in `SECURITY.md`. That file is shipped with the package and installed as a shared doc at `~/.config/junamis/skills/SECURITY.md`. This page keeps the gate table; `SECURITY.md` is the scan record of record.
 
 | Skill (lock name) | Flagged commands | Upstream asks first? | Gate applied here |
 |---|---|---|---|

@@ -2,6 +2,8 @@
 
 These skills are installed from `skills-lock.json` into the global skills directory (`~/.agents/skills/` for OpenCode, as `skillsio -g` writes it). Each lock entry pins a Git commit and the skill folder's Git tree SHA; the installer verifies both before scanning and installation. They are not owned by this project. The library refers to them by name only. Each reference must resolve to a lock entry, which `test/library.test.js` checks.
 
+The orchestrator runs `route-external` before dispatching any external skill, so the run ends with a HANDOFF block. The adapter lives in `.junamis/adapters/<skill>.md`; upstream content is never edited.
+
 | Name | Lock source | License | Referenced by | Used for |
 |---|---|---|---|---|
 | debug | JavaScript-Mastery-Pro/skills | MIT | route, orchestrator | bug path: reproduce, root cause, minimal fix |
@@ -28,6 +30,6 @@ External skills assigned to library agents (by reference, not ownership):
 - `grill-me`, `grill-with-docs` → architect agent (stress-testing plans and designs)
 - `doc-coauthoring` → orchestrator (structured documentation workflow)
 
-Their licenses and safety status are in `skills-lock.json` and `~/.config/junamis/SAFETY.md`.
+Their licenses and safety status are in `skills-lock.json` and `~/.config/junamis/skills/SAFETY.md`.
 
 If an external name is not installed, the orchestrator stops and tells the user which one is missing. It does not perform that skill's work itself.

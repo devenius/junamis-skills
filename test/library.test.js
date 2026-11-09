@@ -69,7 +69,7 @@ const agentNames = agentFiles.map((f) => f.replace(/\.md$/, ""));
 const lockNames = Object.keys(LOCK.skills);
 
 test("library has the expected skills and agents", () => {
-  assert.equal(skillNames.length, 18);
+  assert.equal(skillNames.length, 19);
   assert.equal(agentNames.length, 9);
   assert.ok(existsSync(join(LIB, "HANDOFF.md")), "HANDOFF.md missing");
   assert.ok(existsSync(join(LIB, "SAFETY.md")), "SAFETY.md missing");
@@ -146,6 +146,33 @@ test("orchestrator dispatches to every agent", () => {
   const text = readFileSync(join(AGENTS_DIR, "orchestrator.md"), "utf8");
   for (const name of agentNames.filter((n) => n !== "orchestrator")) {
     assert.ok(text.includes(name), `orchestrator does not reference agent "${name}"`);
+  }
+});
+
+test("route-external is owned only by the orchestrator", () => {
+  const orch = frontmatter(readFileSync(join(AGENTS_DIR, "orchestrator.md"), "utf8"), "orchestrator");
+  assert.ok(agentSkills(orch).includes("route-external"), "orchestrator must own route-external");
+  for (const name of agentNames.filter((n) => n !== "orchestrator")) {
+    const fm = frontmatter(readFileSync(join(AGENTS_DIR, `${name}.md`), "utf8"), name);
+    assert.ok(!agentSkills(fm).includes("route-external"), `${name} must not own route-external`);
+  }
+  const text = readFileSync(join(SKILLS_DIR, "route-external", "SKILL.md"), "utf8");
+  assert.ok(text.includes(".junamis/adapters/"), "route-external must write .junamis/adapters/");
+});
+
+test("orchestrator routes external skills through route-external", () => {
+  const text = readFileSync(join(AGENTS_DIR, "orchestrator.md"), "utf8");
+  assert.ok(text.includes("route-external"), "orchestrator must mention route-external");
+  assert.ok(text.toLowerCase().includes("external skill"), "orchestrator must mention external skills");
+  assert.ok(text.toLowerCase().includes("sub-agent"), "orchestrator must mention sub-agents");
+  assert.ok(text.includes("Nothing continues until the user answers"), "orchestrator must stop on user decisions");
+});
+
+test("every specialist agent can ask the orchestrator during work", () => {
+  for (const name of agentNames.filter((n) => n !== "orchestrator")) {
+    const text = readFileSync(join(AGENTS_DIR, `${name}.md`), "utf8");
+    assert.ok(text.includes("## Questions during work"), `${name}: missing Questions during work section`);
+    assert.ok(text.includes("orchestrator"), `${name}: must mention the orchestrator`);
   }
 });
 

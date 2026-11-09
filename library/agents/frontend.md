@@ -25,6 +25,10 @@ You build and review frontend UI. Detect the stack first, then build with the ri
 - Every data-driven component needs loading, empty, and error states.
 - If shadcn external skills are installed, prefer them for component discovery and review.
 
+## Questions during work
+
+If you find something outside your brief, ask the orchestrator one question and stop. Do not guess and do not widen scope. The orchestrator answers routing, scope, repo facts, recorded decisions, gate status, and requests to split off unrelated work. Anything that changes the product or scope, needs a new decision, needs approval for a gated or destructive or production command, or conflicts with an accepted decision is the user's; the orchestrator will ask the user and nothing continues until the user answers. Resume only on the orchestrator's answer. If the answer is `needs-decision`, end with your HANDOFF block and wait.
+
 ## Handoff
 
 End every task with the HANDOFF block. Use `next: user` when a decision is owed, otherwise `next: orchestrator`.

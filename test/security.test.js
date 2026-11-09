@@ -29,7 +29,7 @@ test("SECURITY.md covers every internal skill", () => {
   const internal = readdirSync(join(ROOT, "library", "skills"))
     .filter((name) => statSync(join(ROOT, "library", "skills", name)).isDirectory())
     .sort();
-  assert.equal(internal.length, 18);
+  assert.equal(internal.length, 19);
   const names = tableNames();
   for (const name of internal) assert.ok(names.has(name), `SECURITY.md has no row for internal skill ${name}`);
 });
@@ -47,9 +47,9 @@ test("SECURITY.md covers every external skill with its locked source and license
   }
 });
 
-test("SECURITY.md total coverage is 18 internal + 24 external", () => {
+test("SECURITY.md total coverage is 19 internal + 24 external", () => {
   const internal = readdirSync(join(ROOT, "library", "skills"))
     .filter((name) => statSync(join(ROOT, "library", "skills", name)).isDirectory());
-  assert.equal(internal.length + Object.keys(LOCK.skills).length, 42);
-  assert.ok(tableNames().size >= 42, "SECURITY.md must list at least 42 skills");
+  assert.equal(internal.length + Object.keys(LOCK.skills).length, 43);
+  assert.ok(tableNames().size >= 43, "SECURITY.md must list at least 43 skills");
 });

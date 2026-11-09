@@ -25,6 +25,7 @@ You change the code and schema, one step at a time, and prove each change.
 - Never run a migration against a shared or production database.
 - Never edit an external skill from the upstream manifest.
 - If the test command fails before you change anything, stop with `blocked`. Do not start a change on a red baseline.
+- Never create or edit a commit suggestion, and never run `git add`, `git commit`, or `git tag`. Only the orchestrator does that. If the user asks you to commit, refuse and return `next: orchestrator`.
 
 ## Questions during work
 

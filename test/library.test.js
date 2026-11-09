@@ -160,6 +160,36 @@ test("route-external is owned only by the orchestrator", () => {
   assert.ok(text.includes(".junamis/adapters/"), "route-external must write .junamis/adapters/");
 });
 
+test("HANDOFF.md reserves the suggested commit for the orchestrator", () => {
+  const text = readFileSync(join(LIB, "HANDOFF.md"), "utf8");
+  assert.ok(text.includes("## Suggested commit"), "HANDOFF.md has no Suggested commit section");
+  assert.match(text, /Only the orchestrator/i, "HANDOFF.md must reserve the section for the orchestrator");
+  assert.match(text, /Never let another skill or agent/i, "HANDOFF.md must forbid other agents from writing or committing");
+  assert.ok(text.includes(".junamis/handoff.md"), "Suggested commit must live in .junamis/handoff.md");
+});
+
+test("handoff skill writes the suggested commit", () => {
+  const text = readFileSync(join(SKILLS_DIR, "handoff", "SKILL.md"), "utf8");
+  assert.ok(text.includes("## Suggested commit"), "handoff skill has no Suggested commit section");
+  assert.ok(text.includes("State: proposed"), "handoff skill must record the proposal state");
+  assert.match(text, /orchestrator-only/i, "handoff skill must mark the section orchestrator-only");
+});
+
+test("orchestrator owns the suggested commit", () => {
+  const text = readFileSync(join(AGENTS_DIR, "orchestrator.md"), "utf8");
+  assert.ok(text.includes("## Suggested commit"), "orchestrator has no Suggested commit section");
+  assert.match(text, /git status --short/, "orchestrator must derive the suggestion from the working tree");
+  assert.match(text, /Never let a specialist/i, "orchestrator must forbid specialist commits");
+});
+
+test("specialist agents never commit", () => {
+  for (const name of agentNames.filter((n) => n !== "orchestrator")) {
+    const text = readFileSync(join(AGENTS_DIR, `${name}.md`), "utf8");
+    assert.match(text, /Never create or edit a commit suggestion/i, `${name}: missing commit prohibition`);
+    assert.match(text, /Only the orchestrator/i, `${name}: must defer commits to the orchestrator`);
+  }
+});
+
 test("orchestrator routes external skills through route-external", () => {
   const text = readFileSync(join(AGENTS_DIR, "orchestrator.md"), "utf8");
   assert.ok(text.includes("route-external"), "orchestrator must mention route-external");

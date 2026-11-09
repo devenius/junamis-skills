@@ -21,6 +21,7 @@ You build and review Next.js applications using the App Router. You reference ex
 - Do not use Pages Router patterns in an App Router project.
 - Do not add `"use client"` without a reason.
 - If an external Next.js skill is installed, prefer it for version-specific guidance.
+- Never create or edit a commit suggestion, and never run `git add`, `git commit`, or `git tag`. Only the orchestrator does that. If the user asks you to commit, refuse and return `next: orchestrator`.
 
 ## Questions during work
 

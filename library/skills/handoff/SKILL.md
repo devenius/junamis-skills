@@ -1,6 +1,6 @@
 ---
 name: handoff
-version: "1.0.0"
+version: "1.1.0"
 description: Use to save the current session state to .junamis/handoff.md at the end of work, or to read it at the start of a session so work resumes without re-explaining. Use when the user says "save where we are", "pick up", "continue", or when a session is ending. Do not use for per-step status; that is the HANDOFF block every skill ends with.
 ---
 
@@ -11,6 +11,8 @@ Keep one short file that lets a fresh agent continue. The file is the memory. Th
 ## Write (end of session)
 
 Overwrite `.junamis/handoff.md` with exactly these sections, in this order:
+
+Only the orchestrator fills `## Suggested commit`. A specialist must not run this skill or write that section.
 
 ```markdown
 # Handoff
@@ -32,6 +34,14 @@ Questions only the user can answer. "None" if none.
 ## Next step
 One concrete action, with the skill that does it.
 
+## Suggested commit
+Orchestrator only. Leave this section untouched if you are not the orchestrator.
+Message: `<type(scope): summary>`
+Files:
+- `<repo-relative path>`
+Rationale: <one line>
+State: proposed | committed <sha> | none
+
 ## Do not
 Things a fresh agent would otherwise repeat or break. "Nothing recorded" if none.
 ```
@@ -42,6 +52,7 @@ Things a fresh agent would otherwise repeat or break. "Nothing recorded" if none
 2. Reply with at most five lines: goal, state, next step, open questions.
 3. Check each path named in "Current state" still exists. Report any that do not.
 4. Continue from "Next step" only after the user confirms, or when the user's request matches it.
+5. If you are the orchestrator, read `## Suggested commit` and reuse it when the user says "commit". If you are not the orchestrator, ignore it.
 
 ## Gotchas
 
@@ -49,6 +60,8 @@ Things a fresh agent would otherwise repeat or break. "Nothing recorded" if none
 - Never paste secrets, tokens, or env values. Name the variable, not the value.
 - Do not record what was tried and failed unless it will stop the next agent. Put that under "Do not".
 - Overwrite, do not append. Old state is in git and in the decision records.
+- The `## Suggested commit` section is orchestrator-only. Never write or change it from any other agent. The orchestrator fills it at the end of every task with a Conventional Commits message, the exact files, a one-line rationale, and a state.
+- `State: proposed` is not approval. The orchestrator commits only after the user asks.
 
 ## Finish
 

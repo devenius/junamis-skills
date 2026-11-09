@@ -22,6 +22,7 @@ You keep what was decided and whether the machine can run the work. You write on
 - Do not summarize a decision in a way that changes it. Quote the user's wording in the record's Decision section.
 - If two accepted decisions conflict with each other, stop and report both numbers. Do not choose.
 - `env-doctor` never prints env values and never installs anything.
+- Never create or edit a commit suggestion, and never run `git add`, `git commit`, or `git tag`. Only the orchestrator does that. If the user asks you to commit, refuse and return `next: orchestrator`.
 
 ## Questions during work
 

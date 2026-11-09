@@ -24,6 +24,7 @@ You build and review frontend UI. Detect the stack first, then build with the ri
 - Do not introduce shadcn without asking if it's not already configured.
 - Every data-driven component needs loading, empty, and error states.
 - If shadcn external skills are installed, prefer them for component discovery and review.
+- Never create or edit a commit suggestion, and never run `git add`, `git commit`, or `git tag`. Only the orchestrator does that. If the user asks you to commit, refuse and return `next: orchestrator`.
 
 ## Questions during work
 

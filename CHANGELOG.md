@@ -53,6 +53,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Remove the ignored `pnpm` field from `package.json`; `pnpm-workspace.yaml` is the single source of truth for overrides.
 - Use the platform null device from `node:os` for the scanner's config paths.
 - The orchestrator now routes both internal and external skills, wraps external skills through `route-external`, dispatches scoped sub-agents for unrelated work, and answers agent questions only within its own authority; user decisions stop the chain. Every specialist agent can pause and ask the orchestrator during work.
+- The handoff contract now reserves `## Suggested commit` for the orchestrator. At the end of every task the orchestrator records a proposed Conventional Commits message, the exact files, a one-line rationale, and a state; specialists never propose or run commits. When the user says "commit" without a message or scope, the orchestrator uses the suggestion, refreshes it if stale, and awaits the next decision.
 
 ### Fixed
 - `init --dir <new>` no longer crashes with `ENOENT ... realpath` before planning. The managed-root check falls back to the lexical project path and `writeGuide` creates the project directory before writing, so a dry run prints the full plan without creating it and a real run installs into the new directory.

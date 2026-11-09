@@ -28,12 +28,36 @@ next: <one skill name, one agent name, "user", or "none">
 - A skill never edits another skill's artifacts. It reads them.
 - Chat is not state. Anything a later agent needs must be in a file.
 - An external skill runs only with an adapter from `route-external`. Without the adapter its run is not a completed step.
+- Never let another skill or agent write the `## Suggested commit` section, propose a commit message, or run `git add`, `git commit`, or `git tag`. Only the orchestrator may do that.
+
+## Suggested commit (orchestrator only)
+
+Only the orchestrator writes the `## Suggested commit` section in `.junamis/handoff.md`. Every other skill and agent must leave it untouched and must not propose, stage, or create a commit.
+
+At the end of every task the user gives, the orchestrator records:
+
+```markdown
+## Suggested commit
+Message: `<type(scope): summary>`
+Files:
+- `<repo-relative path>`
+Rationale: <one line>
+State: proposed | committed <sha> | none
+```
+
+- `Message` follows Conventional Commits and stays under 72 characters.
+- `Files` lists exactly the paths changed by this task. It never lists ignored files, secrets, or unrelated changes.
+- `State` is `proposed` before the user asks, `committed <sha>` after a successful commit, and `none` when the task changed no files.
+- The suggestion is not authorization. The orchestrator commits only after the user asks.
+- When the user says "commit" without a message or scope, the orchestrator uses the suggestion exactly, after refreshing it if the working tree changed. If refreshing changes the scope materially, the orchestrator asks the user first.
+- A specialist that believes a commit is needed reports it in `findings` or returns `next: orchestrator`. It never writes this section and never commits.
 
 ## Artifact locations
 
 | Artifact | Path | Owner |
 |---|---|---|
 | Session state | `.junamis/handoff.md` | `handoff` |
+| Suggested commit | `.junamis/handoff.md` (`## Suggested commit`) | `orchestrator` |
 | Decisions | `docs/decisions/NNNN-slug.md` | `decision-record` |
 | Environment report | `docs/env-report.md` | `env-doctor` |
 | Release notes | `docs/releases/<version>.md` | `release-prep` |

@@ -66,6 +66,8 @@ Agent definitions are written once to the canonical directory and symlinked into
 
 For OpenCode, the shipped `opencode.json` registers both skill roots, so internal and external skills resolve side by side. Other targets keep a single skills directory shared by both kinds.
 
+The shipped `opencode.json` uses OpenCode V2 keys. It enables the built-in file tools and local skills, keeps shell and network fetches behind `ask`, denies secret paths and `external_directory`, hard-denies destructive shell verbs, and ships no MCP servers or third-party plugins. Add MCP servers or plugins only after a reviewed decision.
+
 Library installation supports all five targets. Scanned external installation (`init`) currently accepts only OpenCode and Claude Code.
 The Windsurf target keeps project skills in the legacy `.windsurf/skills` directory and installs subagents using Devin's current `.devin/agents` format and locations.
 

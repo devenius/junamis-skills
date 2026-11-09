@@ -468,13 +468,18 @@ async function status(args) {
       check(`config (${candidate.scope})`, false, `${candidate.path}: ${parsed.error}`);
       continue;
     }
-    const perm = parsed.value.permission;
-    const valid = isPlainObject(perm)
-      && ["read", "edit", "webfetch", "websearch", "external_directory"].every((k) => k in perm);
+    const valid = parsed.value.permission === undefined
+      && Array.isArray(parsed.value.permissions)
+      && parsed.value.permissions.length > 0
+      && isPlainObject(parsed.value.mcp)
+      && isPlainObject(parsed.value.mcp.servers)
+      && Array.isArray(parsed.value.plugins);
     check(
       `config (${candidate.scope})`,
       valid,
-      valid ? `${candidate.path} permission keys present` : `${candidate.path}: permission must be an object with all permission keys`,
+      valid
+        ? `${candidate.path} V2 permissions, mcp, and plugins present`
+        : `${candidate.path}: expected V2 permissions array, mcp.servers object, and plugins array`,
     );
   }
 

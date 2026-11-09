@@ -1,1235 +1,5531 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "default_agent": "orchestrator",
-  "skills": ["{env:HOME}/.config/junamis/skills/skills", "{env:HOME}/.agents/skills"],
-  "instructions": ["{env:HOME}/.config/junamis/skills/*.md"],
-  "permission": {
-    "*": "ask",
-    "read": {
-      "*": "allow",
-      ".env": "deny",
-      ".env.*": "deny",
-      ".env.example": "allow",
-      ".env.sample": "allow",
-      ".env.template": "allow",
-      ".env.dist": "allow",
-      "*.pem": "deny",
-      "*.key": "deny",
-      "*.p12": "deny",
-      "*.pfx": "deny",
-      "*.jks": "deny",
-      "*.keystore": "deny",
-      "*.ppk": "deny",
-      "id_rsa": "deny",
-      "id_rsa.*": "deny",
-      "id_dsa": "deny",
-      "id_dsa.*": "deny",
-      "id_ecdsa": "deny",
-      "id_ecdsa.*": "deny",
-      "id_ed25519": "deny",
-      "id_ed25519.*": "deny",
-      "id_ed25519_sk": "deny",
-      "id_xmss": "deny",
-      "id_xmss.*": "deny",
-      "credentials": "deny",
-      "credentials.*": "deny",
-      "credentials.json": "deny",
-      "service-account*.json": "deny",
-      "*service-account*.json": "deny",
-      "application_default_credentials.json": "deny",
-      ".aws/credentials": "deny",
-      ".aws/config": "deny",
-      ".npmrc": "deny",
-      ".pypirc": "deny",
-      ".netrc": "deny",
-      ".docker/config.json": "deny",
-      "secrets.*": "deny",
-      "secret.*": "deny",
-      "*.secret": "deny",
-      "*.secrets": "deny",
-      "*.token": "deny",
-      "*.private": "deny",
-      "master.key": "deny",
-      "vault.*": "deny",
-      "*.vault": "deny",
-      ".htpasswd": "deny",
-      ".pgpass": "deny",
-      ".my.cnf": "deny",
-      "kubeconfig": "deny",
-      ".kube/config": "deny",
-      "terraform.tfvars": "deny",
-      "*.tfvars": "deny",
-      "*.tfstate": "deny",
-      ".dev.vars": "deny",
-      ".flaskenv": "deny",
-      "wp-config.php": "deny",
-      "config/secrets.yml": "deny",
-      "config/secrets.yaml": "deny",
-      "secrets.yml": "deny",
-      "secrets.yaml": "deny",
-      "*.publishsettings": "deny",
-      ".envrc": "deny",
-      "*.env": "deny",
-      ".env.local": "deny",
-      ".env.development": "deny",
-      ".env.production": "deny",
-      ".env.test": "deny",
-      ".env.staging": "deny",
-      "id_*": "deny",
-      "*.key.json": "deny",
-      "*.keys": "deny",
-      "*.p8": "deny",
-      "AuthKey_*.p8": "deny",
-      "*.p10": "deny",
-      "*.csr": "deny",
-      "*.der": "deny",
-      "*.gpg": "deny",
-      "*.asc": "deny",
-      "*.ovpn": "deny",
-      "*.jceks": "deny",
-      "*.bks": "deny",
-      "*.truststore": "deny",
-      ".aws/*": "deny",
-      ".gcp/*": "deny",
-      ".azure/*": "deny",
-      "database.yml": "deny",
-      "database.yaml": "deny",
-      "secrets.json": "deny",
-      "secrets.toml": "deny",
-      "secrets.ini": "deny",
-      "secrets.env": "deny",
-      "secrets.txt": "deny",
-      "*secret*.json": "deny",
-      "*secret*.yaml": "deny",
-      "*secret*.yml": "deny",
-      "*secret*.toml": "deny",
-      "*secret*.env": "deny",
-      "*secret*.txt": "deny",
-      "*credentials*.json": "deny",
-      "firebase-adminsdk*.json": "deny",
-      "gcp-*.json": "deny",
-      "aws-*.json": "deny",
-      "azure-*.json": "deny",
-      "*.private.json": "deny",
-      "*.token.json": "deny",
-      "*.password": "deny",
-      "*.passwd": "deny",
-      "*.shadow": "deny",
-      ".git-credentials": "deny",
-      ".gitconfig": "deny",
-      ".yarnrc.yml": "deny",
-      ".curlrc": "deny",
-      ".wgetrc": "deny",
-      ".env.vault": "deny",
-      "config/credentials.yml.enc": "deny",
-      "config/master.key": "deny",
-      "terraform.tfstate": "deny",
-      "*.tfstate.*": "deny",
-      "*.auto.tfvars": "deny",
-      "*.tfvars.json": "deny",
-      ".kube/*": "deny",
-      ".docker/*": "deny",
-      "kubeconfig.yaml": "deny",
-      "kubeconfig.yml": "deny",
-      "wp-config-sample.php": "deny",
-      ".htaccess": "deny",
-      ".pg_service.conf": "deny",
-      "pg_service.conf": "deny",
-      ".s3cfg": "deny",
-      ".boto": "deny",
-      ".gem/credentials": "deny",
-      ".git/config": "deny",
-      ".git/modules/*": "deny"
+  "skills": [
+    "{env:HOME}/.config/junamis/skills/skills",
+    "{env:HOME}/.agents/skills"
+  ],
+  "instructions": [
+    "{env:HOME}/.config/junamis/skills/*.md"
+  ],
+  "update": "notify",
+  "formatter": false,
+  "plugins": [],
+  "mcp": {
+    "servers": {}
+  },
+  "permissions": [
+    {
+      "action": "*",
+      "resource": "*",
+      "effect": "ask"
     },
-    "edit": {
-      "*": "allow",
-      ".env": "deny",
-      ".env.*": "deny",
-      ".env.example": "allow",
-      ".env.sample": "allow",
-      ".env.template": "allow",
-      ".env.dist": "allow",
-      "*.pem": "deny",
-      "*.key": "deny",
-      "*.p12": "deny",
-      "*.pfx": "deny",
-      "*.jks": "deny",
-      "*.keystore": "deny",
-      "*.ppk": "deny",
-      "id_rsa": "deny",
-      "id_rsa.*": "deny",
-      "id_dsa": "deny",
-      "id_dsa.*": "deny",
-      "id_ecdsa": "deny",
-      "id_ecdsa.*": "deny",
-      "id_ed25519": "deny",
-      "id_ed25519.*": "deny",
-      "id_ed25519_sk": "deny",
-      "id_xmss": "deny",
-      "id_xmss.*": "deny",
-      "credentials": "deny",
-      "credentials.*": "deny",
-      "credentials.json": "deny",
-      "service-account*.json": "deny",
-      "*service-account*.json": "deny",
-      "application_default_credentials.json": "deny",
-      ".aws/credentials": "deny",
-      ".aws/config": "deny",
-      ".npmrc": "deny",
-      ".pypirc": "deny",
-      ".netrc": "deny",
-      ".docker/config.json": "deny",
-      "secrets.*": "deny",
-      "secret.*": "deny",
-      "*.secret": "deny",
-      "*.secrets": "deny",
-      "*.token": "deny",
-      "*.private": "deny",
-      "master.key": "deny",
-      "vault.*": "deny",
-      "*.vault": "deny",
-      ".htpasswd": "deny",
-      ".pgpass": "deny",
-      ".my.cnf": "deny",
-      "kubeconfig": "deny",
-      ".kube/config": "deny",
-      "terraform.tfvars": "deny",
-      "*.tfvars": "deny",
-      "*.tfstate": "deny",
-      ".dev.vars": "deny",
-      ".flaskenv": "deny",
-      "wp-config.php": "deny",
-      "config/secrets.yml": "deny",
-      "config/secrets.yaml": "deny",
-      "secrets.yml": "deny",
-      "secrets.yaml": "deny",
-      "*.publishsettings": "deny",
-      ".envrc": "deny",
-      "*.env": "deny",
-      ".env.local": "deny",
-      ".env.development": "deny",
-      ".env.production": "deny",
-      ".env.test": "deny",
-      ".env.staging": "deny",
-      "id_*": "deny",
-      "*.key.json": "deny",
-      "*.keys": "deny",
-      "*.p8": "deny",
-      "AuthKey_*.p8": "deny",
-      "*.p10": "deny",
-      "*.csr": "deny",
-      "*.der": "deny",
-      "*.gpg": "deny",
-      "*.asc": "deny",
-      "*.ovpn": "deny",
-      "*.jceks": "deny",
-      "*.bks": "deny",
-      "*.truststore": "deny",
-      ".aws/*": "deny",
-      ".gcp/*": "deny",
-      ".azure/*": "deny",
-      "database.yml": "deny",
-      "database.yaml": "deny",
-      "secrets.json": "deny",
-      "secrets.toml": "deny",
-      "secrets.ini": "deny",
-      "secrets.env": "deny",
-      "secrets.txt": "deny",
-      "*secret*.json": "deny",
-      "*secret*.yaml": "deny",
-      "*secret*.yml": "deny",
-      "*secret*.toml": "deny",
-      "*secret*.env": "deny",
-      "*secret*.txt": "deny",
-      "*credentials*.json": "deny",
-      "firebase-adminsdk*.json": "deny",
-      "gcp-*.json": "deny",
-      "aws-*.json": "deny",
-      "azure-*.json": "deny",
-      "*.private.json": "deny",
-      "*.token.json": "deny",
-      "*.password": "deny",
-      "*.passwd": "deny",
-      "*.shadow": "deny",
-      ".git-credentials": "deny",
-      ".gitconfig": "deny",
-      ".yarnrc.yml": "deny",
-      ".curlrc": "deny",
-      ".wgetrc": "deny",
-      ".env.vault": "deny",
-      "config/credentials.yml.enc": "deny",
-      "config/master.key": "deny",
-      "terraform.tfstate": "deny",
-      "*.tfstate.*": "deny",
-      "*.auto.tfvars": "deny",
-      "*.tfvars.json": "deny",
-      ".kube/*": "deny",
-      ".docker/*": "deny",
-      "kubeconfig.yaml": "deny",
-      "kubeconfig.yml": "deny",
-      "wp-config-sample.php": "deny",
-      ".htaccess": "deny",
-      ".pg_service.conf": "deny",
-      "pg_service.conf": "deny",
-      ".s3cfg": "deny",
-      ".boto": "deny",
-      ".gem/credentials": "deny"
+    {
+      "action": "read",
+      "resource": "*",
+      "effect": "allow"
     },
-    "glob": {
-      "*": "allow",
-      ".env": "deny",
-      ".env.*": "deny",
-      "*.pem": "deny",
-      "*.key": "deny",
-      "*.p12": "deny",
-      "*.pfx": "deny",
-      "*.jks": "deny",
-      "*.keystore": "deny",
-      "*.ppk": "deny",
-      "id_rsa": "deny",
-      "id_rsa.*": "deny",
-      "id_dsa": "deny",
-      "id_dsa.*": "deny",
-      "id_ecdsa": "deny",
-      "id_ecdsa.*": "deny",
-      "id_ed25519": "deny",
-      "id_ed25519.*": "deny",
-      "id_ed25519_sk": "deny",
-      "id_xmss": "deny",
-      "id_xmss.*": "deny",
-      "credentials": "deny",
-      "credentials.*": "deny",
-      "credentials.json": "deny",
-      "service-account*.json": "deny",
-      "*service-account*.json": "deny",
-      "application_default_credentials.json": "deny",
-      ".aws/credentials": "deny",
-      ".aws/config": "deny",
-      ".npmrc": "deny",
-      ".pypirc": "deny",
-      ".netrc": "deny",
-      ".docker/config.json": "deny",
-      "secrets.*": "deny",
-      "secret.*": "deny",
-      "*.secret": "deny",
-      "*.secrets": "deny",
-      "*.token": "deny",
-      "*.private": "deny",
-      "master.key": "deny",
-      "vault.*": "deny",
-      "*.vault": "deny",
-      ".htpasswd": "deny",
-      ".pgpass": "deny",
-      ".my.cnf": "deny",
-      "kubeconfig": "deny",
-      ".kube/config": "deny",
-      "terraform.tfvars": "deny",
-      "*.tfvars": "deny",
-      "*.tfstate": "deny",
-      ".dev.vars": "deny",
-      ".flaskenv": "deny",
-      "wp-config.php": "deny",
-      "config/secrets.yml": "deny",
-      "config/secrets.yaml": "deny",
-      "secrets.yml": "deny",
-      "secrets.yaml": "deny",
-      "*.publishsettings": "deny",
-      ".envrc": "deny",
-      "*.env": "deny",
-      ".env.local": "deny",
-      ".env.development": "deny",
-      ".env.production": "deny",
-      ".env.test": "deny",
-      ".env.staging": "deny",
-      "id_*": "deny",
-      "*.key.json": "deny",
-      "*.keys": "deny",
-      "*.p8": "deny",
-      "AuthKey_*.p8": "deny",
-      "*.p10": "deny",
-      "*.csr": "deny",
-      "*.der": "deny",
-      "*.gpg": "deny",
-      "*.asc": "deny",
-      "*.ovpn": "deny",
-      "*.jceks": "deny",
-      "*.bks": "deny",
-      "*.truststore": "deny",
-      ".aws/*": "deny",
-      ".gcp/*": "deny",
-      ".azure/*": "deny",
-      "database.yml": "deny",
-      "database.yaml": "deny",
-      "secrets.json": "deny",
-      "secrets.toml": "deny",
-      "secrets.ini": "deny",
-      "secrets.env": "deny",
-      "secrets.txt": "deny",
-      "*secret*.json": "deny",
-      "*secret*.yaml": "deny",
-      "*secret*.yml": "deny",
-      "*secret*.toml": "deny",
-      "*secret*.env": "deny",
-      "*secret*.txt": "deny",
-      "*credentials*.json": "deny",
-      "firebase-adminsdk*.json": "deny",
-      "gcp-*.json": "deny",
-      "aws-*.json": "deny",
-      "azure-*.json": "deny",
-      "*.private.json": "deny",
-      "*.token.json": "deny",
-      "*.password": "deny",
-      "*.passwd": "deny",
-      "*.shadow": "deny",
-      ".git-credentials": "deny",
-      ".gitconfig": "deny",
-      ".yarnrc.yml": "deny",
-      ".curlrc": "deny",
-      ".wgetrc": "deny",
-      ".env.vault": "deny",
-      "config/credentials.yml.enc": "deny",
-      "config/master.key": "deny",
-      "terraform.tfstate": "deny",
-      "*.tfstate.*": "deny",
-      "*.auto.tfvars": "deny",
-      "*.tfvars.json": "deny",
-      ".kube/*": "deny",
-      ".docker/*": "deny",
-      "kubeconfig.yaml": "deny",
-      "kubeconfig.yml": "deny",
-      "wp-config-sample.php": "deny",
-      ".htaccess": "deny",
-      ".pg_service.conf": "deny",
-      "pg_service.conf": "deny",
-      ".s3cfg": "deny",
-      ".boto": "deny",
-      ".gem/credentials": "deny"
+    {
+      "action": "read",
+      "resource": ".env",
+      "effect": "deny"
     },
-    "grep": {
-      "*": "allow",
-      ".env": "deny",
-      ".env.*": "deny",
-      "*.pem": "deny",
-      "*.key": "deny",
-      "*.p12": "deny",
-      "*.pfx": "deny",
-      "*.jks": "deny",
-      "*.keystore": "deny",
-      "*.ppk": "deny",
-      "id_rsa": "deny",
-      "id_rsa.*": "deny",
-      "id_dsa": "deny",
-      "id_dsa.*": "deny",
-      "id_ecdsa": "deny",
-      "id_ecdsa.*": "deny",
-      "id_ed25519": "deny",
-      "id_ed25519.*": "deny",
-      "id_ed25519_sk": "deny",
-      "id_xmss": "deny",
-      "id_xmss.*": "deny",
-      "credentials": "deny",
-      "credentials.*": "deny",
-      "credentials.json": "deny",
-      "service-account*.json": "deny",
-      "*service-account*.json": "deny",
-      "application_default_credentials.json": "deny",
-      ".aws/credentials": "deny",
-      ".aws/config": "deny",
-      ".npmrc": "deny",
-      ".pypirc": "deny",
-      ".netrc": "deny",
-      ".docker/config.json": "deny",
-      "secrets.*": "deny",
-      "secret.*": "deny",
-      "*.secret": "deny",
-      "*.secrets": "deny",
-      "*.token": "deny",
-      "*.private": "deny",
-      "master.key": "deny",
-      "vault.*": "deny",
-      "*.vault": "deny",
-      ".htpasswd": "deny",
-      ".pgpass": "deny",
-      ".my.cnf": "deny",
-      "kubeconfig": "deny",
-      ".kube/config": "deny",
-      "terraform.tfvars": "deny",
-      "*.tfvars": "deny",
-      "*.tfstate": "deny",
-      ".dev.vars": "deny",
-      ".flaskenv": "deny",
-      "wp-config.php": "deny",
-      "config/secrets.yml": "deny",
-      "config/secrets.yaml": "deny",
-      "secrets.yml": "deny",
-      "secrets.yaml": "deny",
-      "*.publishsettings": "deny",
-      ".envrc": "deny",
-      "*.env": "deny",
-      ".env.local": "deny",
-      ".env.development": "deny",
-      ".env.production": "deny",
-      ".env.test": "deny",
-      ".env.staging": "deny",
-      "id_*": "deny",
-      "*.key.json": "deny",
-      "*.keys": "deny",
-      "*.p8": "deny",
-      "AuthKey_*.p8": "deny",
-      "*.p10": "deny",
-      "*.csr": "deny",
-      "*.der": "deny",
-      "*.gpg": "deny",
-      "*.asc": "deny",
-      "*.ovpn": "deny",
-      "*.jceks": "deny",
-      "*.bks": "deny",
-      "*.truststore": "deny",
-      ".aws/*": "deny",
-      ".gcp/*": "deny",
-      ".azure/*": "deny",
-      "database.yml": "deny",
-      "database.yaml": "deny",
-      "secrets.json": "deny",
-      "secrets.toml": "deny",
-      "secrets.ini": "deny",
-      "secrets.env": "deny",
-      "secrets.txt": "deny",
-      "*secret*.json": "deny",
-      "*secret*.yaml": "deny",
-      "*secret*.yml": "deny",
-      "*secret*.toml": "deny",
-      "*secret*.env": "deny",
-      "*secret*.txt": "deny",
-      "*credentials*.json": "deny",
-      "firebase-adminsdk*.json": "deny",
-      "gcp-*.json": "deny",
-      "aws-*.json": "deny",
-      "azure-*.json": "deny",
-      "*.private.json": "deny",
-      "*.token.json": "deny",
-      "*.password": "deny",
-      "*.passwd": "deny",
-      "*.shadow": "deny",
-      ".git-credentials": "deny",
-      ".gitconfig": "deny",
-      ".yarnrc.yml": "deny",
-      ".curlrc": "deny",
-      ".wgetrc": "deny",
-      ".env.vault": "deny",
-      "config/credentials.yml.enc": "deny",
-      "config/master.key": "deny",
-      "terraform.tfstate": "deny",
-      "*.tfstate.*": "deny",
-      "*.auto.tfvars": "deny",
-      "*.tfvars.json": "deny",
-      ".kube/*": "deny",
-      ".docker/*": "deny",
-      "kubeconfig.yaml": "deny",
-      "kubeconfig.yml": "deny",
-      "wp-config-sample.php": "deny",
-      ".htaccess": "deny",
-      ".pg_service.conf": "deny",
-      "pg_service.conf": "deny",
-      ".s3cfg": "deny",
-      ".boto": "deny",
-      ".gem/credentials": "deny"
+    {
+      "action": "read",
+      "resource": ".env.*",
+      "effect": "deny"
     },
-    "list": {
-      "*": "allow",
-      ".env": "deny",
-      ".env.*": "deny",
-      "*.pem": "deny",
-      "*.key": "deny",
-      "*.p12": "deny",
-      "*.pfx": "deny",
-      "*.jks": "deny",
-      "*.keystore": "deny",
-      "*.ppk": "deny",
-      "id_rsa": "deny",
-      "id_rsa.*": "deny",
-      "id_dsa": "deny",
-      "id_dsa.*": "deny",
-      "id_ecdsa": "deny",
-      "id_ecdsa.*": "deny",
-      "id_ed25519": "deny",
-      "id_ed25519.*": "deny",
-      "id_ed25519_sk": "deny",
-      "id_xmss": "deny",
-      "id_xmss.*": "deny",
-      "credentials": "deny",
-      "credentials.*": "deny",
-      "credentials.json": "deny",
-      "service-account*.json": "deny",
-      "*service-account*.json": "deny",
-      "application_default_credentials.json": "deny",
-      ".aws/credentials": "deny",
-      ".aws/config": "deny",
-      ".npmrc": "deny",
-      ".pypirc": "deny",
-      ".netrc": "deny",
-      ".docker/config.json": "deny",
-      "secrets.*": "deny",
-      "secret.*": "deny",
-      "*.secret": "deny",
-      "*.secrets": "deny",
-      "*.token": "deny",
-      "*.private": "deny",
-      "master.key": "deny",
-      "vault.*": "deny",
-      "*.vault": "deny",
-      ".htpasswd": "deny",
-      ".pgpass": "deny",
-      ".my.cnf": "deny",
-      "kubeconfig": "deny",
-      ".kube/config": "deny",
-      "terraform.tfvars": "deny",
-      "*.tfvars": "deny",
-      "*.tfstate": "deny",
-      ".dev.vars": "deny",
-      ".flaskenv": "deny",
-      "wp-config.php": "deny",
-      "config/secrets.yml": "deny",
-      "config/secrets.yaml": "deny",
-      "secrets.yml": "deny",
-      "secrets.yaml": "deny",
-      "*.publishsettings": "deny",
-      ".envrc": "deny",
-      "*.env": "deny",
-      ".env.local": "deny",
-      ".env.development": "deny",
-      ".env.production": "deny",
-      ".env.test": "deny",
-      ".env.staging": "deny",
-      "id_*": "deny",
-      "*.key.json": "deny",
-      "*.keys": "deny",
-      "*.p8": "deny",
-      "AuthKey_*.p8": "deny",
-      "*.p10": "deny",
-      "*.csr": "deny",
-      "*.der": "deny",
-      "*.gpg": "deny",
-      "*.asc": "deny",
-      "*.ovpn": "deny",
-      "*.jceks": "deny",
-      "*.bks": "deny",
-      "*.truststore": "deny",
-      ".aws/*": "deny",
-      ".gcp/*": "deny",
-      ".azure/*": "deny",
-      "database.yml": "deny",
-      "database.yaml": "deny",
-      "secrets.json": "deny",
-      "secrets.toml": "deny",
-      "secrets.ini": "deny",
-      "secrets.env": "deny",
-      "secrets.txt": "deny",
-      "*secret*.json": "deny",
-      "*secret*.yaml": "deny",
-      "*secret*.yml": "deny",
-      "*secret*.toml": "deny",
-      "*secret*.env": "deny",
-      "*secret*.txt": "deny",
-      "*credentials*.json": "deny",
-      "firebase-adminsdk*.json": "deny",
-      "gcp-*.json": "deny",
-      "aws-*.json": "deny",
-      "azure-*.json": "deny",
-      "*.private.json": "deny",
-      "*.token.json": "deny",
-      "*.password": "deny",
-      "*.passwd": "deny",
-      "*.shadow": "deny",
-      ".git-credentials": "deny",
-      ".gitconfig": "deny",
-      ".yarnrc.yml": "deny",
-      ".curlrc": "deny",
-      ".wgetrc": "deny",
-      ".env.vault": "deny",
-      "config/credentials.yml.enc": "deny",
-      "config/master.key": "deny",
-      "terraform.tfstate": "deny",
-      "*.tfstate.*": "deny",
-      "*.auto.tfvars": "deny",
-      "*.tfvars.json": "deny",
-      ".kube/*": "deny",
-      ".docker/*": "deny",
-      "kubeconfig.yaml": "deny",
-      "kubeconfig.yml": "deny",
-      "wp-config-sample.php": "deny",
-      ".htaccess": "deny",
-      ".pg_service.conf": "deny",
-      "pg_service.conf": "deny",
-      ".s3cfg": "deny",
-      ".boto": "deny",
-      ".gem/credentials": "deny"
+    {
+      "action": "read",
+      "resource": ".env.example",
+      "effect": "allow"
     },
-    "external_directory": "deny",
-    "bash": {
-      "*": "ask",
-      "*.env*": "deny",
-      "*.pem*": "deny",
-      "*.key*": "deny",
-      "*id_rsa*": "deny",
-      "*id_dsa*": "deny",
-      "*id_ecdsa*": "deny",
-      "*id_ed25519*": "deny",
-      "*id_xmss*": "deny",
-      "*credentials*": "deny",
-      "*service-account*": "deny",
-      "*application_default_credentials*": "deny",
-      "*.aws/credentials*": "deny",
-      "*.npmrc*": "deny",
-      "*.pypirc*": "deny",
-      "*.netrc*": "deny",
-      "*.docker/config.json*": "deny",
-      "*secrets*": "deny",
-      "*secret*": "deny",
-      "*.token*": "deny",
-      "*master.key*": "deny",
-      "*vault*": "deny",
-      "*.htpasswd*": "deny",
-      "*.pgpass*": "deny",
-      "*.my.cnf*": "deny",
-      "*kubeconfig*": "deny",
-      "*.tfvars*": "deny",
-      "*.tfstate*": "deny",
-      "*.dev.vars*": "deny",
-      "*.flaskenv*": "deny",
-      "*wp-config.php*": "deny",
-      "*.publishsettings*": "deny",
-      "*.envrc*": "deny",
-      "*.gpg*": "deny",
-      "*.asc*": "deny",
-      "*.ovpn*": "deny",
-      "*.p12*": "deny",
-      "*.pfx*": "deny",
-      "*.keystore*": "deny",
-      "*.jks*": "deny",
-      "*.ppk*": "deny",
-      "*.der*": "deny",
-      "*.csr*": "deny",
-      "*database.yml*": "deny",
-      "*database.yaml*": "deny"
+    {
+      "action": "read",
+      "resource": ".env.sample",
+      "effect": "allow"
     },
-    "websearch": {
-      "*": "allow"
+    {
+      "action": "read",
+      "resource": ".env.template",
+      "effect": "allow"
     },
-    "webfetch": {
-      "https://stackoverflow.com/*": "allow",
-      "https://*.stackoverflow.com/*": "allow",
-      "https://stackexchange.com/*": "allow",
-      "https://*.stackexchange.com/*": "allow",
-      "https://serverfault.com/*": "allow",
-      "https://*.serverfault.com/*": "allow",
-      "https://superuser.com/*": "allow",
-      "https://*.superuser.com/*": "allow",
-      "https://askubuntu.com/*": "allow",
-      "https://*.askubuntu.com/*": "allow",
-      "https://mathoverflow.net/*": "allow",
-      "https://*.mathoverflow.net/*": "allow",
-      "https://developer.mozilla.org/*": "allow",
-      "https://*.developer.mozilla.org/*": "allow",
-      "https://mdn.mozilla.org/*": "allow",
-      "https://*.mdn.mozilla.org/*": "allow",
-      "https://web.dev/*": "allow",
-      "https://*.web.dev/*": "allow",
-      "https://w3.org/*": "allow",
-      "https://*.w3.org/*": "allow",
-      "https://w3schools.com/*": "allow",
-      "https://*.w3schools.com/*": "allow",
-      "https://npmjs.com/*": "allow",
-      "https://*.npmjs.com/*": "allow",
-      "https://registry.npmjs.org/*": "allow",
-      "https://*.registry.npmjs.org/*": "allow",
-      "https://pypi.org/*": "allow",
-      "https://*.pypi.org/*": "allow",
-      "https://files.pythonhosted.org/*": "allow",
-      "https://*.files.pythonhosted.org/*": "allow",
-      "https://crates.io/*": "allow",
-      "https://*.crates.io/*": "allow",
-      "https://static.crates.io/*": "allow",
-      "https://*.static.crates.io/*": "allow",
-      "https://pkg.go.dev/*": "allow",
-      "https://*.pkg.go.dev/*": "allow",
-      "https://golang.org/*": "allow",
-      "https://*.golang.org/*": "allow",
-      "https://go.dev/*": "allow",
-      "https://*.go.dev/*": "allow",
-      "https://rubygems.org/*": "allow",
-      "https://*.rubygems.org/*": "allow",
-      "https://nuget.org/*": "allow",
-      "https://*.nuget.org/*": "allow",
-      "https://maven.org/*": "allow",
-      "https://*.maven.org/*": "allow",
-      "https://mvnrepository.com/*": "allow",
-      "https://*.mvnrepository.com/*": "allow",
-      "https://repo1.maven.org/*": "allow",
-      "https://*.repo1.maven.org/*": "allow",
-      "https://central.sonatype.com/*": "allow",
-      "https://*.central.sonatype.com/*": "allow",
-      "https://vercel.com/*": "allow",
-      "https://*.vercel.com/*": "allow",
-      "https://netlify.com/*": "allow",
-      "https://*.netlify.com/*": "allow",
-      "https://cloudflare.com/*": "allow",
-      "https://*.cloudflare.com/*": "allow",
-      "https://developers.cloudflare.com/*": "allow",
-      "https://*.developers.cloudflare.com/*": "allow",
-      "https://aws.amazon.com/*": "allow",
-      "https://*.aws.amazon.com/*": "allow",
-      "https://docs.aws.amazon.com/*": "allow",
-      "https://*.docs.aws.amazon.com/*": "allow",
-      "https://console.aws.amazon.com/*": "allow",
-      "https://*.console.aws.amazon.com/*": "allow",
-      "https://azure.microsoft.com/*": "allow",
-      "https://*.azure.microsoft.com/*": "allow",
-      "https://learn.microsoft.com/*": "allow",
-      "https://*.learn.microsoft.com/*": "allow",
-      "https://portal.azure.com/*": "allow",
-      "https://*.portal.azure.com/*": "allow",
-      "https://docs.microsoft.com/*": "allow",
-      "https://*.docs.microsoft.com/*": "allow",
-      "https://cloud.google.com/*": "allow",
-      "https://*.cloud.google.com/*": "allow",
-      "https://developers.google.com/*": "allow",
-      "https://*.developers.google.com/*": "allow",
-      "https://console.cloud.google.com/*": "allow",
-      "https://*.console.cloud.google.com/*": "allow",
-      "https://oracle.com/*": "allow",
-      "https://*.oracle.com/*": "allow",
-      "https://docs.oracle.com/*": "allow",
-      "https://*.docs.oracle.com/*": "allow",
-      "https://java.com/*": "allow",
-      "https://*.java.com/*": "allow",
-      "https://java.net/*": "allow",
-      "https://*.java.net/*": "allow",
-      "https://openjdk.org/*": "allow",
-      "https://*.openjdk.org/*": "allow",
-      "https://adoptium.net/*": "allow",
-      "https://*.adoptium.net/*": "allow",
-      "https://adoptopenjdk.net/*": "allow",
-      "https://*.adoptopenjdk.net/*": "allow",
-      "https://eclipse.org/*": "allow",
-      "https://*.eclipse.org/*": "allow",
-      "https://jetbrains.com/*": "allow",
-      "https://*.jetbrains.com/*": "allow",
-      "https://visualstudio.com/*": "allow",
-      "https://*.visualstudio.com/*": "allow",
-      "https://code.visualstudio.com/*": "allow",
-      "https://*.code.visualstudio.com/*": "allow",
-      "https://microsoft.com/*": "allow",
-      "https://*.microsoft.com/*": "allow",
-      "https://apple.com/*": "allow",
-      "https://*.apple.com/*": "allow",
-      "https://developer.apple.com/*": "allow",
-      "https://*.developer.apple.com/*": "allow",
-      "https://android.com/*": "allow",
-      "https://*.android.com/*": "allow",
-      "https://developer.android.com/*": "allow",
-      "https://*.developer.android.com/*": "allow",
-      "https://kotlinlang.org/*": "allow",
-      "https://*.kotlinlang.org/*": "allow",
-      "https://swift.org/*": "allow",
-      "https://*.swift.org/*": "allow",
-      "https://rust-lang.org/*": "allow",
-      "https://*.rust-lang.org/*": "allow",
-      "https://doc.rust-lang.org/*": "allow",
-      "https://*.doc.rust-lang.org/*": "allow",
-      "https://python.org/*": "allow",
-      "https://*.python.org/*": "allow",
-      "https://docs.python.org/*": "allow",
-      "https://*.docs.python.org/*": "allow",
-      "https://nodejs.org/*": "allow",
-      "https://*.nodejs.org/*": "allow",
-      "https://nodejs.dev/*": "allow",
-      "https://*.nodejs.dev/*": "allow",
-      "https://react.dev/*": "allow",
-      "https://*.react.dev/*": "allow",
-      "https://reactjs.org/*": "allow",
-      "https://*.reactjs.org/*": "allow",
-      "https://vuejs.org/*": "allow",
-      "https://*.vuejs.org/*": "allow",
-      "https://angular.io/*": "allow",
-      "https://*.angular.io/*": "allow",
-      "https://angular.dev/*": "allow",
-      "https://*.angular.dev/*": "allow",
-      "https://svelte.dev/*": "allow",
-      "https://*.svelte.dev/*": "allow",
-      "https://nextjs.org/*": "allow",
-      "https://*.nextjs.org/*": "allow",
-      "https://nuxt.com/*": "allow",
-      "https://*.nuxt.com/*": "allow",
-      "https://nuxtjs.org/*": "allow",
-      "https://*.nuxtjs.org/*": "allow",
-      "https://tailwindcss.com/*": "allow",
-      "https://*.tailwindcss.com/*": "allow",
-      "https://getbootstrap.com/*": "allow",
-      "https://*.getbootstrap.com/*": "allow",
-      "https://material-ui.com/*": "allow",
-      "https://*.material-ui.com/*": "allow",
-      "https://mui.com/*": "allow",
-      "https://*.mui.com/*": "allow",
-      "https://chakra-ui.com/*": "allow",
-      "https://*.chakra-ui.com/*": "allow",
-      "https://radix-ui.com/*": "allow",
-      "https://*.radix-ui.com/*": "allow",
-      "https://shadcn.com/*": "allow",
-      "https://*.shadcn.com/*": "allow",
-      "https://ui.shadcn.com/*": "allow",
-      "https://*.ui.shadcn.com/*": "allow",
-      "https://prisma.io/*": "allow",
-      "https://*.prisma.io/*": "allow",
-      "https://drizzle.team/*": "allow",
-      "https://*.drizzle.team/*": "allow",
-      "https://typeorm.io/*": "allow",
-      "https://*.typeorm.io/*": "allow",
-      "https://sequelize.org/*": "allow",
-      "https://*.sequelize.org/*": "allow",
-      "https://mongoosejs.com/*": "allow",
-      "https://*.mongoosejs.com/*": "allow",
-      "https://mongodb.com/*": "allow",
-      "https://*.mongodb.com/*": "allow",
-      "https://docs.mongodb.com/*": "allow",
-      "https://*.docs.mongodb.com/*": "allow",
-      "https://postgresql.org/*": "allow",
-      "https://*.postgresql.org/*": "allow",
-      "https://mysql.com/*": "allow",
-      "https://*.mysql.com/*": "allow",
-      "https://dev.mysql.com/*": "allow",
-      "https://*.dev.mysql.com/*": "allow",
-      "https://mariadb.org/*": "allow",
-      "https://*.mariadb.org/*": "allow",
-      "https://sqlite.org/*": "allow",
-      "https://*.sqlite.org/*": "allow",
-      "https://redis.io/*": "allow",
-      "https://*.redis.io/*": "allow",
-      "https://redis.com/*": "allow",
-      "https://*.redis.com/*": "allow",
-      "https://elastic.co/*": "allow",
-      "https://*.elastic.co/*": "allow",
-      "https://opensearch.org/*": "allow",
-      "https://*.opensearch.org/*": "allow",
-      "https://nginx.org/*": "allow",
-      "https://*.nginx.org/*": "allow",
-      "https://apache.org/*": "allow",
-      "https://*.apache.org/*": "allow",
-      "https://httpd.apache.org/*": "allow",
-      "https://*.httpd.apache.org/*": "allow",
-      "https://tomcat.apache.org/*": "allow",
-      "https://*.tomcat.apache.org/*": "allow",
-      "https://kafka.apache.org/*": "allow",
-      "https://*.kafka.apache.org/*": "allow",
-      "https://zookeeper.apache.org/*": "allow",
-      "https://*.zookeeper.apache.org/*": "allow",
-      "https://spark.apache.org/*": "allow",
-      "https://*.spark.apache.org/*": "allow",
-      "https://flink.apache.org/*": "allow",
-      "https://*.flink.apache.org/*": "allow",
-      "https://hadoop.apache.org/*": "allow",
-      "https://*.hadoop.apache.org/*": "allow",
-      "https://airflow.apache.org/*": "allow",
-      "https://*.airflow.apache.org/*": "allow",
-      "https://beam.apache.org/*": "allow",
-      "https://*.beam.apache.org/*": "allow",
-      "https://kubernetes.io/*": "allow",
-      "https://*.kubernetes.io/*": "allow",
-      "https://helm.sh/*": "allow",
-      "https://*.helm.sh/*": "allow",
-      "https://docker.com/*": "allow",
-      "https://*.docker.com/*": "allow",
-      "https://docs.docker.com/*": "allow",
-      "https://*.docs.docker.com/*": "allow",
-      "https://hub.docker.com/*": "allow",
-      "https://*.hub.docker.com/*": "allow",
-      "https://containerd.io/*": "allow",
-      "https://*.containerd.io/*": "allow",
-      "https://podman.io/*": "allow",
-      "https://*.podman.io/*": "allow",
-      "https://openshift.com/*": "allow",
-      "https://*.openshift.com/*": "allow",
-      "https://redhat.com/*": "allow",
-      "https://*.redhat.com/*": "allow",
-      "https://opensuse.org/*": "allow",
-      "https://*.opensuse.org/*": "allow",
-      "https://ubuntu.com/*": "allow",
-      "https://*.ubuntu.com/*": "allow",
-      "https://debian.org/*": "allow",
-      "https://*.debian.org/*": "allow",
-      "https://alpinelinux.org/*": "allow",
-      "https://*.alpinelinux.org/*": "allow",
-      "https://archlinux.org/*": "allow",
-      "https://*.archlinux.org/*": "allow",
-      "https://fedoraproject.org/*": "allow",
-      "https://*.fedoraproject.org/*": "allow",
-      "https://centos.org/*": "allow",
-      "https://*.centos.org/*": "allow",
-      "https://rockylinux.org/*": "allow",
-      "https://*.rockylinux.org/*": "allow",
-      "https://almalinux.org/*": "allow",
-      "https://*.almalinux.org/*": "allow",
-      "https://gentoo.org/*": "allow",
-      "https://*.gentoo.org/*": "allow",
-      "https://nixos.org/*": "allow",
-      "https://*.nixos.org/*": "allow",
-      "https://brew.sh/*": "allow",
-      "https://*.brew.sh/*": "allow",
-      "https://macports.org/*": "allow",
-      "https://*.macports.org/*": "allow",
-      "https://chocolatey.org/*": "allow",
-      "https://*.chocolatey.org/*": "allow",
-      "https://scoop.sh/*": "allow",
-      "https://*.scoop.sh/*": "allow",
-      "https://pnpm.io/*": "allow",
-      "https://*.pnpm.io/*": "allow",
-      "https://yarnpkg.com/*": "allow",
-      "https://*.yarnpkg.com/*": "allow",
-      "https://bun.sh/*": "allow",
-      "https://*.bun.sh/*": "allow",
-      "https://deno.land/*": "allow",
-      "https://*.deno.land/*": "allow",
-      "https://deno.com/*": "allow",
-      "https://*.deno.com/*": "allow",
-      "https://vitejs.dev/*": "allow",
-      "https://*.vitejs.dev/*": "allow",
-      "https://vite.dev/*": "allow",
-      "https://*.vite.dev/*": "allow",
-      "https://webpack.js.org/*": "allow",
-      "https://*.webpack.js.org/*": "allow",
-      "https://babeljs.io/*": "allow",
-      "https://*.babeljs.io/*": "allow",
-      "https://typescriptlang.org/*": "allow",
-      "https://*.typescriptlang.org/*": "allow",
-      "https://eslint.org/*": "allow",
-      "https://*.eslint.org/*": "allow",
-      "https://prettier.io/*": "allow",
-      "https://*.prettier.io/*": "allow",
-      "https://jestjs.io/*": "allow",
-      "https://*.jestjs.io/*": "allow",
-      "https://vitest.dev/*": "allow",
-      "https://*.vitest.dev/*": "allow",
-      "https://playwright.dev/*": "allow",
-      "https://*.playwright.dev/*": "allow",
-      "https://cypress.io/*": "allow",
-      "https://*.cypress.io/*": "allow",
-      "https://testing-library.com/*": "allow",
-      "https://*.testing-library.com/*": "allow",
-      "https://mochajs.org/*": "allow",
-      "https://*.mochajs.org/*": "allow",
-      "https://chaijs.com/*": "allow",
-      "https://*.chaijs.com/*": "allow",
-      "https://sinonjs.org/*": "allow",
-      "https://*.sinonjs.org/*": "allow",
-      "https://terraform.io/*": "allow",
-      "https://*.terraform.io/*": "allow",
-      "https://developer.hashicorp.com/*": "allow",
-      "https://*.developer.hashicorp.com/*": "allow",
-      "https://hashicorp.com/*": "allow",
-      "https://*.hashicorp.com/*": "allow",
-      "https://ansible.com/*": "allow",
-      "https://*.ansible.com/*": "allow",
-      "https://docs.ansible.com/*": "allow",
-      "https://*.docs.ansible.com/*": "allow",
-      "https://chef.io/*": "allow",
-      "https://*.chef.io/*": "allow",
-      "https://puppet.com/*": "allow",
-      "https://*.puppet.com/*": "allow",
-      "https://saltproject.io/*": "allow",
-      "https://*.saltproject.io/*": "allow",
-      "https://jenkins.io/*": "allow",
-      "https://*.jenkins.io/*": "allow",
-      "https://circleci.com/*": "allow",
-      "https://*.circleci.com/*": "allow",
-      "https://travis-ci.com/*": "allow",
-      "https://*.travis-ci.com/*": "allow",
-      "https://drone.io/*": "allow",
-      "https://*.drone.io/*": "allow",
-      "https://tekton.dev/*": "allow",
-      "https://*.tekton.dev/*": "allow",
-      "https://fluxcd.io/*": "allow",
-      "https://*.fluxcd.io/*": "allow",
-      "https://spinnaker.io/*": "allow",
-      "https://*.spinnaker.io/*": "allow",
-      "https://octopus.com/*": "allow",
-      "https://*.octopus.com/*": "allow",
-      "https://sonarqube.org/*": "allow",
-      "https://*.sonarqube.org/*": "allow",
-      "https://sonarcloud.io/*": "allow",
-      "https://*.sonarcloud.io/*": "allow",
-      "https://codacy.com/*": "allow",
-      "https://*.codacy.com/*": "allow",
-      "https://codeclimate.com/*": "allow",
-      "https://*.codeclimate.com/*": "allow",
-      "https://deepsource.io/*": "allow",
-      "https://*.deepsource.io/*": "allow",
-      "https://snyk.io/*": "allow",
-      "https://*.snyk.io/*": "allow",
-      "https://socket.dev/*": "allow",
-      "https://*.socket.dev/*": "allow",
-      "https://dependabot.com/*": "allow",
-      "https://*.dependabot.com/*": "allow",
-      "https://renovatebot.com/*": "allow",
-      "https://*.renovatebot.com/*": "allow",
-      "https://atlassian.com/*": "allow",
-      "https://*.atlassian.com/*": "allow",
-      "https://trello.com/*": "allow",
-      "https://*.trello.com/*": "allow",
-      "https://asana.com/*": "allow",
-      "https://*.asana.com/*": "allow",
-      "https://monday.com/*": "allow",
-      "https://*.monday.com/*": "allow",
-      "https://clickup.com/*": "allow",
-      "https://*.clickup.com/*": "allow",
-      "https://notion.so/*": "allow",
-      "https://*.notion.so/*": "allow",
-      "https://obsidian.md/*": "allow",
-      "https://*.obsidian.md/*": "allow",
-      "https://roamresearch.com/*": "allow",
-      "https://*.roamresearch.com/*": "allow",
-      "https://logseq.com/*": "allow",
-      "https://*.logseq.com/*": "allow",
-      "https://slack.com/*": "allow",
-      "https://*.slack.com/*": "allow",
-      "https://discord.com/*": "allow",
-      "https://*.discord.com/*": "allow",
-      "https://discord.gg/*": "allow",
-      "https://*.discord.gg/*": "allow",
-      "https://teams.microsoft.com/*": "allow",
-      "https://*.teams.microsoft.com/*": "allow",
-      "https://zoom.us/*": "allow",
-      "https://*.zoom.us/*": "allow",
-      "https://meet.google.com/*": "allow",
-      "https://*.meet.google.com/*": "allow",
-      "https://webex.com/*": "allow",
-      "https://*.webex.com/*": "allow",
-      "https://figma.com/*": "allow",
-      "https://*.figma.com/*": "allow",
-      "https://sketch.com/*": "allow",
-      "https://*.sketch.com/*": "allow",
-      "https://adobe.com/*": "allow",
-      "https://*.adobe.com/*": "allow",
-      "https://miro.com/*": "allow",
-      "https://*.miro.com/*": "allow",
-      "https://mural.co/*": "allow",
-      "https://*.mural.co/*": "allow",
-      "https://supabase.com/*": "allow",
-      "https://*.supabase.com/*": "allow",
-      "https://firebase.google.com/*": "allow",
-      "https://*.firebase.google.com/*": "allow",
-      "https://amplify.aws/*": "allow",
-      "https://*.amplify.aws/*": "allow",
-      "https://appwrite.io/*": "allow",
-      "https://*.appwrite.io/*": "allow",
-      "https://pocketbase.io/*": "allow",
-      "https://*.pocketbase.io/*": "allow",
-      "https://nhost.io/*": "allow",
-      "https://*.nhost.io/*": "allow",
-      "https://hasura.io/*": "allow",
-      "https://*.hasura.io/*": "allow",
-      "https://cockroachlabs.com/*": "allow",
-      "https://*.cockroachlabs.com/*": "allow",
-      "https://yugabyte.com/*": "allow",
-      "https://*.yugabyte.com/*": "allow",
-      "https://tidb.io/*": "allow",
-      "https://*.tidb.io/*": "allow",
-      "https://vitess.io/*": "allow",
-      "https://*.vitess.io/*": "allow",
-      "https://planetscale.com/*": "allow",
-      "https://*.planetscale.com/*": "allow",
-      "https://neon.tech/*": "allow",
-      "https://*.neon.tech/*": "allow",
-      "https://snowflake.com/*": "allow",
-      "https://*.snowflake.com/*": "allow",
-      "https://databricks.com/*": "allow",
-      "https://*.databricks.com/*": "allow",
-      "https://grafana.com/*": "allow",
-      "https://*.grafana.com/*": "allow",
-      "https://prometheus.io/*": "allow",
-      "https://*.prometheus.io/*": "allow",
-      "https://opentelemetry.io/*": "allow",
-      "https://*.opentelemetry.io/*": "allow",
-      "https://jaegertracing.io/*": "allow",
-      "https://*.jaegertracing.io/*": "allow",
-      "https://zipkin.io/*": "allow",
-      "https://*.zipkin.io/*": "allow",
-      "https://sentry.io/*": "allow",
-      "https://*.sentry.io/*": "allow",
-      "https://docs.sentry.io/*": "allow",
-      "https://*.docs.sentry.io/*": "allow",
-      "https://datadog.com/*": "allow",
-      "https://*.datadog.com/*": "allow",
-      "https://newrelic.com/*": "allow",
-      "https://*.newrelic.com/*": "allow",
-      "https://dynatrace.com/*": "allow",
-      "https://*.dynatrace.com/*": "allow",
-      "https://huggingface.co/*": "allow",
-      "https://*.huggingface.co/*": "allow",
-      "https://pytorch.org/*": "allow",
-      "https://*.pytorch.org/*": "allow",
-      "https://tensorflow.org/*": "allow",
-      "https://*.tensorflow.org/*": "allow",
-      "https://jupyter.org/*": "allow",
-      "https://*.jupyter.org/*": "allow",
-      "https://streamlit.io/*": "allow",
-      "https://*.streamlit.io/*": "allow",
-      "https://gradio.app/*": "allow",
-      "https://*.gradio.app/*": "allow",
-      "https://opencode.ai/*": "allow",
-      "https://*.opencode.ai/*": "allow",
-      "https://anthropic.com/*": "allow",
-      "https://*.anthropic.com/*": "allow",
-      "https://docs.anthropic.com/*": "allow",
-      "https://*.docs.anthropic.com/*": "allow",
-      "https://openai.com/*": "allow",
-      "https://*.openai.com/*": "allow",
-      "https://platform.openai.com/*": "allow",
-      "https://*.platform.openai.com/*": "allow",
-      "https://google.com/*": "allow",
-      "https://*.google.com/*": "allow",
-      "https://semver.org/*": "allow",
-      "https://*.semver.org/*": "allow",
-      "https://json.org/*": "allow",
-      "https://*.json.org/*": "allow",
-      "https://json-schema.org/*": "allow",
-      "https://*.json-schema.org/*": "allow",
-      "https://swagger.io/*": "allow",
-      "https://*.swagger.io/*": "allow",
-      "https://openapis.org/*": "allow",
-      "https://*.openapis.org/*": "allow",
-      "https://graphql.org/*": "allow",
-      "https://*.graphql.org/*": "allow",
-      "https://grpc.io/*": "allow",
-      "https://*.grpc.io/*": "allow",
-      "https://protocolbuffers.dev/*": "allow",
-      "https://*.protocolbuffers.dev/*": "allow",
-      "https://owasp.org/*": "allow",
-      "https://*.owasp.org/*": "allow",
-      "https://cve.mitre.org/*": "allow",
-      "https://*.cve.mitre.org/*": "allow",
-      "https://nvd.nist.gov/*": "allow",
-      "https://*.nvd.nist.gov/*": "allow",
-      "https://cisa.gov/*": "allow",
-      "https://*.cisa.gov/*": "allow",
-      "https://sans.org/*": "allow",
-      "https://*.sans.org/*": "allow",
-      "https://portswigger.net/*": "allow",
-      "https://*.portswigger.net/*": "allow",
-      "https://vagrantup.com/*": "allow",
-      "https://*.vagrantup.com/*": "allow",
-      "https://packer.io/*": "allow",
-      "https://*.packer.io/*": "allow",
-      "https://nomadproject.io/*": "allow",
-      "https://*.nomadproject.io/*": "allow",
-      "https://vaultproject.io/*": "allow",
-      "https://*.vaultproject.io/*": "allow",
-      "https://consul.io/*": "allow",
-      "https://*.consul.io/*": "allow",
-      "https://travisci.com/*": "allow",
-      "https://*.travisci.com/*": "allow",
-      "https://confluence.atlassian.com/*": "allow",
-      "https://*.confluence.atlassian.com/*": "allow",
-      "*": "ask"
+    {
+      "action": "read",
+      "resource": ".env.dist",
+      "effect": "allow"
+    },
+    {
+      "action": "read",
+      "resource": "*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.key",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.p12",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.pfx",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.jks",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.keystore",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.ppk",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_rsa",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_rsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_dsa",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_dsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_ecdsa",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_ecdsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_ed25519",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_ed25519.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_ed25519_sk",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_xmss",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_xmss.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "credentials.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "service-account*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*service-account*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "application_default_credentials.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".aws/credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".aws/config",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".npmrc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".pypirc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".netrc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".docker/config.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secret.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.secret",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.secrets",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.token",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.private",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "master.key",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "vault.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.vault",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".htpasswd",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".pgpass",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".my.cnf",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "kubeconfig",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".kube/config",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "terraform.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.tfstate",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".dev.vars",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".flaskenv",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "wp-config.php",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "config/secrets.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "config/secrets.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secrets.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secrets.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.publishsettings",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".envrc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".env.local",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".env.development",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".env.production",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".env.test",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".env.staging",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "id_*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.key.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.keys",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.p8",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "AuthKey_*.p8",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.p10",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.csr",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.der",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.gpg",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.asc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.ovpn",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.jceks",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.bks",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.truststore",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".aws/*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".gcp/*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".azure/*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "database.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "database.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secrets.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secrets.toml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secrets.ini",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secrets.env",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "secrets.txt",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*secret*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*secret*.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*secret*.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*secret*.toml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*secret*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*secret*.txt",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*credentials*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "firebase-adminsdk*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "gcp-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "aws-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "azure-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.private.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.token.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.password",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.passwd",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.shadow",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".git-credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".gitconfig",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".yarnrc.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".curlrc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".wgetrc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".env.vault",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "config/credentials.yml.enc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "config/master.key",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "terraform.tfstate",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.tfstate.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.auto.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*.tfvars.json",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".kube/*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".docker/*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "kubeconfig.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "kubeconfig.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "wp-config-sample.php",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".htaccess",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".pg_service.conf",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "pg_service.conf",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".s3cfg",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".boto",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".gem/credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".git/config",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": ".git/modules/*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": ".env",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.example",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.sample",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.template",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.dist",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": "*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.key",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.p12",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.pfx",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.jks",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.keystore",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.ppk",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_rsa",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_rsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_dsa",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_dsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_ecdsa",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_ecdsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_ed25519",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_ed25519.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_ed25519_sk",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_xmss",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_xmss.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "credentials.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "service-account*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*service-account*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "application_default_credentials.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".aws/credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".aws/config",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".npmrc",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".pypirc",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".netrc",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".docker/config.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secret.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.secret",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.secrets",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.token",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.private",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "master.key",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "vault.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.vault",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".htpasswd",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".pgpass",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".my.cnf",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "kubeconfig",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".kube/config",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "terraform.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.tfstate",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".dev.vars",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".flaskenv",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "wp-config.php",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "config/secrets.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "config/secrets.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secrets.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secrets.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.publishsettings",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".envrc",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.local",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.development",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.production",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.test",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.staging",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "id_*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.key.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.keys",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.p8",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "AuthKey_*.p8",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.p10",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.csr",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.der",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.gpg",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.asc",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.ovpn",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.jceks",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.bks",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.truststore",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".aws/*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".gcp/*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".azure/*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "database.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "database.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secrets.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secrets.toml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secrets.ini",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secrets.env",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "secrets.txt",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*secret*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*secret*.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*secret*.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*secret*.toml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*secret*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*secret*.txt",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*credentials*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "firebase-adminsdk*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "gcp-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "aws-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "azure-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.private.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.token.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.password",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.passwd",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.shadow",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".git-credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".gitconfig",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".yarnrc.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".curlrc",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".wgetrc",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".env.vault",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "config/credentials.yml.enc",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "config/master.key",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "terraform.tfstate",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.tfstate.*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.auto.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "*.tfvars.json",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".kube/*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".docker/*",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "kubeconfig.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "kubeconfig.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "wp-config-sample.php",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".htaccess",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".pg_service.conf",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": "pg_service.conf",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".s3cfg",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".boto",
+      "effect": "deny"
+    },
+    {
+      "action": "edit",
+      "resource": ".gem/credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "glob",
+      "resource": ".env",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.key",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.p12",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.pfx",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.jks",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.keystore",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.ppk",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_rsa",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_rsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_dsa",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_dsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_ecdsa",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_ecdsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_ed25519",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_ed25519.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_ed25519_sk",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_xmss",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_xmss.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "credentials.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "service-account*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*service-account*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "application_default_credentials.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".aws/credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".aws/config",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".npmrc",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".pypirc",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".netrc",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".docker/config.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secret.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.secret",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.secrets",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.token",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.private",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "master.key",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "vault.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.vault",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".htpasswd",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".pgpass",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".my.cnf",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "kubeconfig",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".kube/config",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "terraform.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.tfstate",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".dev.vars",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".flaskenv",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "wp-config.php",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "config/secrets.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "config/secrets.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secrets.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secrets.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.publishsettings",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".envrc",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".env.local",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".env.development",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".env.production",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".env.test",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".env.staging",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "id_*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.key.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.keys",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.p8",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "AuthKey_*.p8",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.p10",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.csr",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.der",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.gpg",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.asc",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.ovpn",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.jceks",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.bks",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.truststore",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".aws/*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".gcp/*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".azure/*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "database.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "database.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secrets.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secrets.toml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secrets.ini",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secrets.env",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "secrets.txt",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*secret*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*secret*.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*secret*.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*secret*.toml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*secret*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*secret*.txt",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*credentials*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "firebase-adminsdk*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "gcp-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "aws-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "azure-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.private.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.token.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.password",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.passwd",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.shadow",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".git-credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".gitconfig",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".yarnrc.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".curlrc",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".wgetrc",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".env.vault",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "config/credentials.yml.enc",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "config/master.key",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "terraform.tfstate",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.tfstate.*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.auto.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "*.tfvars.json",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".kube/*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".docker/*",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "kubeconfig.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "kubeconfig.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "wp-config-sample.php",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".htaccess",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".pg_service.conf",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": "pg_service.conf",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".s3cfg",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".boto",
+      "effect": "deny"
+    },
+    {
+      "action": "glob",
+      "resource": ".gem/credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "grep",
+      "resource": ".env",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.key",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.p12",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.pfx",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.jks",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.keystore",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.ppk",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_rsa",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_rsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_dsa",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_dsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_ecdsa",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_ecdsa.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_ed25519",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_ed25519.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_ed25519_sk",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_xmss",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_xmss.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "credentials.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "credentials.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "service-account*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*service-account*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "application_default_credentials.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".aws/credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".aws/config",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".npmrc",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".pypirc",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".netrc",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".docker/config.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secrets.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secret.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.secret",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.secrets",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.token",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.private",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "master.key",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "vault.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.vault",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".htpasswd",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".pgpass",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".my.cnf",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "kubeconfig",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".kube/config",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "terraform.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.tfstate",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".dev.vars",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".flaskenv",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "wp-config.php",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "config/secrets.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "config/secrets.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secrets.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secrets.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.publishsettings",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".envrc",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".env.local",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".env.development",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".env.production",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".env.test",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".env.staging",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "id_*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.key.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.keys",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.p8",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "AuthKey_*.p8",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.p10",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.csr",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.der",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.gpg",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.asc",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.ovpn",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.jceks",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.bks",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.truststore",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".aws/*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".gcp/*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".azure/*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "database.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "database.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secrets.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secrets.toml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secrets.ini",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secrets.env",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "secrets.txt",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*secret*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*secret*.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*secret*.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*secret*.toml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*secret*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*secret*.txt",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*credentials*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "firebase-adminsdk*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "gcp-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "aws-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "azure-*.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.private.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.token.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.password",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.passwd",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.shadow",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".git-credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".gitconfig",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".yarnrc.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".curlrc",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".wgetrc",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".env.vault",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "config/credentials.yml.enc",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "config/master.key",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "terraform.tfstate",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.tfstate.*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.auto.tfvars",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "*.tfvars.json",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".kube/*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".docker/*",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "kubeconfig.yaml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "kubeconfig.yml",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "wp-config-sample.php",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".htaccess",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".pg_service.conf",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": "pg_service.conf",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".s3cfg",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".boto",
+      "effect": "deny"
+    },
+    {
+      "action": "grep",
+      "resource": ".gem/credentials",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "shell",
+      "resource": "*.env*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.pem*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.key*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*id_rsa*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*id_dsa*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*id_ecdsa*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*id_ed25519*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*id_xmss*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*credentials*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*service-account*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*application_default_credentials*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.aws/credentials*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.npmrc*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.pypirc*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.netrc*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.docker/config.json*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*secrets*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*secret*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.token*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*master.key*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*vault*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.htpasswd*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.pgpass*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.my.cnf*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*kubeconfig*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.tfvars*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.tfstate*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.dev.vars*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.flaskenv*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*wp-config.php*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.publishsettings*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.envrc*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.gpg*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.asc*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.ovpn*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.p12*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.pfx*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.keystore*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.jks*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.ppk*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.der*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*.csr*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*database.yml*",
+      "effect": "deny"
+    },
+    {
+      "action": "shell",
+      "resource": "*database.yaml*",
+      "effect": "deny"
+    },
+    {
+      "action": "websearch",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "websearch",
+      "resource": "*opencode.ai*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://stackoverflow.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.stackoverflow.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://stackexchange.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.stackexchange.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://serverfault.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.serverfault.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://superuser.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.superuser.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://askubuntu.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.askubuntu.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mathoverflow.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mathoverflow.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://developer.mozilla.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.developer.mozilla.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mdn.mozilla.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mdn.mozilla.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://web.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.web.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://w3.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.w3.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://w3schools.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.w3schools.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://npmjs.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.npmjs.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://registry.npmjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.registry.npmjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://pypi.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.pypi.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://files.pythonhosted.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.files.pythonhosted.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://crates.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.crates.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://static.crates.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.static.crates.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://pkg.go.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.pkg.go.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://golang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.golang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://go.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.go.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://rubygems.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.rubygems.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nuget.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nuget.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://maven.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.maven.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mvnrepository.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mvnrepository.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://repo1.maven.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.repo1.maven.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://central.sonatype.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.central.sonatype.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://vercel.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.vercel.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://netlify.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.netlify.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://cloudflare.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.cloudflare.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://developers.cloudflare.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.developers.cloudflare.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://aws.amazon.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.aws.amazon.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.aws.amazon.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.aws.amazon.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://console.aws.amazon.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.console.aws.amazon.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://azure.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.azure.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://learn.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.learn.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://portal.azure.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.portal.azure.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://cloud.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.cloud.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://developers.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.developers.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://console.cloud.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.console.cloud.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://oracle.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.oracle.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.oracle.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.oracle.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://java.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.java.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://java.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.java.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://openjdk.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.openjdk.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://adoptium.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.adoptium.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://adoptopenjdk.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.adoptopenjdk.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://eclipse.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.eclipse.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://jetbrains.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.jetbrains.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://visualstudio.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.visualstudio.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://code.visualstudio.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.code.visualstudio.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://apple.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.apple.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://developer.apple.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.developer.apple.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://android.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.android.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://developer.android.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.developer.android.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://kotlinlang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.kotlinlang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://swift.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.swift.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://rust-lang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.rust-lang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://doc.rust-lang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.doc.rust-lang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://python.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.python.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.python.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.python.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nodejs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nodejs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nodejs.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nodejs.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://react.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.react.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://reactjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.reactjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://vuejs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.vuejs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://angular.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.angular.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://angular.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.angular.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://svelte.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.svelte.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nextjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nextjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nuxt.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nuxt.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nuxtjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nuxtjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://tailwindcss.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.tailwindcss.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://getbootstrap.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.getbootstrap.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://material-ui.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.material-ui.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mui.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mui.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://chakra-ui.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.chakra-ui.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://radix-ui.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.radix-ui.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://shadcn.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.shadcn.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://ui.shadcn.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.ui.shadcn.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://prisma.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.prisma.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://drizzle.team/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.drizzle.team/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://typeorm.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.typeorm.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://sequelize.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.sequelize.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mongoosejs.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mongoosejs.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mongodb.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mongodb.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.mongodb.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.mongodb.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://postgresql.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.postgresql.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mysql.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mysql.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://dev.mysql.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.dev.mysql.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mariadb.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mariadb.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://sqlite.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.sqlite.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://redis.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.redis.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://redis.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.redis.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://elastic.co/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.elastic.co/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://opensearch.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.opensearch.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nginx.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nginx.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://httpd.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.httpd.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://tomcat.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.tomcat.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://kafka.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.kafka.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://zookeeper.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.zookeeper.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://spark.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.spark.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://flink.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.flink.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://hadoop.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.hadoop.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://airflow.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.airflow.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://beam.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.beam.apache.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://kubernetes.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.kubernetes.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://helm.sh/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.helm.sh/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docker.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docker.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.docker.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.docker.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://hub.docker.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.hub.docker.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://containerd.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.containerd.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://podman.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.podman.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://openshift.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.openshift.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://redhat.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.redhat.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://opensuse.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.opensuse.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://ubuntu.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.ubuntu.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://debian.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.debian.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://alpinelinux.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.alpinelinux.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://archlinux.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.archlinux.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://fedoraproject.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.fedoraproject.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://centos.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.centos.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://rockylinux.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.rockylinux.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://almalinux.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.almalinux.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://gentoo.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.gentoo.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nixos.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nixos.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://brew.sh/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.brew.sh/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://macports.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.macports.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://chocolatey.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.chocolatey.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://scoop.sh/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.scoop.sh/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://pnpm.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.pnpm.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://yarnpkg.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.yarnpkg.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://bun.sh/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.bun.sh/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://deno.land/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.deno.land/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://deno.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.deno.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://vitejs.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.vitejs.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://vite.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.vite.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://webpack.js.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.webpack.js.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://babeljs.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.babeljs.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://typescriptlang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.typescriptlang.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://eslint.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.eslint.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://prettier.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.prettier.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://jestjs.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.jestjs.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://vitest.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.vitest.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://playwright.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.playwright.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://cypress.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.cypress.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://testing-library.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.testing-library.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mochajs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mochajs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://chaijs.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.chaijs.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://sinonjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.sinonjs.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://terraform.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.terraform.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://developer.hashicorp.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.developer.hashicorp.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://hashicorp.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.hashicorp.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://ansible.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.ansible.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.ansible.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.ansible.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://chef.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.chef.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://puppet.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.puppet.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://saltproject.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.saltproject.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://jenkins.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.jenkins.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://circleci.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.circleci.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://travis-ci.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.travis-ci.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://drone.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.drone.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://tekton.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.tekton.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://fluxcd.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.fluxcd.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://spinnaker.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.spinnaker.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://octopus.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.octopus.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://sonarqube.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.sonarqube.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://sonarcloud.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.sonarcloud.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://codacy.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.codacy.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://codeclimate.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.codeclimate.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://deepsource.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.deepsource.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://snyk.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.snyk.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://socket.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.socket.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://dependabot.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.dependabot.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://renovatebot.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.renovatebot.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://atlassian.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.atlassian.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://trello.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.trello.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://asana.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.asana.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://monday.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.monday.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://clickup.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.clickup.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://notion.so/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.notion.so/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://obsidian.md/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.obsidian.md/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://roamresearch.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.roamresearch.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://logseq.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.logseq.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://slack.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.slack.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://discord.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.discord.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://discord.gg/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.discord.gg/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://teams.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.teams.microsoft.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://zoom.us/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.zoom.us/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://meet.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.meet.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://webex.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.webex.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://figma.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.figma.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://sketch.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.sketch.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://adobe.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.adobe.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://miro.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.miro.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://mural.co/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.mural.co/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://supabase.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.supabase.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://firebase.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.firebase.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://amplify.aws/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.amplify.aws/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://appwrite.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.appwrite.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://pocketbase.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.pocketbase.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nhost.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nhost.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://hasura.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.hasura.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://cockroachlabs.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.cockroachlabs.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://yugabyte.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.yugabyte.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://tidb.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.tidb.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://vitess.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.vitess.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://planetscale.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.planetscale.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://neon.tech/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.neon.tech/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://snowflake.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.snowflake.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://databricks.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.databricks.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://grafana.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.grafana.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://prometheus.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.prometheus.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://opentelemetry.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.opentelemetry.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://jaegertracing.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.jaegertracing.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://zipkin.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.zipkin.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://sentry.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.sentry.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.sentry.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.sentry.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://datadog.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.datadog.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://newrelic.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.newrelic.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://dynatrace.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.dynatrace.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://huggingface.co/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.huggingface.co/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://pytorch.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.pytorch.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://tensorflow.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.tensorflow.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://jupyter.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.jupyter.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://streamlit.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.streamlit.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://gradio.app/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.gradio.app/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://opencode.ai/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.opencode.ai/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://anthropic.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.anthropic.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://docs.anthropic.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.docs.anthropic.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://openai.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.openai.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://platform.openai.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.platform.openai.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.google.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://semver.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.semver.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://json.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.json.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://json-schema.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.json-schema.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://swagger.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.swagger.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://openapis.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.openapis.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://graphql.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.graphql.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://grpc.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.grpc.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://protocolbuffers.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.protocolbuffers.dev/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://owasp.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.owasp.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://cve.mitre.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.cve.mitre.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nvd.nist.gov/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nvd.nist.gov/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://cisa.gov/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.cisa.gov/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://sans.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.sans.org/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://portswigger.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.portswigger.net/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://vagrantup.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.vagrantup.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://packer.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.packer.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://nomadproject.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.nomadproject.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://vaultproject.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.vaultproject.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://consul.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.consul.io/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://travisci.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.travisci.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://confluence.atlassian.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "webfetch",
+      "resource": "https://*.confluence.atlassian.com/*",
+      "effect": "allow"
+    },
+    {
+      "action": "question",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "skill",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "subagent",
+      "resource": "*",
+      "effect": "ask"
+    },
+    {
+      "action": "execute",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "browser",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "experimental_image_generate",
+      "resource": "*",
+      "effect": "ask"
     }
-  }
+  ],
+  "policies": [
+    {
+      "action": "tool.use",
+      "resource": "shell:git push *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:git reset --hard *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:git clean *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:sudo *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:rm -rf *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:npm publish *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:pnpm publish *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:vercel * --prod*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:kubectl delete *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:terraform apply *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:terraform destroy *",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "edit:*.env",
+      "effect": "deny"
+    }
+  ]
 }

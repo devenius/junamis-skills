@@ -64,7 +64,24 @@ test("status reports a malformed opencode.json without throwing a type error", (
       env: { ...process.env, HOME: home },
     });
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /permission must be an object/);
+    assert.match(result.stdout, /expected V2 permissions array, mcp\.servers object, and plugins array/);
+    assert.doesNotMatch(result.stderr, /Cannot read properties/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("status reports a non-array permissions value without throwing a type error", () => {
+  const { home, project } = tempDirs();
+  try {
+    writeFileSync(join(project, "opencode.json"), JSON.stringify({ permissions: "bad" }));
+    const result = spawnSync(process.execPath, [CLI, "status", "--dir", project, "--scope", "project"], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: home },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /expected V2 permissions array, mcp\.servers object, and plugins array/);
     assert.doesNotMatch(result.stderr, /Cannot read properties/);
   } finally {
     rmSync(home, { recursive: true, force: true });

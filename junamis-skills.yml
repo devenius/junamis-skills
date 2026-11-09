@@ -131,7 +131,7 @@ Functionality:
   StatusChecks:
     - "Guide and marker are required when the project scope is selected."
     - "At least one target must have a valid library manifest per selected scope."
-    - "An existing opencode.json must have all permission keys; a malformed file fails."
+    - "An existing opencode.json must use V2 permissions, policies, mcp.servers, and plugins; a malformed or V1-only file fails."
     - "External coverage is required when the global scope is selected."
     - "SECURITY.md and its Last external scan line are always required."
 

@@ -45,6 +45,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Validate project-supplied JSON in `status` and `doctor` and report malformed input without crashing.
 
 ### Changed
+- Migrated the shipped `opencode.json` to OpenCode V2 (`permissions`, `policies`, `mcp.servers`, `plugins`). It enables the first-party file tools and local skills, keeps shell and network fetches gated, denies secret paths and `external_directory`, hard-denies destructive shell verbs, and ships with no MCP servers or third-party plugins. `check:config` now validates the V2 shape.
 - The shipped `opencode.json` registers `{env:HOME}/.config/junamis/skills/skills` and `{env:HOME}/.agents/skills`, with instructions at `{env:HOME}/.config/junamis/skills/*.md`. Project scope rewrites them to `./.config/junamis/skills/...`.
 - No automatic migration: `init` writes only the new layout. `status` reports old flat files under `~/.config/junamis/` and flat skill folders under `~/.config/junamis/skills/` as legacy and never deletes them.
 - Reduce the CLI to `init`, `status`, and `help`. `install-library`, `install-external`, `sync`, `doctor`, and `init-config` were removed; calling one now fails with `unknown command: <cmd>. Use "init" or "status".`

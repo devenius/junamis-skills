@@ -1,6 +1,7 @@
 ---
 name: route-external
 version: "1.0.0"
+idempotent: true
 description: Use when the orchestrator is about to dispatch an external skill and that skill must report back in this project's HANDOFF format. Reads the installed external SKILL.md, maps its done, gates, and failure modes to our statuses, and writes a reusable adapter under .junamis/adapters/. Do not use to edit, copy, or rewrite upstream skill content, and do not use for internal library skills.
 ---
 
@@ -23,6 +24,7 @@ You are the orchestrator's adapter maker. You take one installed external skill 
    - its definition of done and the evidence it produces;
    - the artifacts it writes;
    - the commands it runs, and which ones are on the `SAFETY.md` gate;
+   - its declared `idempotent: true | false`, if its frontmatter has one;
    - the questions it tends to ask and the failures it can report.
 4. **Map status.**
    - its done, with evidence present -> `complete`
@@ -35,8 +37,9 @@ You are the orchestrator's adapter maker. You take one installed external skill 
    - the short run brief: read the external `SKILL.md`, follow it, stop at the gates, end with one HANDOFF block;
    - the evidence required before `complete`;
    - the gated commands, each marked "ask the user first; not approved by this adapter";
+   - the `idempotent: true` or `idempotent: false` value. If the external skill does not declare it, record `false` and add a finding that says the value was not declared. Never guess `true`;
    - a filled HANDOFF template with `agent: <name> (external)`, `status`, `artifacts`, `findings`, `decisions_owed`, `next: orchestrator`.
-6. **Check the adapter.** No copied upstream prose beyond a short quote. Every `next` resolves to a skill, an agent, `user`, or `none`. Every gated command has an approval line.
+6. **Check the adapter.** No copied upstream prose beyond a short quote. Every `next` resolves to a skill, an agent, `user`, or `none`. Every gated command has an approval line. The adapter records `idempotent: true` or `idempotent: false`.
 7. **Return.** Report the adapter path. If the external skill already ends in a HANDOFF-compatible block, write a pass-through adapter that says so and keep the same steps.
 
 ## Gotchas
@@ -45,6 +48,7 @@ You are the orchestrator's adapter maker. You take one installed external skill 
 - Do not put a gate in the adapter as already approved. Approval belongs to the user in the session.
 - Do not adapt an internal library skill. Internal skills already end with a HANDOFF block.
 - Do not adapt a skill that is not installed. Stop and tell the user.
+- An external skill that does not declare `idempotent` is recorded as `false`, never `true`.
 - One adapter per external skill. Reuse and refresh it instead of writing a second one.
 - Never copy external instructions into `library/`; that is upstream content.
 

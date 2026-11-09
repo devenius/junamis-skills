@@ -15,6 +15,29 @@ const EXTERNAL = new Set(["debug", "architect", "develop", "test", "check"]);
 // Handoff targets that are not skills or agents.
 const SPECIAL = new Set(["user", "none", "orchestrator"]);
 
+// Declared retry safety for every library skill. The spec table is the source.
+const IDEMPOTENT = {
+  "db-migrate": false,
+  "decision-record": false,
+  "dependency-upgrade": false,
+  "deploy-verify": true,
+  "env-doctor": true,
+  frontend: false,
+  handoff: true,
+  "incident-response": false,
+  nestjs: false,
+  nextjs: false,
+  "perf-budget": true,
+  "refactor-safely": false,
+  "release-prep": false,
+  research: true,
+  rollback: false,
+  route: true,
+  "route-external": true,
+  "security-audit": true,
+  "skill-author": false,
+};
+
 // Destructive or gated commands. Any hit in library prose must be a prohibition
 // or an approval requirement (see ALLOWED_CONTEXT). library/SAFETY.md is the policy
 // itself and is exempt.
@@ -74,6 +97,11 @@ test("library has the expected skills and agents", () => {
   assert.ok(existsSync(join(LIB, "HANDOFF.md")), "HANDOFF.md missing");
   assert.ok(existsSync(join(LIB, "SAFETY.md")), "SAFETY.md missing");
   assert.ok(existsSync(join(LIB, "EXTERNAL.md")), "EXTERNAL.md missing");
+  assert.ok(existsSync(join(LIB, "RESUME.md")), "RESUME.md missing");
+});
+
+test("the idempotent table covers every library skill", () => {
+  assert.deepEqual(Object.keys(IDEMPOTENT).sort(), skillNames);
 });
 
 test("every external lock entry pins a commit and skill tree", () => {
@@ -95,6 +123,16 @@ for (const name of skillNames) {
     assert.ok(fm.description && fm.description.length > 0, `${name}: empty description`);
     assert.ok(fm.description.length <= 1024, `${name}: description over 1024 chars`);
     assert.match(fm.description, /Use (when|to|first|after|before)/, `${name}: description must state when to use it`);
+    assert.match(fm.idempotent ?? "", /^(true|false)$/, `${name}: idempotent must be true or false`);
+    assert.equal(fm.idempotent, String(IDEMPOTENT[name]), `${name}: idempotent must match the spec table`);
+    const frontmatterLines = text.match(/^---\n([\s\S]*?)\n---\n/)[1].split("\n");
+    const versionAt = frontmatterLines.findIndex((line) => /^version:\s*/.test(line));
+    assert.ok(versionAt >= 0, `${name}: missing version`);
+    assert.equal(
+      frontmatterLines[versionAt + 1]?.trim(),
+      `idempotent: ${fm.idempotent}`,
+      `${name}: idempotent must immediately follow version`,
+    );
     assert.ok(text.split("\n").length < 500, `${name}: SKILL.md must stay under 500 lines`);
 
     assert.ok(text.includes("## Finish"), `${name}: missing ## Finish section`);
@@ -158,6 +196,48 @@ test("route-external is owned only by the orchestrator", () => {
   }
   const text = readFileSync(join(SKILLS_DIR, "route-external", "SKILL.md"), "utf8");
   assert.ok(text.includes(".junamis/adapters/"), "route-external must write .junamis/adapters/");
+  assert.match(text, /idempotent: true/, "route-external must record idempotent in the adapter");
+  assert.match(text, /record `false`/, "route-external must default a missing idempotent to false");
+});
+
+test("RESUME.md is the normative contract and HANDOFF.md points to it", () => {
+  const resume = readFileSync(join(LIB, "RESUME.md"), "utf8");
+  assert.match(resume, /^\*\*Status:\*\* normative$/m, "RESUME.md must be normative");
+  assert.match(resume, /^\*\*Schema version:\*\* 1$/m, "RESUME.md must declare schema version 1");
+  assert.ok(
+    resume.includes("## Reference implementation (not normative)"),
+    "RESUME.md needs the reference implementation section",
+  );
+  for (const command of ["boot", "plan set", "plan show", "start", "end", "resolve", "status", "checkpoint", "lease", "finish"]) {
+    assert.ok(resume.includes(`\`${command}`) || resume.includes(command), `RESUME.md reference section missing ${command}`);
+  }
+
+  const handoff = readFileSync(join(LIB, "HANDOFF.md"), "utf8");
+  assert.match(
+    handoff,
+    /^This file defines the step output block\. Execution state and resume behavior are in RESUME\.md\.$/m,
+    "HANDOFF.md must point to RESUME.md on its first line",
+  );
+  assert.ok(handoff.includes("## Schema version"), "HANDOFF.md has no Schema version section");
+  assert.ok(handoff.includes("## Idempotency"), "HANDOFF.md has no Idempotency section");
+  assert.ok(handoff.includes("## Persisting a handoff"), "HANDOFF.md has no Persisting a handoff section");
+  assert.ok(handoff.includes("## Task status mapping"), "HANDOFF.md has no Task status mapping section");
+  assert.ok(handoff.includes("<project>/.orchestrator/"), "HANDOFF.md must name the state root");
+});
+
+test("orchestrator prompt boots before routing and declares the persistence loop", () => {
+  const text = readFileSync(join(AGENTS_DIR, "orchestrator.md"), "utf8");
+  const persistence = text.indexOf("## Persistence");
+  const understand = text.indexOf("## Understand the request first");
+  assert.ok(persistence !== -1, "orchestrator has no Persistence section");
+  assert.ok(understand !== -1, "orchestrator has no Understand the request first section");
+  assert.ok(persistence < understand, "Persistence must come before Understand the request first");
+  assert.match(text, /junamis-orchestrator boot --project/);
+  assert.match(text, /resume-report\.md/);
+  assert.match(text, /plan set --file <plan\.json> --replace/);
+  assert.match(text, /start --task <task_id>/);
+  assert.match(text, /--handoff/);
+  assert.match(text, /lease release/);
 });
 
 test("HANDOFF.md reserves the suggested commit for the orchestrator", () => {

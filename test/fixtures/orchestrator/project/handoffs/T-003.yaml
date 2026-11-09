@@ -1,0 +1,9 @@
+agent: release-prep
+job: prepare the fixture release
+status: complete
+artifacts:
+  - path: artifacts/T-003.md
+    kind: created
+findings: []
+decisions_owed: []
+next: none

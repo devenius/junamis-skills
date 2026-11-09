@@ -1,6 +1,7 @@
 ---
 name: nestjs
 version: "1.0.0"
+idempotent: false
 description: Use when building or reviewing a NestJS application. Covers module structure, dependency injection, guards, pipes, interceptors, exception filters, and database integration. Use when the project has a nest-cli.json or @nestjs/core dependency. Delegates deep NestJS patterns to the external nestjs-best-practices skill. Do not use for non-NestJS backends.
 ---
 

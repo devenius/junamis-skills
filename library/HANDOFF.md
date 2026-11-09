@@ -1,3 +1,5 @@
+This file defines the step output block. Execution state and resume behavior are in RESUME.md.
+
 # Handoff contract
 
 Every skill and agent in `library/` ends its work with exactly one YAML block. The orchestrator reads only this block to decide what happens next. Nothing else is trusted for control flow.
@@ -18,6 +20,27 @@ decisions_owed:      # questions only the user can answer
   - <question>
 next: <one skill name, one agent name, "user", or "none">
 ```
+
+## Schema version
+
+The handoff schema version is 1. The fields in the block above are the whole schema. A field change requires a version bump and a matching change in the state engine. Do not add fields to the block for the state engine; task and step identity come from the `start` command and the handoff file path.
+
+## Idempotency
+
+Every skill declares `idempotent: true | false` in its frontmatter. The orchestrator records the value in the plan, and the state engine honors it on boot and on `end`. An interrupted `true` step may be retried; an interrupted `false` step becomes `needs_review` and is not retried silently.
+
+## Persisting a handoff
+
+The orchestrator writes the returned block verbatim to `<state-root>/tasks/<task_id>/handoffs/<skill>-<attempt>.yaml` and calls `end` with that relative path. The state engine validates the block and every declared artifact. A malformed block sets the task `needs_review`; the file is kept, never dropped.
+
+## Task status mapping
+
+| Handoff status | Task status |
+|---|---|
+| `complete` | `done` after every declared artifact exists |
+| `failed` | `failed` |
+| `blocked` | `failed` |
+| `needs-decision` | `needs_review` until the user answers and the orchestrator calls `resolve` |
 
 ## Rules
 
@@ -66,3 +89,5 @@ State: proposed | committed <sha> | none
 | Review findings | `docs/reviews/<kind>-<YYYY-MM-DD>.md` | `security-audit`, `perf-budget` |
 | Perf budgets | `docs/perf/budgets.md` | `perf-budget` (created on first run) |
 | External skill adapter | `.junamis/adapters/<skill>.md` | `route-external` |
+
+Execution state lives under `<project>/.orchestrator/` (gitignored) and follows `RESUME.md`.

@@ -1,6 +1,7 @@
 ---
 name: db-migrate
 version: "1.0.0"
+idempotent: false
 description: Use when a schema change or data migration is needed (add, rename, or drop columns or tables, backfill data, change constraints). Uses expand and contract so old and new code both run during deploy, writes reversible migration files with the project's own migration tool, and rehearses on a copy first. Do not use to run migrations against production; the user runs those after review.
 ---
 

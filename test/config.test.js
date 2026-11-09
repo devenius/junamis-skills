@@ -54,6 +54,9 @@ test("opencode.json expresses the reviewed read, edit, shell, and network postur
   assert.equal(effect("external_directory", "/etc/passwd"), "deny");
 
   assert.equal(effect("shell", "echo hi"), "ask");
+  assert.equal(effect("shell", "junamis-orchestrator boot"), "allow");
+  assert.equal(effect("shell", "node scripts/orchestrator-state.mjs boot"), "allow");
+  assert.equal(effect("shell", "cat .env"), "deny");
 
   assert.equal(effect("webfetch", "https://example.com"), "ask");
   assert.equal(effect("webfetch", "https://opencode.ai/docs"), "allow");

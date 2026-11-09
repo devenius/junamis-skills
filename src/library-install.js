@@ -18,7 +18,10 @@ export { manifestPath, sharedDocsDir };
 
 // Shared docs are read from library/, except SECURITY.md, which lives at the
 // package root because it is also the repository's public scan record.
-export const SHARED_DOCS = ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md", "SECURITY.md"];
+export const SHARED_DOCS = ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md", "SECURITY.md", "RESUME.md"];
+// Shared data is read from the package root. The installed engine fingerprints
+// skills-lock.json, so the manifest must sit next to the installed docs.
+export const SHARED_DATA = ["skills-lock.json"];
 export const ORCHESTRATOR = "orchestrator";
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
@@ -114,6 +117,9 @@ export async function planLibraryInstall({ packageRoot, agent, scope = "global",
   for (const doc of SHARED_DOCS) {
     const source = doc === "SECURITY.md" ? join(packageRoot, "SECURITY.md") : join(libDir, doc);
     files.push({ path: join(sharedDocsDir(scope, projectDir), doc), content: await readFile(source) });
+  }
+  for (const data of SHARED_DATA) {
+    files.push({ path: join(sharedDocsDir(scope, projectDir), data), content: await readFile(join(packageRoot, data)) });
   }
 
   const plan = files.map((f) => ({ ...f, sha256: sha256(f.content) }));

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "skills": {
+    "fixture-external": {
+      "source": "fixture/source",
+      "sourceType": "github",
+      "skillPath": "skills/fixture-external/SKILL.md",
+      "ref": "0000000000000000000000000000000000000000",
+      "treeSha": "1111111111111111111111111111111111111111",
+      "license": "MIT"
+    }
+  }
+}

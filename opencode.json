@@ -2642,6 +2642,16 @@
     },
     {
       "action": "shell",
+      "resource": "junamis-orchestrator *",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "node scripts/orchestrator-state.mjs *",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
       "resource": "*.env*",
       "effect": "deny"
     },

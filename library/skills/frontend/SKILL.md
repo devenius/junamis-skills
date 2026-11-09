@@ -1,6 +1,7 @@
 ---
 name: frontend
 version: "1.0.0"
+idempotent: false
 description: Use when building or reviewing frontend UI in a SaaS app. Detects the workspace stack (React, Next.js, Vue, Svelte) and component library (shadcn/ui, Radix, MUI, Chakra). Uses shadcn components and design tokens. Use when the task involves UI components, layouts, forms, tables, modals, or styling. Do not use for backend or API work.
 ---
 

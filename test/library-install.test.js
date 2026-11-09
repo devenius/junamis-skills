@@ -11,6 +11,8 @@ import {
   planLibraryInstall,
   applyLibraryInstall,
   manifestPath,
+  SHARED_DOCS,
+  SHARED_DATA,
 } from "../src/library-install.js";
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -98,11 +100,15 @@ test("OpenCode installs internal skills under ~/.config/junamis/skills and recor
     const files = await planLibraryInstall({ packageRoot: PACKAGE_ROOT, agent: "opencode" });
     const skill = files.find((file) => file.path.endsWith("/route/SKILL.md"));
     const doc = files.find((file) => file.path.endsWith("/HANDOFF.md"));
+    const resume = files.find((file) => file.path.endsWith("/RESUME.md"));
+    const lockFile = files.find((file) => file.path.endsWith("/skills-lock.json"));
     const agent = files.find((file) => file.path.endsWith("/orchestrator.md"));
     const link = files.links.find((entry) => entry.path.endsWith("/orchestrator.md"));
 
     assert.equal(skill?.path, join(home, ".config", "junamis", "skills", "skills", "route", "SKILL.md"));
     assert.equal(doc?.path, join(home, ".config", "junamis", "skills", "HANDOFF.md"));
+    assert.equal(resume?.path, join(home, ".config", "junamis", "skills", "RESUME.md"));
+    assert.equal(lockFile?.path, join(home, ".config", "junamis", "skills", "skills-lock.json"));
     assert.equal(agent?.path, join(home, ".config", "junamis", "skills", "agents", "orchestrator.md"));
     assert.equal(link?.path, join(home, ".config", "opencode", "agents", "orchestrator.md"));
     assert.equal(link?.target, agent.path);
@@ -112,9 +118,16 @@ test("OpenCode installs internal skills under ~/.config/junamis/skills and recor
     assert.equal(result.ok, true);
     assert.ok(existsSync(join(home, ".config", "junamis", "skills", "installed", "library-opencode.json")));
     assert.ok(existsSync(join(home, ".config", "junamis", "skills", "skills", "route", "SKILL.md")));
+    assert.ok(existsSync(join(home, ".config", "junamis", "skills", "RESUME.md")));
+    assert.ok(existsSync(join(home, ".config", "junamis", "skills", "skills-lock.json")));
     assert.equal(lstatSync(join(home, ".config", "opencode", "agents", "orchestrator.md")).isSymbolicLink(), true);
     assert.equal(existsSync(join(home, ".agents", "skills")), false, "the external skills dir is not touched by the library install");
   });
+});
+
+test("shared doc and data constants include the resume contract and manifest", () => {
+  assert.ok(SHARED_DOCS.includes("RESUME.md"), "RESUME.md must be installed as a shared doc");
+  assert.ok(SHARED_DATA.includes("skills-lock.json"), "skills-lock.json must be installed as shared data");
 });
 
 test("install-library creates files, then reports them unchanged", async () => {
@@ -197,6 +210,8 @@ test("project scope installs under the project directory", async () => {
       const result = await applyLibraryInstall({ agent: "opencode", files, version: "1.0.0", scope: "project", projectDir: project });
       assert.equal(result.ok, true);
       assert.ok(existsSync(join(project, ".config", "junamis", "skills", "skills", "route", "SKILL.md")));
+      assert.ok(existsSync(join(project, ".config", "junamis", "skills", "RESUME.md")));
+      assert.ok(existsSync(join(project, ".config", "junamis", "skills", "skills-lock.json")));
       assert.ok(existsSync(join(project, ".opencode", "agents", "orchestrator.md")));
     } finally {
       rmSync(project, { recursive: true, force: true });

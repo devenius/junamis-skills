@@ -1,0 +1,34 @@
+{
+  "tasks": [
+    {
+      "task_id": "T-001",
+      "capability": "route",
+      "depends_on": [],
+      "resolved_skill": "library/route",
+      "resolution_source": "internal_override",
+      "owner": "orchestrator",
+      "adapter": null,
+      "idempotent": true
+    },
+    {
+      "task_id": "T-002",
+      "capability": "develop",
+      "depends_on": ["T-001"],
+      "resolved_skill": "library/develop",
+      "resolution_source": "internal_override",
+      "owner": "orchestrator",
+      "adapter": null,
+      "idempotent": true
+    },
+    {
+      "task_id": "T-003",
+      "capability": "release-prep",
+      "depends_on": ["T-002"],
+      "resolved_skill": "library/release-prep",
+      "resolution_source": "internal_override",
+      "owner": "orchestrator",
+      "adapter": null,
+      "idempotent": false
+    }
+  ]
+}

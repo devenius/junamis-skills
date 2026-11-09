@@ -35,6 +35,18 @@ The old agent layer (`.agents/`, `.opencode/`) was removed from the repo. It is 
 - Every request from a user goes to the `orchestrator` agent first. Do not dispatch a skill or specialist directly.
 - The orchestrator reads the available skills (library and installed external) and uses their descriptions to choose the next step. Keep skill descriptions accurate, because routing depends on them.
 
+## Orchestrator state
+
+Every orchestrator session rehydrates execution state from disk before `route` or any skill dispatch.
+
+- **Boot before route.** Run `junamis-orchestrator boot --project <cwd> --session <new id>` and read `<state-root>/resume-report.md` in full. Stop and dispatch nothing when boot exits `2` (`lease_held`), `3` (`BLOCKED_DRIFT`), or `4` (`HALT_CORRUPT`), or when the report's next action says stop, needs review, or a user decision.
+- **State root.** The default is `<project>/.orchestrator/`, gitignored. `journal.ndjson` is the source of truth; `state.json`, `plan.json`, and `tasks/<task_id>/task.json` are derived. `ORCH_STATE_ROOT` overrides the location. The root is host-local and must never be inside the operating system temp directory.
+- **Contract.** `library/RESUME.md` is normative. `library/HANDOFF.md` defines the step output block, and `library/SAFETY.md` still gates every command a dispatched skill runs.
+- **Idempotent rule.** Every library skill declares `idempotent: true | false` in its frontmatter. The engine retries an interrupted `true` task and escalates an interrupted `false` task to `needs_review`. External skills record the value in their adapter and default to `false`.
+- **Engine paths.** `src/orchestrator/` holds the state engine. `scripts/orchestrator-state.mjs` is the thin source entry, and `package.json` exposes it as the `junamis-orchestrator` bin. The installer CLI keeps `init`, `status`, and `help`; the state engine is a separate bin.
+- **No new dependency.** The engine uses only Node 26 built-in modules. Do not add a runtime dependency. `js-yaml` stays a dev dependency for `scripts/check-yaml.js` only.
+- **Tests.** `test/orchestrator-t1-crash.test.js` through `test/orchestrator-t7-torn-write.test.js` prove crash recovery, replay, drift, lease safety, escalation, and torn-write recovery. Crash injection uses `ORCH_TEST_MODE=1` and `ORCH_TEST_CRASH_AT`; temporary state roots use `ORCH_TEST_ALLOW_TMP=1`.
+
 ## Install design
 
 - **Global by default.** Skills are installed into the agent's global skills directory so they can be shared across projects. An install is a snapshot. Editing this repo does not change installed skills until the user reinstalls.
@@ -72,8 +84,11 @@ Do not hardcode agent names anywhere outside `src/targets/`.
 ## Working rules
 
 - Node 26 or newer. ESM only (`"type": "module"`). External installs also require the system `git` CLI.
-- Run `pnpm test` before reporting a change as done.
+- Run `pnpm test` before reporting a change as done. This includes the T1 to T7 resume tests.
 - When adding or changing work, use the current library skills in `library/skills/` (route, handoff, skill-author, etc.) and keep them in sync with tests.
+- Every library skill keeps a valid `idempotent: true | false` frontmatter value. `test/library.test.js` enforces it.
+- Do not add a runtime dependency for the state engine, and do not edit `.orchestrator/` state files by hand; use the `junamis-orchestrator` commands.
+- When changing the package, the resume contract, or the installer, also run `pnpm run check:security`, `pnpm run check:pack`, and `pnpm run check:yaml`.
 - Strict: update `CHANGELOG.md` before every commit. Do not commit with a stale changelog.
 - Release notes come from the matching `## [x.y.z]` section of `CHANGELOG.md`. Do not maintain or paste a separate `RELEASE_NOTES.md`; ensure that section is sufficiently detailed before tagging.
 - Before tagging a release, ask the user which version bump to use (patch/minor/major) and propose a clear tag name (for example `v1.0.1`) with a short release title so others can understand the change.

@@ -1,0 +1,9 @@
+agent: develop
+job: implement the fixture change
+status: complete
+artifacts:
+  - path: artifacts/T-002.md
+    kind: created
+findings: []
+decisions_owed: []
+next: release-prep

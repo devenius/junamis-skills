@@ -1,0 +1,9 @@
+agent: route
+job: classify the fixture request
+status: complete
+artifacts:
+  - path: artifacts/T-001.md
+    kind: created
+findings: []
+decisions_owed: []
+next: develop

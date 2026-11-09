@@ -118,6 +118,9 @@ export function validateConfig(cfg) {
   expect("external_directory", "/etc/passwd", "deny");
 
   expect("shell", "echo hi", "ask");
+  expect("shell", "junamis-orchestrator boot", "allow");
+  expect("shell", "node scripts/orchestrator-state.mjs boot", "allow");
+  expect("shell", "cat .env", "deny");
 
   expect("webfetch", "https://example.com", "ask");
   expect("webfetch", "https://opencode.ai/docs", "allow");

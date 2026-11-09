@@ -1,6 +1,7 @@
 ---
 name: route
 version: "1.0.0"
+idempotent: true
 description: Use first on every new user request to decide which path it belongs to (feature, bug, refactor, dependency, migration, release, deploy verification, rollback, incident, security, performance, environment, decision, skill, question), routing to internal and external skills alike. Use when the request is not yet classified. When the first skill is external, the orchestrator must run route-external before dispatch. Do not use to do the work itself; it only decides where the work goes.
 ---
 
@@ -10,6 +11,7 @@ Decide the path for one request and state it in one line. Do no other work.
 
 ## Inputs
 
+- `<state-root>/resume-report.md`, read in full. It is the first input. If it is missing, return `status: blocked` and tell the orchestrator to run boot.
 - The user request, verbatim.
 - `.junamis/handoff.md` if it exists, for the current goal.
 - `docs/decisions/` titles, if the directory exists.
@@ -19,6 +21,7 @@ Decide the path for one request and state it in one line. Do no other work.
 
 | Path | Signals | First skill | Owner agent |
 |---|---|---|---|
+| resume | "session restarted", "continue", "pick up", or a resume report with `Status: RESUMING` | the recorded `resolved_skill` | the recorded `owner` |
 | environment | "won't run", "setup", "env", "node version" | `env-doctor` | context-keeper |
 | decision | "we decided", "record this", "going with X" | `decision-record` | context-keeper |
 | tests | "write tests for this change", "cover this with tests", "add a test suite" (after the code exists) | `test` (external) | maintainer |
@@ -43,6 +46,17 @@ Decide the path for one request and state it in one line. Do no other work.
 | question | asks about this repo's code or decisions, no outside info needed, no change requested | none | orchestrator answers directly |
 
 External skills (for example `debug`, `architect`, `develop`, `tdd`, `grill-me`) are installed from the upstream manifest, not from this library. The full list and their owners are in `~/.config/junamis/skills/EXTERNAL.md`. If one is not installed, stop and tell the user. Do not substitute. `route-external` is never a path itself; it is the orchestrator's adapter step for an external first skill.
+
+## Resume
+
+Read the resume report before scanning the request.
+
+- `Status: RESUMING`: start from the cursor task and the recorded `resolved_skill`, `resolution_source`, and `owner`. Do not rescan the user request. Do not resolve capability to skill again when the report says the fingerprint matches.
+- `Status: NEW_RUN`: classify normally with the path table.
+- `Status: COMPLETE`: return `next: none`.
+- `Status: BLOCKED_DRIFT` or `HALT_CORRUPT`: return `status: blocked` with the report path.
+
+Use the recorded capability to skill resolution. The plan's resolution is part of its checksum, so the recorded values are the record on resume.
 
 ## Steps
 
@@ -76,3 +90,5 @@ next: <first skill from the table>
 ```
 
 If the request is a question, `next: none`. If it is ambiguous, `status: needs-decision` with the question in `decisions_owed`.
+
+The `next` is the recorded skill on resume, or the normal first skill on a new run.

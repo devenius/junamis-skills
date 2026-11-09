@@ -17,12 +17,14 @@
   },
   "type": "module",
   "bin": {
-    "junamis-skills": "bin/junamis-skills.js"
+    "junamis-skills": "bin/junamis-skills.js",
+    "junamis-orchestrator": "scripts/orchestrator-state.mjs"
   },
   "files": [
     "bin",
     "src",
     "library",
+    "scripts/orchestrator-state.mjs",
     "skills-lock.json",
     "SECURITY.md",
     "junamis-skills.yml",

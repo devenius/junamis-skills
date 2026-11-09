@@ -4,6 +4,7 @@
 # bin/, src/, scripts/, library/, skills-lock.json, and SECURITY.md.
 Name: junamis-skills
 CLI: junamis-skills
+Bins: [junamis-skills, junamis-orchestrator]
 License: MIT
 Status: 1.0.x (Node 26+; ESM; external installs also need the system git CLI)
 
@@ -16,20 +17,31 @@ Description: >
 
 Architecture:
   PackageContent:
-    - "bin/junamis-skills.js is the only executable entry point."
+    - "bin/junamis-skills.js is the only executable entry point for the installer."
     - "src/ holds the CLI, the external installer, the pinned-source checkout, the library installer, and the guide writer."
+    - "src/orchestrator/ holds the journal-first resume state engine."
+    - "scripts/orchestrator-state.mjs is the thin source entry for the junamis-orchestrator bin."
     - "src/targets/ is the only place that knows agent-specific paths and agent-definition formats."
     - "library/ holds owned skills, agents, and shared docs; it is published with the package."
+    - "library/RESUME.md is the normative persistence and resume contract."
     - "skills-lock.json is the single source of truth for external skills."
     - "SECURITY.md is the scan record for every internal and external skill."
+  Persistence:
+    - "State root: <project>/.orchestrator/ by default; ORCH_STATE_ROOT overrides it."
+    - "journal.ndjson is the append-only source of truth with a hash chain; state.json, plan.json, and tasks/<task_id>/task.json are derived snapshots."
+    - "boot runs before route, acquires the lease, verifies the journal and fingerprints, reconciles in-flight work, and writes resume-report.md and STATE.md."
+    - "A live lease halts a second session; a stale lease is taken over. Idempotent interruptions retry; non-idempotent interruptions escalate."
+    - "The engine uses only Node 26 built-in modules and adds no runtime dependency."
   InstallLayout:
     - "Config root: ~/.config/junamis/skills/ (the project segment for junamis-skills is skills)."
     - "OpenCode internal skills: ~/.config/junamis/skills/skills/<name>/SKILL.md."
     - "Canonical agents: ~/.config/junamis/skills/agents/<name>.md."
     - "OpenCode agent links: ~/.config/opencode/agents/<name>.md -> the canonical file."
-    - "OpenCode shared docs: ~/.config/junamis/skills/{HANDOFF,SAFETY,EXTERNAL,SECURITY}.md."
+    - "OpenCode shared docs: ~/.config/junamis/skills/{HANDOFF,SAFETY,EXTERNAL,SECURITY,RESUME}.md."
+    - "Installed skill manifest for the state engine: ~/.config/junamis/skills/skills-lock.json."
     - "OpenCode install manifest: ~/.config/junamis/skills/installed/library-opencode.json."
     - "OpenCode external skills: ~/.agents/skills/<name>/SKILL.md."
+    - "Execution state: <project>/.orchestrator/ (gitignored; never inside the OS temp directory)."
     - "Claude Code uses one skills directory (~/.claude/skills) for internal and external skills; canonical agents are still linked into ~/.claude/agents."
     - "Project scope mirrors the config root under <project>/.config/junamis/skills/{skills,agents,*.md,installed}; external skills stay at <project>/.agents/skills and project agent links at <project>/.opencode/agents (OpenCode)."
     - "No automatic migration: init writes only the nested layout, and status reports old flat files as legacy without deleting them."
@@ -65,10 +77,24 @@ Features:
       scan record and last external scan month.
     Exit: "1 when a required piece is missing for the selected scope; 0 otherwise. Legacy leftovers never fail status."
 
+  Persistence:
+    Description: >
+      Journal-first execution state under <project>/.orchestrator/. Every session
+      boots before route, rehydrates the cursor, checks the lease and
+      fingerprints, reconciles in-flight work, and writes resume-report.md and
+      STATE.md.
+    Commands: "boot, plan set, plan show, start, end, resolve, status, checkpoint, lease acquire|heartbeat|release|status, finish"
+    Journal: "journal.ndjson is append-only with a hash chain; state.json, plan.json, and tasks/<task_id>/task.json are derived snapshots."
+    Lease: "Single-writer lease with a 60s base TTL; start raises it to 900s. A live lease halts a second session; a stale lease is taken over."
+    Drift: "skills-lock.json and library override fingerprints gate boot, plan set, and start; a mismatch is BLOCKED_DRIFT with exit 3."
+    Reports: "resume-report.md is regenerated on every boot; STATE.md is a generated view regenerated on boot and checkpoint and never read as input."
+    CrashSafety: "Interrupted idempotent tasks retry; interrupted non-idempotent tasks escalate to needs_review."
+    Tests: "T1 crash, T2 replay, T3 manifest drift, T4 override drift, T5 lease safety, T6 escalation, and T7 torn-write recovery."
+
   Library:
     OwnedSkills: 19
     OwnedAgents: 9
-    SharedDocs: [HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md]
+    SharedDocs: [HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md, RESUME.md]
     CanonicalAgents: "Written once to <configRoot>/agents; linked into the target agents directory."
     LinkRules: "A correct link is unchanged; a missing link is created; an identical regular file is adopted; a differing file or wrong link is a conflict unless --force; a failed symlink falls back to a copy with a warning."
     ConflictRule: "Never overwrite a file the user edited unless --force."
@@ -163,7 +189,8 @@ CLIOptions:
 InstalledPaths:
   "~/.config/junamis/skills/skills": "internal (library) skills, OpenCode"
   "~/.config/junamis/skills/agents": "canonical agent definitions"
-  "~/.config/junamis/skills/*.md": "shared docs: HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md"
+  "~/.config/junamis/skills/*.md": "shared docs: HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md, RESUME.md"
+  "~/.config/junamis/skills/skills-lock.json": "installed external-skill manifest used by the state engine fingerprint"
   "~/.config/junamis/skills/installed/library-<agent>.json": "library install manifest"
   "~/.config/opencode/agents": "OpenCode agent links to the canonical files"
   "~/.agents/skills": "external skills, OpenCode"
@@ -172,6 +199,7 @@ InstalledPaths:
   "<project>/.config/junamis/skills/...": "project-scope internal skills, canonical agents, docs, and manifest"
   "<project>/.agents/skills": "project-scope external skills, OpenCode"
   "<project>/.opencode/agents": "project-scope OpenCode agent links"
+  "<project>/.orchestrator/": "execution state root: journal, snapshots, checkpoints, leases, resume report, and STATE.md (gitignored)"
   "<project>/.junamis/junamis-skills.json": "guide marker"
   "<project>/junamis-skills-guide.md": "setup guide (project file, not a skill)"
 
@@ -183,6 +211,8 @@ Utilities:
   - "src/library-install.js : plan/apply, manifest validation, containment, canonical agents, links, rollback"
   - "src/paths.js : single source of truth for the nested config root and install paths"
   - "src/guide.js : guide rendering and atomic writer"
+  - "src/orchestrator/ : journal-first resume engine (journal, state, plan, lease, drift, compaction, report, boot, handoff, commands, CLI)"
+  - "scripts/orchestrator-state.mjs : executable entry for the junamis-orchestrator bin"
   - "src/targets/ : one adapter per agent"
   - "scripts/check-*.mjs : config, lock, security, pack, and YAML checks"
   - "scripts/release-check.mjs : release gate"
@@ -203,6 +233,7 @@ Decisions:
   - "0013: The config root is ~/.config/junamis/skills; skills, canonical agents, docs, and the manifest are nested under it."
   - "0014: Agent definitions are written once to the canonical agents directory and symlinked into each target; a failed symlink falls back to a copy with a warning."
   - "0015: No automatic migration; status reports legacy flat files and never deletes them."
+  - "0016: The orchestrator is resumable through a journal-first state engine under src/orchestrator/; boot runs before route, skills declare idempotent, and the state root is <project>/.orchestrator/ with no new runtime dependency."
 
 Limitations:
   - "No third-party skill content is shipped; init needs network access to fetch and scan external skills."
@@ -211,9 +242,13 @@ Limitations:
   - "Auto-install skips scanning (--skip-scan) because -y cannot bypass the high/critical prompt; on-disk verification is the runtime backstop."
   - "Global installs are shared: a second agent with the same skills directory can see files from another target."
   - "The legacy .agents/, .opencode/ agent layer and nested upstream clones (skills/, nestjs-agent-skills/) are not part of the package."
+  - "Execution state is host-local: resume does not work across machines, and the lease does not coordinate across hosts."
+  - "The journal grows until compaction; checkpoint truncation is the one place an append-only journal is rewritten."
+  - "A crash in a non-idempotent step waits for a human review by design; the engine never guesses."
+  - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (155 tests)"
+  - "pnpm test (234 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

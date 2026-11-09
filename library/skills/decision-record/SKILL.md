@@ -1,6 +1,7 @@
 ---
 name: decision-record
 version: "1.0.0"
+idempotent: false
 description: Use when the user makes a decision that should bind future work ("we're using X", "never do Y here", "going with Z"), or before acting on a request that may conflict with an earlier decision. Writes ADR-style records to docs/decisions/ and flags conflicts instead of silently overriding them. Do not use for open questions or for suggestions the user has not accepted.
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: nextjs
 version: "1.0.0"
+idempotent: false
 description: Use when building or reviewing a Next.js application with the App Router. Covers Server Components, Server Actions, routing, layouts, data fetching, caching, middleware, and deployment. Use when the project has a next.config or app/ directory. Do not use for Pages Router or non-Next.js React apps.
 ---
 

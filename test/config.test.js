@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { effectFor, validateConfig } from "../scripts/check-opencode-config.mjs";
+import { effectFor, validateConfig } from "../dist/scripts/check-opencode-config.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const CHECKER = fileURLToPath(new URL("../scripts/check-opencode-config.mjs", import.meta.url));

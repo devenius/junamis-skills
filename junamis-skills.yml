@@ -86,10 +86,21 @@ Features:
     Commands: "boot, plan set, plan show, start, end, resolve, status, checkpoint, lease acquire|heartbeat|release|status, finish"
     Journal: "journal.ndjson is append-only with a hash chain; state.json, plan.json, and tasks/<task_id>/task.json are derived snapshots."
     Lease: "Single-writer lease with a 60s base TTL; start raises it to 900s. A live lease halts a second session; a stale lease is taken over."
-    Drift: "skills-lock.json and library override fingerprints gate boot, plan set, and start; a mismatch is BLOCKED_DRIFT with exit 3."
+    Drift: "skills-lock.json, library override, and design registry fingerprints gate boot, plan set, and start; a mismatch is BLOCKED_DRIFT with exit 3."
     Reports: "resume-report.md is regenerated on every boot; STATE.md is a generated view regenerated on boot and checkpoint and never read as input."
     CrashSafety: "Interrupted idempotent tasks retry; interrupted non-idempotent tasks escalate to needs_review."
-    Tests: "T1 crash, T2 replay, T3 manifest drift, T4 override drift, T5 lease safety, T6 escalation, and T7 torn-write recovery."
+    Tests: "T1 crash, T2 replay, T3 manifest drift, T4 override drift, T5 lease safety, T6 escalation, and T7 torn-write recovery; D-T1 to D-T8 cover the design registry contract."
+
+  DesignRegistry:
+    Description: >
+      A durable design surface registry under docs/design/ that the orchestrator
+      fingerprints and skills update only through design deltas.
+    Commands: "junamis-design-registry validate, load, apply, index, drift, bootstrap, fingerprint"
+    Schemas: "web, api, data, infra, cli, and other; common Intent, Current state, Known gaps, and Change log sections plus kind sections."
+    Checksum: "sha256 over the canonicalized body in fixed section order; frontmatter excluded."
+    Deltas: "replace, append, prepend, remove_line with a base_checksum guard, version bump, change log, atomic write, and design_update or design_delta_rejected journal event."
+    Drift: "CODE_DRIFT, DEPENDENCY_DRIFT, and COVERAGE_GAP; coverage failure is gated by docs/design/_registry.json bootstrap_complete."
+    Tests: "D-T1 schema, D-T2 INDEX determinism, D-T3 delta idempotency, D-T4 checksum guard, D-T5 code drift, D-T6 coverage, D-T7 deprecated guard, D-T8 resume drift."
 
   Library:
     OwnedSkills: 20
@@ -212,7 +223,9 @@ Utilities:
   - "src/paths.js : single source of truth for the nested config root and install paths"
   - "src/guide.js : guide rendering and atomic writer"
   - "src/orchestrator/ : journal-first resume engine (journal, state, plan, lease, drift, compaction, report, boot, handoff, commands, CLI)"
+  - "src/design/ : design registry schema, delta applier, index generator, drift detectors, bootstrap, and fingerprint"
   - "scripts/orchestrator-state.mjs : executable entry for the junamis-orchestrator bin"
+  - "scripts/design-registry.mjs : executable entry for the design registry"
   - "src/targets/ : one adapter per agent"
   - "scripts/check-*.mjs : config, lock, security, pack, and YAML checks"
   - "scripts/release-check.mjs : release gate"
@@ -248,7 +261,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (234 tests)"
+  - "pnpm test (243 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

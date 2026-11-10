@@ -144,6 +144,13 @@ function gitLines(projectRoot, args) {
     .filter(Boolean);
 }
 
+function gitCommitTime(projectRoot, path) {
+  const lines = gitLines(projectRoot, ["log", "-1", "--format=%ct", "--", path]);
+  if (!lines || lines.length === 0) return null;
+  const value = Number.parseInt(lines[0], 10);
+  return Number.isFinite(value) ? value : null;
+}
+
 async function mtimeMs(path) {
   const stat = await statSafe(path);
   return stat ? stat.mtimeMs : null;
@@ -155,11 +162,20 @@ async function codeChangedFiles(surface, { projectRoot, matched, git }) {
   if (git && commit) {
     const changed = gitLines(projectRoot, ["diff", "--name-only", `${commit}..HEAD`, "--", ...matched]);
     if (changed !== null) {
-      const designRelative = toPosixPath(relative(projectRoot, surface.file));
-      const designChanged = gitLines(projectRoot, ["diff", "--name-only", `${commit}..HEAD`, "--", designRelative]);
-      if (designChanged && designChanged.length > 0) return [];
       const matchedSet = new Set(matched);
-      return changed.filter((path) => matchedSet.has(path));
+      const files = changed.filter((path) => matchedSet.has(path));
+      if (files.length === 0) return [];
+      const designRelative = toPosixPath(relative(projectRoot, surface.file));
+      const designTime = gitCommitTime(projectRoot, designRelative);
+      let codeTime = 0;
+      for (const path of files) {
+        const time = gitCommitTime(projectRoot, path);
+        if (time !== null && time > codeTime) codeTime = time;
+      }
+      // A design update at or after the code change is the delta that
+      // accompanied it. Only code newer than the design is drift.
+      if (designTime !== null && codeTime > 0 && designTime >= codeTime) return [];
+      return files;
     }
   }
 

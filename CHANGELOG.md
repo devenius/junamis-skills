@@ -28,6 +28,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Added the internal `document` janitor skill, owned by the orchestrator, as the override of the external `document` capability. It may reorganize and reconcile the registry but may not introduce facts that are not already in deltas or code, and it may not promote drafts.
 - Added `design-registry bootstrap`: a one-shot scan of `src/`, `bin/`, and `scripts/` that drafts one `other` surface per source file, writes the canonical `web/homepage` and `api/get-user` examples, creates `docs/design/_registry.json` with `bootstrap_complete: false`, and never promotes a draft.
 - `RESUME.md` B4 now fingerprints the design registry as `design_registry: { index_sha256, surface_count, status_counts }` in `state.env_fingerprint`. A mismatch is `BLOCKED_DRIFT` with a design diff; a missing recorded value is a one-time `design_baseline` instead of a block. `last_reviewed_commit` is an optional frontmatter extension used for code drift.
+- Added design contract tests D-T1 to D-T8: schema validation, byte-stable INDEX, idempotent deltas, stale checksum rejection with `needs_review`, code drift in a temporary git repo, gated coverage, deprecated-surface rejection, and B4 `BLOCKED_DRIFT` with a design diff.
 
 ### Security
 - The shipped `opencode.json` allows the first-party state engine command without a shell prompt while every other shell command still asks and the secret denies and hard-deny policies still apply.

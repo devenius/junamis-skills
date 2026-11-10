@@ -507,7 +507,7 @@ export async function applyDelta({
     },
   });
 
-  let index = null;
+  let index;
   if (onWritten) {
     index = await onWritten({ designRoot, surfaceId: delta.surface_id });
   } else {

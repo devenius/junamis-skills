@@ -1,17 +1,18 @@
 # TypeScript build and consumer contract
 
-**Status:** normative for the TypeScript foundation
+**Status:** normative
 **Companions:** `tsconfig.json`, `tsconfig.build.json`, `tsconfig.types.json`, `src/types/README.md`
 
 ## 1. Source of truth
 
-- TypeScript source lives in `src/**/*.ts`.
+- All runtime code is TypeScript under `src/**/*.ts`.
 - `src/types/` is the single type contract. It is exported through
   `src/types/index.ts`.
 - `src/index.ts` is the package entry. It re-exports the contract and nothing
-  else on this branch.
-- The JavaScript modules under `src/` are not converted yet. They remain the
-  runtime on this branch. Converting them is a separate, later change.
+  else.
+- `bin/junamis-skills.js` and the three `.mjs` launchers in `scripts/` are the
+  only JavaScript that ships. They are thin, contain no logic, and import their
+  implementation from `dist/`.
 
 ## 2. Build outputs
 
@@ -23,6 +24,12 @@
 | `dist/index.d.ts` | public declaration entry |
 | `dist/types/*.js` | runtime guards (`isRecord`, `isOneOf`, ...) |
 | `dist/types/*.d.ts` | declarations for every contract file |
+| `dist/cli.js` | installer and `status` CLI |
+| `dist/guide.js` | guide rendering and the shared `PACKAGE_ROOT` |
+| `dist/orchestrator/*.js` | journal-first resume engine and its CLI |
+| `dist/design/*.js` | design registry engine and its CLI |
+| `dist/reconcile/*.js` | reconcile work queue and its CLI |
+| `dist/scripts/*.js` | every dev check, run by a launcher in `scripts/` |
 | `dist/**/*.js.map`, `*.d.ts.map` | source maps |
 
 `dist/` is generated, gitignored, and never committed. It is built by
@@ -72,19 +79,22 @@ never imports from `src/`. `test/types/consumer.ts` imports only from
 `dist/index.js` and is compiled by `tsconfig.types.json`; if the public shape
 breaks, the build fails there before a consumer sees it.
 
-The bins (`bin/junamis-skills.js`, `scripts/orchestrator-state.mjs`,
-`scripts/design-registry.mjs`, `scripts/reconcile.mjs`) are thin launchers that
-still point at source modules because those modules are JavaScript. The
-integration branch switches them to `dist/` and then drops `src` from `files`.
+`files` in `package.json` lists `dist` and never `src`. `check:pack` asserts the
+built entry, declarations, every CLI, and the launchers are present, and refuses
+any `src/` path in the packed set.
 
-The dev checks (`scripts/check-*.mjs`, `scripts/check-yaml.js`,
-`scripts/release-check.mjs`) are already launchers over `dist/scripts/*.js`, so
-they need `pnpm build` (or a prior `pnpm test`) before they run. A check that
-still needs an unconverted runtime module receives that module's functions from
-its launcher — `groupLock`, `preparePinnedSource`, `getSkillTreeSha`, or the
-OpenCode skills directory. The check treats what it receives as `unknown` and
-narrows it with the guards in `src/types/`, so no second copy of the installer's
-rules lives under `src/scripts/`.
+The bins (`bin/junamis-skills.js`, `scripts/orchestrator-state.mjs`,
+`scripts/design-registry.mjs`, `scripts/reconcile.mjs`) are thin launchers over
+`dist/`. `scripts/*.mjs` and `scripts/check-yaml.js` are the same: each imports
+`dist/scripts/*.js` (and, where it needs the installer's rules, the built module
+that owns them). They need `pnpm build` (or a prior `pnpm test`) before they run,
+and CI builds before every check.
+
+A check that needs an installer function receives it from its launcher —
+`groupLock`, `preparePinnedSource`, `getSkillTreeSha`, or the OpenCode skills
+directory. The check treats what it receives as `unknown` and narrows it with the
+guards in `src/types/`, so no second copy of the installer's rules lives under
+`src/scripts/`.
 
 ## 6. Unknown input at boundaries
 
@@ -97,25 +107,15 @@ rules lives under `src/scripts/`.
 - `assertNever` closes an exhaustive switch so a new union member is a compile
   error, not a silent fallthrough.
 
-## 7. Branch and merge model
+## 7. Package and repository rules
 
-The conversion is split so every branch stays reviewable and green:
-
-1. **Foundation** (this branch, `ts-foundation`): toolchain, shared types,
-   build outputs, consumption rules. No JS module is converted.
-2. **Area branches**: one per area (`orchestrator`, `design`, `reconcile`,
-   installer/targets). Each converts its own modules to TypeScript, imports
-   the shared contract from `src/types`, keeps the `.js` extension on relative
-   imports, and leaves the tests and the bins working against source.
-3. **Integration**: merges the area branches with **merge commits** (never
-   squash or rebase, so every conversion commit is preserved), switches the
-   bins to `dist/`, removes `src` from `files` and the public entry points, and
-   updates this document.
-
-Rules for every branch:
-
+- The package ships `dist/` only. `src/` stays in the repository and is the
+  source of truth, but it is not published.
+- The area branches (`ts-core`, `ts-runtime`, `ts-scripts`) are merged into
+  `ts-integration` with **merge commits**, so every conversion commit is
+  preserved.
 - Do not commit `dist/`, `node_modules/`, or worktree state.
-- Do not convert a module outside the branch's area.
-- Keep `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm run check:pack`,
-  `pnpm run check:security`, `pnpm run check:yaml`, and `pnpm lint` green.
+- `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm run check:pack`,
+  `pnpm run check:security`, `pnpm run check:yaml`, and `pnpm lint` must stay
+  green.
 - Update `CHANGELOG.md` in the same change.

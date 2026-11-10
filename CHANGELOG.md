@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.0.0] - 2026-11-10
 
 ### Added
 - `library/RESUME.md` as the normative persistence and resume contract. It is installed as a shared doc next to `HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`, and `SECURITY.md`.
@@ -42,6 +42,11 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Added `src/index.ts` as the package entry, `tsconfig.types.json` with `test/types/consumer.ts` as the compiled consumer contract, and the `build`, `typecheck`, `prepack`, and updated `test` scripts. The package exposes `main`, `types`, and the `.` and `./types` exports for `dist/`; `files` includes `dist` and excludes `src`, and `check:pack` requires the built entries, declarations, CLIs, and launchers.
 - CI runs `pnpm build` before every check that imports from `dist/` and before `pnpm test`, and also runs `pnpm typecheck`. The release and publish workflows build through `prepack` and `release:check`, so the packed artifact always contains `dist/`.
 - Added `docs/typescript.md` and the AGENTS.md TypeScript rules covering the build outputs, the consumer entry, `unknown` at boundaries, guards, and the dist-only package rules.
+- 1.0.0 is the first release built from a fresh repository: all runtime code is TypeScript under `src/**/*.ts`, the published package is the built `dist/` output plus its `.d.ts` declarations, and `prepack` rebuilds `dist/` before a tagged release is packed.
+- Added `## Branch and pull request policy` to `AGENTS.md`, a `.github/pull_request_template.md`, and `CONTRIBUTING.md`: `main` is read-only, every change goes on a task branch/worktree, and `main` receives work only through a reviewed pull request.
+- Added `## Work isolation` to the orchestrator prompt: a read-only request may run anywhere, but any write, git, or state-root action establishes a task branch/worktree from the default branch first, pushes the branch, and opens a pull request before stopping for approval.
+- Added `test/orchestrator-simulation.test.js`, a hermetic end-to-end run of the built CLIs: design bootstrap, `boot` (`NEW_RUN`), `plan set`, a `plan_pending` reconcile head, `start`, a complete handoff and artifact, `end`, and a final reconcile to `no_work` with `run_complete`.
+- Added `docs/releases/1.0.0.md` and `docs/releases/fresh-repo.md`: the release notes for this version and the one-time fresh-repository bootstrap runbook.
 
 ### Security
 - The shipped `opencode.json` allows the first-party state engine command without a shell prompt while every other shell command still asks and the secret denies and hard-deny policies still apply.
@@ -79,6 +84,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Validate project-supplied JSON in `status` and `doctor` and report malformed input without crashing.
 
 ### Changed
+- The 1.0.0 changelog is consolidated into this single section: the earlier 2026-10-31 section is removed, `docs/releases/1.0.0.md` mirrors this section for the GitHub Release, and `docs/releases/fresh-repo.md` records the one-time commands that publish a fresh repository.
 - The package's own design registry is now small and per project: `other/overview` is the single-project overview and `web/homepage` plus `api/get-user` remain the canonical schema examples. The 53 per-file `src-*`, `scripts-*`, and `bin-*` drafts were removed, `INDEX.md` was regenerated, and D-T1 asserts the canonical surfaces instead of the old 55-file scan.
 - The package is dist-only: `src` is removed from `files`, `dist/` and its declarations are the published runtime, every bin and check launcher imports `dist/`, and `check:pack` fails if any `src/` path or nested upstream clone appears in the packed set. The orchestrator now imports the shared `PACKAGE_ROOT` from `src/guide.ts`, and the transitional `src/guide.js` bridge is deleted.
 - The orchestrator now boots before `route` on every session, reads `resume-report.md`, and stops on exit `2` (`lease_held`), `3` (`BLOCKED_DRIFT`), or `4` (`HALT_CORRUPT`). `NEW_RUN` uses a one task bootstrap plan with `plan set`; a later full graph uses `plan set --replace`. Every dispatch is wrapped by `start` and `end`, with `resolve` after a user decision and `checkpoint`/`finish`/`lease release` at the close.
@@ -100,39 +106,3 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - `init --dir <new>` no longer crashes with `ENOENT ... realpath` before planning. The managed-root check falls back to the lexical project path and `writeGuide` creates the project directory before writing, so a dry run prints the full plan without creating it and a real run installs into the new directory.
 - `status` is informational for targets that are not installed or detected, and for an absent per-project guide. It exits 1 only for a detected target with an invalid manifest/config, a malformed project marker, or malformed `opencode.json`.
 
-## [1.0.0] - 2026-10-31
-
-### Added
-- Initial release: `junamis-skills` package with manifest, guide writer, and CLI.
-- `pnpm init` and publishable `package.json` (MIT, ESM, Node 26+).
-- 24 external skills tracked in `skills-lock.json`.
-- CI workflow (`.github/workflows/ci.yml`) running the test suite on Node 26 and a pack dry run.
-- Integration tests for `install-library`, `init-config`, and rollback paths.
-- `init-config` command with `--scope global|project` to write `opencode.json`.
-- Project scope for `install-library` (`--scope project`).
-- External installs through the pinned skillsio scanner; there is no direct GitHub download fallback.
-- `release:check` and `check:config` scripts.
-- Issue reporting section in README.
-- README external skills table with sources and licenses.
-- Node 26-native GitHub Actions.
-- Custom OpenCode configuration (`opencode.json`) that sets `orchestrator` as the default agent, auto-registers `~/.agents/skills` and library instructions, and defaults unreferenced tools to `ask`.
-- `test/release.test.js` validating that `CHANGELOG.md` has an entry and sufficient detail for releases.
-- Scoped package name `@devenius/junamis-skills` for GitHub Packages.
-- `publishConfig` pointing to the GitHub Packages registry.
-- `.github/workflows/publish.yml` to publish on `v*` tag pushes.
-- `.github/workflows/release.yml` generating GitHub Releases from `CHANGELOG.md`.
-
-### Changed
-- `applyLibraryInstall` writes atomically, rolls back on failure, and removes empty directories on rollback.
-- Managed and stale files edited by hand are treated as conflicts.
-- `opencode.json` denies access to common secret conventions and allowlists trusted developer docs.
-- External skills installed globally to `~/.agents/skills/` (opencode target).
-- `skills-lock.json` entries carry a `license` field.
-- `AGENTS.md` working rules: release notes come from `CHANGELOG.md`; versioning-release commits must also be tagged.
-- Node baseline standardized on v26 across workflows and the `env-doctor` example.
-
-### Fixed
-- External installer retry/timeout handling.
-- Lint and content-quality test coverage.
-- Renamed package to `junamis-skills`.
-- Suppressed noisy `git describe` stderr in `test/release.test.js`.

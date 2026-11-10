@@ -16,6 +16,18 @@
     "access": "public"
   },
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    }
+  },
   "bin": {
     "junamis-skills": "bin/junamis-skills.js",
     "junamis-orchestrator": "scripts/orchestrator-state.mjs",
@@ -24,6 +36,7 @@
   },
   "files": [
     "bin",
+    "dist",
     "src",
     "library",
     "scripts/orchestrator-state.mjs",
@@ -42,18 +55,20 @@
     "node": ">=26"
   },
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.types.json",
+    "test": "pnpm build && pnpm typecheck && node --test test/*.test.js",
+    "prepack": "pnpm build",
     "lint": "eslint .",
     "check:config": "node scripts/check-opencode-config.mjs",
     "check:skills-lock": "node scripts/check-skills-lock.mjs",
-    "check:pack": "node scripts/check-pack.mjs",
+    "check:pack": "pnpm build && node scripts/check-pack.mjs",
     "check:security": "node scripts/check-security.mjs",
     "check:pins": "node scripts/check-pins.mjs",
     "release:check": "node scripts/release-check.mjs",
     "check:yaml": "node scripts/check-yaml.js"
   },
   "packageManager": "pnpm@12.15.0",
-  "main": "src/cli.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/devenius/junamis-skills.git"
@@ -64,7 +79,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^26.6.6",
     "eslint": "^10.14.0",
-    "js-yaml": "^5.5.0"
+    "js-yaml": "^5.5.0",
+    "typescript": "^7.0.2"
   }
 }

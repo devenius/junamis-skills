@@ -7,6 +7,12 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REQUIRED_FILES = [
   "bin/junamis-skills.js",
+  "dist/index.js",
+  "dist/index.d.ts",
+  "dist/types/index.js",
+  "dist/types/index.d.ts",
+  "src/index.ts",
+  "src/types/index.ts",
   "src/cli.js",
   "src/external.js",
   "src/pinned-source.js",

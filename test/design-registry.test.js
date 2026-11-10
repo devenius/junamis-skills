@@ -28,7 +28,15 @@ test("D-T1 every committed design surface validates against its kind schema", as
   const result = await validateRegistry(REPO_DESIGN);
   const problems = result.errors.flatMap((entry) => entry.errors.map((error) => `${entry.file}: ${error}`));
   assert.equal(result.ok, true, problems.join("\n"));
-  assert.ok(result.count >= 50, `expected the bootstrapped registry, found ${result.count} file(s)`);
+
+  // The package's own registry is deliberately small: one single-project
+  // overview plus the two canonical examples that document the schema.
+  const surfaceIds = result.surfaces.map((surface) => surface.surface_id).sort();
+  for (const canonical of ["api/get-user", "cli/overview", "web/homepage"]) {
+    assert.ok(surfaceIds.includes(canonical), `missing canonical surface ${canonical}`);
+  }
+  assert.ok(result.count >= 3, `expected at least the three canonical surfaces, found ${result.count} file(s)`);
+  assert.ok(result.count <= 10, `expected the small registry, found ${result.count} file(s)`);
 });
 
 test("D-T2 regenerating INDEX.md is byte-equal to the committed file", async () => {

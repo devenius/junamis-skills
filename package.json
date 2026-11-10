@@ -42,6 +42,7 @@
     "scripts/design-registry.mjs",
     "scripts/reconcile.mjs",
     "docs/design/_schema.md",
+    "!docs/design/README.md",
     "skills-lock.json",
     "SECURITY.md",
     "junamis-skills.yml",

@@ -4,6 +4,20 @@
 choices the contract left open. It is not a surface and is never validated as
 one.
 
+## The package's own registry
+
+This repository keeps a deliberately small registry: `cli/overview` is the
+single-project overview, and `web/homepage` plus `api/get-user` are the
+canonical examples the schema documents. Before 1.0.0 the registry also held
+one draft per source file (`src-*`, `scripts-*`, `bin-*`, 55 surfaces in all).
+That per-file scan described files, not surfaces, so it was removed in favor of
+one overview that later surfaces can split from.
+
+`cli/overview` is the real bootstrap output: `package.json` has `bin`, so kind
+detection resolves `cli`. It claims `src/**`, `bin/**`, and `scripts/**` and
+stays a draft; nothing promotes it automatically. Run `bootstrap` for a new
+project, and `index --write` plus `validate` after any surface change.
+
 ## Commands
 
 ```

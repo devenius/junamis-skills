@@ -188,6 +188,8 @@ pnpm test       # build, typecheck, then the full Node test suite
 
 Consumers import the package root (`@devenius/junamis-skills`) or the `./types` subpath; both resolve to `dist/`. `dist/` is generated and gitignored, so contributors never commit it. See [`docs/typescript.md`](docs/typescript.md) for the build outputs, strict compiler settings, and the `unknown`-at-the-boundary rules.
 
+`main` is protected and read-only. Work on a task branch in its own worktree, run the gate above, push the branch, and open a pull request; never push directly to `main` and never self-merge. See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`.github/pull_request_template.md`](.github/pull_request_template.md) for the checklist.
+
 ## Reporting issues
 
 If an external skill is missing or an install fails, open an issue at

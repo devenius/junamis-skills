@@ -2,10 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { applyDelta } from "../src/design/delta.js";
-import { detectCodeDrift, runDrift } from "../src/design/drift.js";
-import { generateIndex } from "../src/design/index-gen.js";
-import { readSurface, validateRegistry } from "../src/design/schema.js";
+import { applyDelta } from "../dist/design/delta.js";
+import { detectCodeDrift, runDrift } from "../dist/design/drift.js";
+import { generateIndex } from "../dist/design/index-gen.js";
+import { readSurface, validateRegistry } from "../dist/design/schema.js";
 import {
   commitAll,
   initGit,
@@ -20,7 +20,7 @@ import {
   makeRun,
   planSet,
 } from "./helpers/orchestrator.js";
-import { loadRun } from "../src/orchestrator/store.js";
+import { loadRun } from "../dist/orchestrator/store.js";
 
 const STALE = `sha256:${"1".repeat(64)}`;
 

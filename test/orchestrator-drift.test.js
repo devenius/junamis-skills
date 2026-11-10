@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compareFingerprints, computeFingerprint } from "../src/orchestrator/drift.js";
+import { compareFingerprints, computeFingerprint } from "../dist/orchestrator/drift.js";
 import { makeFixture } from "./orchestrator-helpers.js";
 
 function tempRoot() {

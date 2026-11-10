@@ -1,0 +1,510 @@
+// Command line interface for the design registry.
+//
+// The CLI owns stdout and the exit code. The modules own the work. Commands:
+// validate, apply, index, drift, bootstrap, load, fingerprint.
+
+import { resolve } from "node:path";
+import { isInside, readText, realpathDeep } from "../orchestrator/fsx.js";
+import { DeltaError, UsageError, ValidationError } from "./errors.js";
+import { applyDelta } from "./delta.js";
+import { bootstrapRegistry } from "./bootstrap.js";
+import { matchesAny, runDrift } from "./drift.js";
+import { computeDesignFingerprint } from "./fingerprint.js";
+import { generateIndex, indexFilePath, writeIndex } from "./index-gen.js";
+import { loadSurfaces, readSurface, validateDesignText, validateRegistry } from "./schema.js";
+import { errorMessage } from "../types/guards.js";
+import type {
+  BootstrapResult,
+  DeltaOutcome,
+  DesignFingerprint,
+  DriftReport,
+} from "../types/design.js";
+
+const HELP = `junamis-design-registry
+
+Usage:
+  design-registry validate [<file>] [common]
+  design-registry load --surface <surface_id> [common]
+  design-registry load --code-path <path or glob> [common]
+  design-registry apply --delta <path> [common]
+  design-registry index [--generated-at <iso>] [--write] [--check] [common]
+  design-registry drift [common]
+  design-registry bootstrap [common]
+  design-registry fingerprint [common]
+
+Common options:
+  --project <dir>       Project root (default: cwd)
+  --design-root <dir>   Design root (default: ORCH_DESIGN_ROOT, then <project>/docs/design)
+  --state-root <dir>    State root for design events (default: <project>/.orchestrator)
+  --now <date>          Override today for deterministic writes (YYYY-MM-DD)
+  --json                Emit exactly one JSON object on stdout
+  --quiet               Suppress human output
+  --help                Print this help
+`;
+
+const VALUE_OPTIONS = new Set([
+  "--project",
+  "--design-root",
+  "--state-root",
+  "--surface",
+  "--code-path",
+  "--delta",
+  "--generated-at",
+  "--now",
+]);
+
+const FLAG_OPTIONS = new Set(["--json", "--quiet", "--help", "--write", "--check"]);
+
+export interface DesignOptions {
+  json: boolean;
+  quiet: boolean;
+  write: boolean;
+  check: boolean;
+  project: string | null;
+  designRoot: string | null;
+  stateRoot: string | null;
+  surface: string | null;
+  codePath: string | null;
+  delta: string | null;
+  generatedAt: string | null;
+  now: string | null;
+  rest: string[];
+}
+
+export type DesignParsedArgs =
+  | { readonly help: true }
+  | { readonly help: false; readonly command: string; readonly options: DesignOptions };
+
+function parseArgs(argv: readonly string[]): DesignParsedArgs {
+  if (argv.length === 0 || argv.includes("--help") || argv[0] === "help") return { help: true };
+  const command = argv[0] as string;
+  const options: DesignOptions = {
+    json: false,
+    quiet: false,
+    write: false,
+    check: false,
+    project: null,
+    designRoot: null,
+    stateRoot: null,
+    surface: null,
+    codePath: null,
+    delta: null,
+    generatedAt: null,
+    now: null,
+    rest: [],
+  };
+  for (let i = 1; i < argv.length; i++) {
+    const arg = argv[i] as string;
+    if (FLAG_OPTIONS.has(arg)) {
+      if (arg === "--json") options.json = true;
+      else if (arg === "--quiet") options.quiet = true;
+      else if (arg === "--write") options.write = true;
+      else if (arg === "--check") options.check = true;
+      else return { help: true };
+      continue;
+    }
+    if (VALUE_OPTIONS.has(arg)) {
+      const value = argv[i + 1];
+      if (value === undefined || value.startsWith("--")) throw new UsageError(`${arg} needs a value`);
+      i += 1;
+      switch (arg) {
+        case "--project": options.project = value; break;
+        case "--design-root": options.designRoot = value; break;
+        case "--state-root": options.stateRoot = value; break;
+        case "--surface": options.surface = value; break;
+        case "--code-path": options.codePath = value; break;
+        case "--delta": options.delta = value; break;
+        case "--generated-at": options.generatedAt = value; break;
+        case "--now": options.now = value; break;
+        default: break;
+      }
+      continue;
+    }
+    if (arg.startsWith("--")) throw new UsageError(`unknown option ${JSON.stringify(arg)}`);
+    options.rest.push(arg);
+  }
+  return { help: false, command, options };
+}
+
+export interface DesignContext {
+  readonly projectRoot: string;
+  readonly designRoot: string;
+  readonly stateRoot: string;
+  readonly json: boolean;
+  readonly quiet: boolean;
+  readonly write: boolean;
+  readonly check: boolean;
+  readonly now: string | null;
+  readonly generatedAt: string | null;
+  readonly surface: string | null;
+  readonly codePath: string | null;
+  readonly delta: string | null;
+  readonly rest: readonly string[];
+}
+
+export interface DesignContextOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly cwd?: string;
+}
+
+export function resolveContext(options: DesignOptions, { env = process.env, cwd = process.cwd() }: DesignContextOptions = {}): DesignContext {
+  const projectRoot = resolve(options.project ?? env["ORCH_PROJECT_ROOT"] ?? cwd);
+  const designRoot = resolve(options.designRoot ?? env["ORCH_DESIGN_ROOT"] ?? resolve(projectRoot, "docs", "design"));
+  const stateRoot = resolve(options.stateRoot ?? env["ORCH_STATE_ROOT"] ?? resolve(projectRoot, ".orchestrator"));
+  return {
+    projectRoot,
+    designRoot,
+    stateRoot,
+    json: options.json,
+    quiet: options.quiet,
+    write: options.write,
+    check: options.check,
+    now: options.now ?? null,
+    generatedAt: options.generatedAt ?? null,
+    surface: options.surface ?? null,
+    codePath: options.codePath ?? null,
+    delta: options.delta ?? null,
+    rest: options.rest ?? [],
+  };
+}
+
+export interface ValidateResult {
+  readonly status: string;
+  readonly count: number;
+  readonly files: readonly string[];
+  readonly errors: readonly string[];
+}
+
+async function validateCommand(ctx: DesignContext): Promise<ValidateResult> {
+  if (ctx.rest.length > 0) {
+    const target = resolve(ctx.projectRoot, ctx.rest[0] ?? "");
+    const realDesign = await realpathDeep(ctx.designRoot);
+    const realTarget = await realpathDeep(target);
+    const inside = isInside(realDesign, realTarget);
+    const result = validateDesignText(await readTarget(target), {
+      file: target,
+      designRoot: inside ? ctx.designRoot : null,
+      requireChecksum: true,
+    });
+    if (!result.ok) throw new ValidationError(`invalid design file ${target}`, { errors: result.errors });
+    return { status: "valid", count: 1, files: [target], errors: [] };
+  }
+
+  const registry = await validateRegistry(ctx.designRoot);
+  if (!registry.ok) {
+    const lines = registry.errors.flatMap((entry) => entry.errors.map((error) => `${entry.file}: ${error}`));
+    throw new ValidationError(`design registry is invalid (${lines.length} problem(s))`, { errors: lines });
+  }
+  return { status: "valid", count: registry.count, files: registry.files, errors: [] };
+}
+
+async function readTarget(path: string): Promise<string> {
+  return (await readText(path)) ?? "";
+}
+
+async function applyCommand(ctx: DesignContext): Promise<DeltaOutcome> {
+  if (!ctx.delta) throw new UsageError("apply needs --delta <path>");
+  const result = await applyDelta({
+    projectRoot: ctx.projectRoot,
+    designRoot: ctx.designRoot,
+    stateRoot: ctx.stateRoot,
+    deltaPath: ctx.delta,
+    now: ctx.now,
+  });
+  if (!result.ok) {
+    throw new DeltaError(result.reason ?? "design delta rejected", {
+      code: result.code ?? "design_delta_rejected",
+      detail: result,
+    });
+  }
+  return result;
+}
+
+export interface LoadSurfaceSummary {
+  readonly surface_id: string;
+  readonly app: string | null;
+  readonly kind: string | null;
+  readonly status: string | null;
+  readonly checksum: string | null;
+  readonly body: string | null;
+}
+
+export interface LoadResult {
+  readonly design_context?: string;
+  readonly surfaces?: readonly LoadSurfaceSummary[];
+  readonly surface_id?: string;
+  readonly frontmatter?: unknown;
+  readonly checksum?: string | null;
+  readonly body?: string | null;
+}
+
+async function loadCommand(ctx: DesignContext): Promise<LoadResult> {
+  if (ctx.surface) {
+    const surface = await readSurface(ctx.designRoot, ctx.surface);
+    if (!surface) throw new ValidationError(`surface ${ctx.surface} does not exist`);
+    if (!surface.ok) throw new ValidationError(`surface ${ctx.surface} is invalid`, { errors: surface.errors });
+    return {
+      surface_id: surface.surfaceId,
+      frontmatter: surface.frontmatter,
+      checksum: surface.checksum,
+      body: surface.body,
+    };
+  }
+  if (ctx.codePath) {
+    const loaded = await loadSurfaces(ctx.designRoot, { validate: true });
+    if (loaded.errors.length > 0) {
+      const lines = loaded.errors.flatMap((entry) => entry.errors.map((error) => `${entry.file}: ${error}`));
+      throw new ValidationError("cannot load design context from an invalid design registry", { errors: lines });
+    }
+    const surfaces = loaded.surfaces.filter((surface) => {
+      const patterns = surface.frontmatter?.code_paths ?? [];
+      if (matchesAny(ctx.codePath ?? "", patterns)) return true;
+      return patterns.some((pattern) => matchesAny(pattern, [ctx.codePath ?? ""]));
+    });
+    return {
+      design_context: surfaces.length > 0 ? "loaded" : "none",
+      surfaces: surfaces.map((surface) => ({
+        surface_id: surface.surface_id,
+        app: surface.frontmatter?.app ?? null,
+        kind: surface.frontmatter?.kind ?? null,
+        status: surface.frontmatter?.status ?? null,
+        checksum: surface.checksum,
+        body: surface.body,
+      })),
+    };
+  }
+  throw new UsageError("load needs --surface <surface_id> or --code-path <path>");
+}
+
+export interface IndexCommandResult {
+  readonly check?: boolean;
+  readonly match?: boolean;
+  readonly path: string | null;
+  readonly generatedAt: string;
+  readonly surfaceCount: number;
+  readonly statusCounts: Record<string, number>;
+  readonly content: string;
+  readonly current?: string | null;
+  readonly exitCode?: number;
+}
+
+async function indexCommand(ctx: DesignContext): Promise<IndexCommandResult> {
+  const path = indexFilePath(ctx.designRoot);
+  if (ctx.check) {
+    const generated = await generateIndex({ designRoot: ctx.designRoot, generatedAt: ctx.generatedAt });
+    const current = await readText(path);
+    const match = current === generated.content;
+    return {
+      check: true,
+      match,
+      path,
+      generatedAt: generated.generatedAt,
+      surfaceCount: generated.surfaceCount,
+      statusCounts: generated.statusCounts,
+      content: generated.content,
+      current,
+      exitCode: match ? 0 : 1,
+    };
+  }
+  if (ctx.write) {
+    const written = await writeIndex({ designRoot: ctx.designRoot, generatedAt: ctx.generatedAt });
+    return {
+      path: written.path,
+      generatedAt: written.generatedAt,
+      surfaceCount: written.surfaceCount,
+      statusCounts: written.statusCounts,
+      content: written.content,
+    };
+  }
+  const generated = await generateIndex({ designRoot: ctx.designRoot, generatedAt: ctx.generatedAt });
+  return {
+    path: null,
+    generatedAt: generated.generatedAt,
+    surfaceCount: generated.surfaceCount,
+    statusCounts: generated.statusCounts,
+    content: generated.content,
+  };
+}
+
+async function driftCommand(ctx: DesignContext): Promise<DriftReport & { readonly exitCode: number }> {
+  const result = await runDrift({
+    designRoot: ctx.designRoot,
+    projectRoot: ctx.projectRoot,
+  });
+  return { ...result, exitCode: result.ok ? 0 : 1 };
+}
+
+async function bootstrapCommand(ctx: DesignContext): Promise<BootstrapResult> {
+  return bootstrapRegistry({
+    projectRoot: ctx.projectRoot,
+    now: ctx.now,
+  });
+}
+
+export interface FingerprintResult {
+  readonly designRegistry: DesignFingerprint | null;
+  readonly designRegistryFiles: Record<string, string> | null;
+}
+
+async function fingerprintCommand(ctx: DesignContext): Promise<FingerprintResult> {
+  const result = await computeDesignFingerprint({ designRoot: ctx.designRoot });
+  return {
+    designRegistry: result.registry,
+    designRegistryFiles: result.files,
+  };
+}
+
+type DesignResult =
+  | ValidateResult
+  | DeltaOutcome
+  | LoadResult
+  | IndexCommandResult
+  | (DriftReport & { readonly exitCode: number })
+  | BootstrapResult
+  | FingerprintResult;
+
+function emit(command: string, ctx: DesignContext, result: DesignResult): void {
+  if (ctx.json) {
+    process.stdout.write(`${JSON.stringify({ ok: true, command, ...result })}\n`);
+    return;
+  }
+  if (ctx.quiet) return;
+  if (command === "validate") {
+    const out = result as ValidateResult;
+    process.stdout.write(`valid: ${out.count} file(s)\n`);
+    return;
+  }
+  if (command === "apply") {
+    const out = result as DeltaOutcome;
+    process.stdout.write(`surface: ${out.surface_id}\n`);
+    process.stdout.write(`status: ${out.unchanged ? "unchanged" : "applied"}\n`);
+    if (out.version) process.stdout.write(`version: ${out.version}\n`);
+    return;
+  }
+  if (command === "load") {
+    const out = result as LoadResult;
+    if (out.design_context) {
+      process.stdout.write(`design_context: ${out.design_context}\n`);
+      for (const surface of out.surfaces ?? []) {
+        process.stdout.write(`surface: ${surface.surface_id} (${surface.status})\n`);
+      }
+      return;
+    }
+    process.stdout.write(`${out.body ?? ""}`);
+    return;
+  }
+  if (command === "index") {
+    const out = result as IndexCommandResult;
+    if (out.check) {
+      process.stdout.write(out.match ? "index: up to date\n" : `index: differs from ${out.path}\n`);
+      return;
+    }
+    if (out.path) process.stdout.write(`index: ${out.path}\n`);
+    process.stdout.write(out.content ?? "");
+    return;
+  }
+  if (command === "drift") {
+    const out = result as DriftReport & { readonly exitCode: number };
+    process.stdout.write(`drift: ${out.ok ? "none" : "detected"}\n`);
+    process.stdout.write(`code: ${out.code.length}\n`);
+    process.stdout.write(`dependency: ${out.dependency.length}\n`);
+    process.stdout.write(
+      `coverage: overlaps ${out.coverage.overlaps.length}, unclaimed ${out.coverage.unclaimed.length}, enforced ${out.coverage.enforced}\n`,
+    );
+    for (const flag of [...out.code, ...out.dependency]) {
+      process.stdout.write(`- ${flag.type} ${flag.surface_id}${"files" in flag && flag.files ? `: ${flag.files.join(", ")}` : ""}\n`);
+    }
+    return;
+  }
+  if (command === "bootstrap") {
+    const out = result as BootstrapResult;
+    process.stdout.write(`created: ${out.created.length}\n`);
+    process.stdout.write(`skipped: ${out.skipped.length}\n`);
+    process.stdout.write(`targets: ${out.targets.length}\n`);
+    process.stdout.write(`schema: ${out.schemaCopied ? "copied" : "kept"}\n`);
+    process.stdout.write(`registry: ${out.registryCreated ? "created" : "kept"}\n`);
+    process.stdout.write(`index: ${out.index?.path ?? "none"}\n`);
+    return;
+  }
+  if (command === "fingerprint") {
+    const out = result as FingerprintResult;
+    process.stdout.write(`index: ${out.designRegistry?.index_sha256 ?? "none"}\n`);
+    process.stdout.write(`surfaces: ${out.designRegistry?.surface_count ?? 0}\n`);
+    return;
+  }
+  process.stdout.write(`${JSON.stringify(result)}\n`);
+}
+
+export interface DesignRunOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly cwd?: string;
+}
+
+export async function run(argv: readonly string[], { env = process.env, cwd = process.cwd() }: DesignRunOptions = {}): Promise<number> {
+  let parsed: DesignParsedArgs;
+  try {
+    parsed = parseArgs(argv);
+  } catch (error) {
+    return finishWithError(error, argv.includes("--json"), null, null);
+  }
+  if (parsed.help) {
+    process.stdout.write(HELP);
+    return 0;
+  }
+  const ctx = resolveContext(parsed.options, { env, cwd });
+  try {
+    let result: DesignResult;
+    switch (parsed.command) {
+      case "validate":
+        result = await validateCommand(ctx);
+        break;
+      case "apply":
+        result = await applyCommand(ctx);
+        break;
+      case "load":
+        result = await loadCommand(ctx);
+        break;
+      case "index":
+        result = await indexCommand(ctx);
+        break;
+      case "drift":
+        result = await driftCommand(ctx);
+        break;
+      case "bootstrap":
+        result = await bootstrapCommand(ctx);
+        break;
+      case "fingerprint":
+        result = await fingerprintCommand(ctx);
+        break;
+      default:
+        throw new UsageError(`unknown command ${JSON.stringify(parsed.command)}`);
+    }
+    emit(parsed.command, ctx, result);
+    const exitCode = (result as { readonly exitCode?: number }).exitCode ?? 0;
+    if (exitCode !== 0) process.exitCode = exitCode;
+    return exitCode;
+  } catch (error) {
+    return finishWithError(error, ctx.json, ctx, parsed.command);
+  }
+}
+
+function finishWithError(error: unknown, json: boolean, ctx: DesignContext | null, command: string | null): number {
+  const fields = error as { readonly exitCode?: number; readonly code?: string; readonly detail?: unknown } | null;
+  const exitCode = fields?.exitCode ?? 1;
+  const detail = fields?.detail ?? null;
+  const message = errorMessage(error);
+  if (json) {
+    process.stdout.write(`${JSON.stringify({
+      ok: false,
+      command,
+      error: { code: fields?.code ?? "error", message, detail },
+      designRoot: ctx?.designRoot ?? null,
+    })}\n`);
+  } else {
+    process.stderr.write(`error: ${fields?.code ?? "error"}: ${message}\n`);
+    const detailErrors = (detail as { readonly errors?: readonly string[] } | null)?.errors ?? [];
+    for (const line of detailErrors) process.stderr.write(`- ${line}\n`);
+  }
+  process.exitCode = exitCode;
+  return exitCode;
+}

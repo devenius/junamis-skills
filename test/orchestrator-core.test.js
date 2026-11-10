@@ -6,16 +6,16 @@ import { join } from "node:path";
 import {
   atomicWriteFile,
   readJsonFile,
-} from "../src/orchestrator/fsx.js";
+} from "../dist/orchestrator/fsx.js";
 import {
   JournalWriter,
   readJournal,
   replay,
   truncatePartialTail,
   verifyChain,
-} from "../src/orchestrator/journal.js";
-import { canonicalJson, inputsHash, planChecksum } from "../src/orchestrator/hash.js";
-import { emptyPlan } from "../src/orchestrator/state.js";
+} from "../dist/orchestrator/journal.js";
+import { canonicalJson, inputsHash, planChecksum } from "../dist/orchestrator/hash.js";
+import { emptyPlan } from "../dist/orchestrator/state.js";
 
 function tempDir(name) {
   const dir = mkdtempSync(join(tmpdir(), `orch-core-${name}-`));

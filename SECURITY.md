@@ -1,6 +1,6 @@
 # Security and scan record
 
-Last updated: 2026-11-09
+Last updated: 2026-11-10
 Last external scan: 2026-10
 Scanner: skillsio 1.1.3 (Trust Hub, Socket, Snyk)
 
@@ -28,6 +28,7 @@ The approval gate itself is in `library/SAFETY.md`.
 | db-migrate | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | decision-record | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | dependency-upgrade | internal | junamis-skills | MIT | first-party | 2026-11 | |
+| document | internal | junamis-skills | MIT | first-party | 2026-11 | internal janitor override; the external skill of the same name remains upstream |
 | deploy-verify | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | env-doctor | internal | junamis-skills | MIT | first-party | 2026-11 | |
 | frontend | internal | junamis-skills | MIT | first-party | 2026-11 | |

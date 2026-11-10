@@ -21,6 +21,7 @@ const IDEMPOTENT = {
   "decision-record": false,
   "dependency-upgrade": false,
   "deploy-verify": true,
+  document: false,
   "env-doctor": true,
   frontend: false,
   handoff: true,
@@ -92,7 +93,7 @@ const agentNames = agentFiles.map((f) => f.replace(/\.md$/, ""));
 const lockNames = Object.keys(LOCK.skills);
 
 test("library has the expected skills and agents", () => {
-  assert.equal(skillNames.length, 19);
+  assert.equal(skillNames.length, 20);
   assert.equal(agentNames.length, 9);
   assert.ok(existsSync(join(LIB, "HANDOFF.md")), "HANDOFF.md missing");
   assert.ok(existsSync(join(LIB, "SAFETY.md")), "SAFETY.md missing");

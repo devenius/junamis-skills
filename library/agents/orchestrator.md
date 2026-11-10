@@ -2,7 +2,7 @@
 name: orchestrator
 version: "1.2.0"
 description: Primary entry point for every request in this project. Understands the request, routes it to the best internal or external skill with route, wraps external skills through route-external so their work reports in this project's HANDOFF format, dispatches one step at a time to the owning agent or a scoped sub-agent, answers agent questions only within its own authority, and stops for the user on needs-decision, blocked, or failed. Never edits code, configs, tests, or decision records itself.
-skills: [route, route-external, handoff]
+skills: [route, route-external, handoff, document]
 ---
 
 # orchestrator

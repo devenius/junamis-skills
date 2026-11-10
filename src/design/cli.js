@@ -6,6 +6,7 @@
 import { resolve } from "node:path";
 import { isInside, readText, realpathDeep } from "../orchestrator/fsx.js";
 import { applyDelta } from "./delta.js";
+import { runDrift } from "./drift.js";
 import { DeltaError, UsageError, ValidationError } from "./errors.js";
 import { generateIndex, writeIndex } from "./index-gen.js";
 import { readSurface, validateDesignText, validateRegistry } from "./schema.js";
@@ -171,6 +172,14 @@ async function indexCommand(ctx) {
   };
 }
 
+async function driftCommand(ctx) {
+  const result = await runDrift({
+    designRoot: ctx.designRoot,
+    projectRoot: ctx.projectRoot,
+  });
+  return { ...result, exitCode: result.ok ? 0 : 1 };
+}
+
 function emit(command, ctx, result) {
   if (ctx.json) {
     process.stdout.write(`${JSON.stringify({ ok: true, command, ...result })}\n`);
@@ -194,6 +203,18 @@ function emit(command, ctx, result) {
   if (command === "index") {
     if (result.path) process.stdout.write(`index: ${result.path}\n`);
     process.stdout.write(result.content ?? "");
+    return;
+  }
+  if (command === "drift") {
+    process.stdout.write(`drift: ${result.ok ? "none" : "detected"}\n`);
+    process.stdout.write(`code: ${result.code.length}\n`);
+    process.stdout.write(`dependency: ${result.dependency.length}\n`);
+    process.stdout.write(
+      `coverage: overlaps ${result.coverage.overlaps.length}, unclaimed ${result.coverage.unclaimed.length}, enforced ${result.coverage.enforced}\n`,
+    );
+    for (const flag of [...result.code, ...result.dependency]) {
+      process.stdout.write(`- ${flag.type} ${flag.surface_id}${flag.files ? `: ${flag.files.join(", ")}` : ""}\n`);
+    }
     return;
   }
   process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -226,11 +247,16 @@ export async function run(argv, { env = process.env, cwd = process.cwd() } = {})
       case "index":
         result = await indexCommand(ctx);
         break;
+      case "drift":
+        result = await driftCommand(ctx);
+        break;
       default:
         throw new UsageError(`unknown command ${JSON.stringify(parsed.command)}`);
     }
     emit(parsed.command, ctx, result);
-    return 0;
+    const exitCode = result?.exitCode ?? 0;
+    if (exitCode !== 0) process.exitCode = exitCode;
+    return exitCode;
   } catch (error) {
     return finishWithError(error, ctx.json, ctx, parsed.command);
   }

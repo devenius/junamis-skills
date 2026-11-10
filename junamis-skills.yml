@@ -92,7 +92,7 @@ Features:
     Tests: "T1 crash, T2 replay, T3 manifest drift, T4 override drift, T5 lease safety, T6 escalation, and T7 torn-write recovery."
 
   Library:
-    OwnedSkills: 19
+    OwnedSkills: 20
     OwnedAgents: 9
     SharedDocs: [HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md, RESUME.md]
     CanonicalAgents: "Written once to <configRoot>/agents; linked into the target agents directory."
@@ -109,7 +109,7 @@ Features:
     FailureRule: "init exits 1 only when failed > 0; a declined or missing install is a failure and is not retried."
 
   Security:
-    Record: "SECURITY.md lists kind, source, license, scan status, and last review month for all 42 skills."
+    Record: "SECURITY.md lists kind, source, license, scan status, and last review month for all 44 skill rows (20 internal + 24 external; document has one row of each kind)."
     Scanner: "skillsio 1.1.3 (Trust Hub, Socket, Snyk)"
     Gate: "Install-time scanning is skipped by design (--skip-scan); SECURITY.md and library/SAFETY.md define the gate, and flagged findings are reviewed there."
     PinCheck: "pnpm run check:pins fetches each locked source/ref and compares the actual tree SHA; network check, not in CI/release."

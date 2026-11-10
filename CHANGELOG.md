@@ -24,6 +24,8 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Design registry writes use the state engine's atomic protocol through `src/design/atomic.js`: temp file, fsync, rename, and parent-directory fsync.
 - Design deltas are applied mechanically by `applyDelta`: `replace`, `append`, `prepend`, and `remove_line` only, with a base-checksum concurrency guard, automatic version bump, review metadata updates, an append-only change log, full re-validation, an atomic write, and `design_update` / `design_delta_rejected` journal events. A rejected delta also marks its task `needs_review`.
 - `INDEX.md` is generated from frontmatter only: sorted by `surface_id`, gap counts from `## Known gaps`, status counts, and a `Generated` timestamp derived from the newest `last_reviewed` date (or `--generated-at`) so identical input is byte-identical output.
+- Design drift detectors cover code drift by `last_reviewed_commit` or mtime fallback, dependency drift from the dependent surface's change log, and coverage overlaps plus unclaimed source files. Coverage failure is gated by `docs/design/_registry.json` `bootstrap_complete`; overlaps are always reported.
+- Added the internal `document` janitor skill, owned by the orchestrator, as the override of the external `document` capability. It may reorganize and reconcile the registry but may not introduce facts that are not already in deltas or code, and it may not promote drafts.
 
 ### Security
 - The shipped `opencode.json` allows the first-party state engine command without a shell prompt while every other shell command still asks and the secret denies and hard-deny policies still apply.

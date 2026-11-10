@@ -122,7 +122,7 @@ $ORCH_STATE_ROOT/
 ```
 
 **Event types (minimum):**
-`run_start`, `run_resume`, `lease_acquired`, `lease_taken_over`, `plan_created`, `step_start`, `step_end`, `task_status`, `drift_detected`, `reconcile_pass`, `checkpoint_written`, `escalation`, `run_complete`.
+`run_start`, `run_resume`, `lease_acquired`, `lease_taken_over`, `plan_created`, `step_start`, `step_end`, `task_status`, `drift_detected`, `reconcile_pass`, `queue_blocked`, `queue_stale`, `unknown_reason`, `run_stalled`, `priority_override`, `priority_override_rejected`, `checkpoint_written`, `escalation`, `run_complete`.
 
 **Hash chaining:** each event carries `prev_hash` = hash of the previous event line. This makes truncation and tampering detectable during replay.
 

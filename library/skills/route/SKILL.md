@@ -63,8 +63,11 @@ Use the recorded capability to skill resolution. The plan's resolution is part o
 Read `<state-root>/work-queue.json` before scanning the request.
 
 - `status: blocked_drift`: dispatch nothing. Return `status: blocked` with the drift.
-- `status: no_work`: return `next: none`.
-- `status: ready`: use `queue[0]`. Never skip past the head. If the head is `ready: false`, do not dispatch; report its `blocked_by`. If it is `ready: true`, route to its `capability` and recorded `resolved_skill`.
+- `status: no_work`: return `next: none`. If `stalled: true`, report the `summary.blocking_set`.
+- `status: ready`: use `queue[0]`. Never skip past the head.
+  - Head `ready: false` with `blocked_by`: do not dispatch; report the blockers.
+  - Head `resolution_source: needs_review`: do not dispatch; report the shadow conflict.
+  - Head `ready: true`: route to its `capability` and recorded `resolved_skill`.
 
 ## Steps
 

@@ -77,4 +77,5 @@ test("R-T3 scoring uses the fixed severity base, reason weight, and buckets", ()
 
   assert.equal(score({ reason: "unknown_reason", severity: "critical" }).score, 100);
   assert.equal(score({ reason: "plan_pending", severity: "medium" }).score, 206);
+  assert.equal(score({ reason: "plan_pending", severity: "medium", planPosition: 5 }).score, 206.0005);
 });

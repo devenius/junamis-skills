@@ -1,9 +1,12 @@
-// Pass A detectors: plan_pending, code_drift, and failed_step.
+// RECONCILE detectors.
 //
-// Each detector is a pure read over the supplied snapshot. It returns raw
-// candidates; the queue builder dedupes, resolves, scores, and sorts them.
+// MVP: plan_pending, code_drift, failed_step.
+// Extended: coverage_gap, dependency_drift, needs_review, stale_surface, and
+// shadow_conflict. Every detector is a read-only function over one snapshot.
 
-import { detectCodeDrift } from "../design/drift.js";
+import { join } from "node:path";
+import { exists, readJsonFile } from "../orchestrator/fsx.js";
+import { detectCodeDrift, detectCoverage, detectDependencyDrift } from "../design/drift.js";
 import { orderTasks } from "../orchestrator/plan.js";
 
 function orderedPlanTasks(plan) {
@@ -32,7 +35,20 @@ function latestStepEndByTask(events) {
   return map;
 }
 
-function candidate({ capability, target, reason, severity, planPosition = null, rationale, detector, atSeq, atTs }) {
+function candidate({
+  capability,
+  target,
+  reason,
+  severity,
+  planPosition = null,
+  rationale,
+  detector,
+  atSeq,
+  atTs,
+  nonDispatchable = false,
+  resolvedSkill = null,
+  resolutionSource = null,
+}) {
   return {
     capability,
     target,
@@ -47,6 +63,9 @@ function candidate({ capability, target, reason, severity, planPosition = null, 
         at_ts: atTs ?? null,
       },
     ],
+    ...(nonDispatchable ? { non_dispatchable: true } : {}),
+    ...(resolvedSkill ? { resolved_skill: resolvedSkill } : {}),
+    ...(resolutionSource ? { resolution_source: resolutionSource } : {}),
   };
 }
 
@@ -117,8 +136,161 @@ export function runFailedStep({ plan, tasks, events, lastSeq, lastTs }) {
   return candidates;
 }
 
+export async function runCoverageGap({ designRoot, projectRoot, lastSeq, lastTs }) {
+  if (!designRoot) return [];
+  const coverage = await detectCoverage({ designRoot, projectRoot });
+  const candidates = [];
+  for (const overlap of coverage.overlaps) {
+    candidates.push(candidate({
+      capability: "document",
+      target: { kind: "surface", id: overlap.surfaces[0] },
+      reason: "coverage_gap",
+      severity: "medium",
+      rationale: `overlapping code path ${overlap.path} claimed by ${overlap.surfaces.join(", ")}`,
+      detector: "coverage_gap",
+      atSeq: lastSeq,
+      atTs: lastTs,
+    }));
+  }
+  for (const path of coverage.unclaimed) {
+    candidates.push(candidate({
+      capability: "document",
+      target: { kind: "repo", id: path },
+      reason: "coverage_gap",
+      severity: "medium",
+      rationale: `unclaimed code path ${path}`,
+      detector: "coverage_gap",
+      atSeq: lastSeq,
+      atTs: lastTs,
+    }));
+  }
+  return candidates;
+}
+
+export async function runDependencyDrift({ designRoot, lastSeq, lastTs }) {
+  if (!designRoot) return [];
+  const flags = await detectDependencyDrift({ designRoot });
+  return flags.map((flag) => candidate({
+    capability: "develop",
+    target: { kind: "surface", id: flag.surface_id },
+    reason: "dependency_drift",
+    severity: "medium",
+    rationale: `depends_on ${flag.depends_on} moved from v${flag.recorded_version} to v${flag.current_version}`,
+    detector: "dependency_drift",
+    atSeq: lastSeq,
+    atTs: lastTs,
+  }));
+}
+
+export function runNeedsReview({ plan, tasks, surfaces = [], lastSeq, lastTs }) {
+  const candidates = [];
+  for (const surface of surfaces) {
+    if (surface.frontmatter?.status !== "needs_review") continue;
+    candidates.push(candidate({
+      capability: "needs_review",
+      target: { kind: "surface", id: surface.surface_id },
+      reason: "needs_review",
+      severity: "critical",
+      rationale: `surface ${surface.surface_id} needs operator review`,
+      detector: "needs_review",
+      atSeq: lastSeq,
+      atTs: lastTs,
+      nonDispatchable: true,
+      resolvedSkill: "needs_review",
+      resolutionSource: "needs_review",
+    }));
+  }
+  const planIds = new Set((plan?.tasks ?? []).map((task) => task.task_id));
+  for (const task of tasks ?? []) {
+    if (task.status !== "needs_review") continue;
+    if (planIds.size > 0 && !planIds.has(task.task_id)) continue;
+    candidates.push(candidate({
+      capability: "needs_review",
+      target: { kind: "task", id: task.task_id },
+      reason: "needs_review",
+      severity: "critical",
+      rationale: `task ${task.task_id} needs operator review`,
+      detector: "needs_review",
+      atSeq: lastSeq,
+      atTs: lastTs,
+      nonDispatchable: true,
+      resolvedSkill: "needs_review",
+      resolutionSource: "needs_review",
+    }));
+  }
+  return candidates;
+}
+
+export function runStaleSurface({ surfaces = [], lastSeq, lastTs, params = {} }) {
+  const maxAgeDays = Number.parseInt(params.max_age_days ?? "30", 10);
+  if (!Number.isFinite(maxAgeDays) || maxAgeDays <= 0 || !lastTs) return [];
+  const now = Date.parse(`${String(lastTs).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(now)) return [];
+  const candidates = [];
+  for (const surface of surfaces) {
+    if (surface.frontmatter?.status !== "active") continue;
+    const reviewed = Date.parse(`${surface.frontmatter.last_reviewed}T00:00:00Z`);
+    if (Number.isNaN(reviewed)) continue;
+    const days = Math.floor((now - reviewed) / 86_400_000);
+    if (days <= maxAgeDays) continue;
+    candidates.push(candidate({
+      capability: "check",
+      target: { kind: "surface", id: surface.surface_id },
+      reason: "stale_surface",
+      severity: "low",
+      rationale: `active surface ${surface.surface_id} last reviewed ${surface.frontmatter.last_reviewed} (${days} days)`,
+      detector: "stale_surface",
+      atSeq: lastSeq,
+      atTs: lastTs,
+    }));
+  }
+  return candidates;
+}
+
+export async function runShadowConflict({ plan, libraryRoot, manifestPath, overridesStale, lastSeq, lastTs }) {
+  let manifestSkills = {};
+  if (manifestPath) {
+    const parsed = await readJsonFile(manifestPath);
+    if (parsed.exists && !parsed.error && parsed.value?.skills && typeof parsed.value.skills === "object") {
+      manifestSkills = parsed.value.skills;
+    }
+  }
+  const seen = new Set();
+  const candidates = [];
+  for (const planTask of orderedPlanTasks(plan)) {
+    const capability = planTask.capability;
+    if (!capability || seen.has(capability) || capability === "needs_review" || capability === "audit") continue;
+    seen.add(capability);
+    const internal = Boolean(libraryRoot && (await exists(join(libraryRoot, "skills", capability, "SKILL.md"))));
+    const manifestHas = Boolean(manifestSkills[capability]);
+    const conflict = (internal && overridesStale) || (!internal && !manifestHas);
+    if (!conflict) continue;
+    candidates.push(candidate({
+      capability: "needs_review",
+      target: { kind: "task", id: planTask.task_id },
+      reason: "shadow_conflict",
+      severity: "critical",
+      rationale: internal
+        ? `internal override ${capability} is shadowed by a stale override fingerprint`
+        : `capability ${capability} has no internal override and no manifest entry`,
+      detector: "shadow_conflict",
+      atSeq: lastSeq,
+      atTs: lastTs,
+      nonDispatchable: true,
+      resolvedSkill: "needs_review",
+      resolutionSource: "needs_review",
+    }));
+  }
+  return candidates;
+}
+
 export const DETECTOR_RUNNERS = Object.freeze({
   plan_pending: runPlanPending,
   code_drift: runCodeDrift,
   failed_step: runFailedStep,
+  coverage_gap: runCoverageGap,
+  dependency_drift: runDependencyDrift,
+  needs_review: runNeedsReview,
+  stale_surface: runStaleSurface,
+  shadow_conflict: runShadowConflict,
 });

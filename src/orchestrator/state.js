@@ -181,7 +181,7 @@ export function applyEvent(ctx, event) {
         task.last_error = event.reason ?? task.last_error;
         task.updated_at = event.ts;
       }
-      ctx.run.updated_at = event.ts;
+      if (event.reconcile !== true) ctx.run.updated_at = event.ts;
       break;
     }
 
@@ -220,6 +220,17 @@ export function applyEvent(ctx, event) {
         : event.queue_status === "no_work"
           ? "no_work"
           : "blocked_drift";
+      ctx.run.stalled = event.stalled === true;
+      break;
+
+    case "priority_override":
+    case "priority_override_rejected":
+    case "queue_blocked":
+    case "queue_stale":
+    case "unknown_reason":
+    case "run_stalled":
+      // Audit-only reconcile events. They do not change the run cursor or the
+      // updated_at timestamp used for a deterministic queue.
       break;
 
     case "run_complete":

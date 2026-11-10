@@ -107,15 +107,17 @@ Features:
 
   Reconcile:
     Description: >
-      A deterministic MVP work queue that turns durable state and the design
+      A deterministic work queue that turns durable state and the design
       registry into the next dispatchable candidate. It reads state, journal,
       plan, design, and the detector manifest; it never executes a skill.
     Commands: "junamis-reconcile pass --trigger <name>"
-    Detectors: "plan_pending, code_drift, and failed_step enabled; coverage_gap, dependency_drift, needs_review, stale_surface, and shadow_conflict disabled."
-    Scoring: "Severity base plus reason weight with p0..p3 buckets; no plan_position_frac, plan_pending keeps its plan index."
-    Queue: "work-queue.json is derived and deterministic for one input snapshot; reconcile-report.md is its human companion."
-    Triggers: "boot B7.5, every step_end, every drift_detected, and the exposed design_delta_rejected pass."
-    Tests: "R-T1 determinism, R-T3 scoring, R-T8 triggers, and R-T11 crash recovery."
+    Detectors: "plan_pending, code_drift, failed_step, coverage_gap, dependency_drift, needs_review, stale_surface, and shadow_conflict; the extended detectors are present and disabled by default."
+    Scoring: "Full severity base plus reason weight with plan_position_frac for plan_pending; p0..p3 buckets; unknown reasons use weight 100 and journal unknown_reason."
+    Queue: "work-queue.json is derived and deterministic for one input snapshot; reconcile-report.md is its human companion; queue_stale reports a changed input fingerprint."
+    Escalation: "Blocked heads journal queue_blocked; shadowed heads journal escalation shadow_conflict; empty all-done queues journal run_complete; stalled queues keep status no_work with a stalled flag and blocking set."
+    Overrides: "Journal priority_override events apply after scoring; an override without a rationale is journaled priority_override_rejected."
+    Tick: "A periodic tick runs after N step_end events (default 10, from detectors.yaml tick_every) and records tick on reconcile_pass."
+    Tests: "R-T1 through R-T12: determinism, stable ids, scoring, drift guard, shadow safety, dependency closure, dedup, triggers, empty queue, stalled queue, crash recovery, and override audit."
 
   Library:
     OwnedSkills: 20
@@ -278,7 +280,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (255 tests)"
+  - "pnpm test (264 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

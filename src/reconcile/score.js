@@ -13,6 +13,7 @@ export const SEVERITY_BASE = Object.freeze({
 export const REASON_WEIGHT = Object.freeze({
   shadow_conflict: 0,
   needs_review: 1,
+  invalid_handoff: 1,
   failed_step: 2,
   code_drift: 3,
   coverage_gap: 4,
@@ -23,13 +24,18 @@ export const REASON_WEIGHT = Object.freeze({
 
 export const PRIORITY_RANK = Object.freeze({ p0: 0, p1: 1, p2: 2, p3: 3 });
 
-export function reasonWeight(reason) {
-  return Object.prototype.hasOwnProperty.call(REASON_WEIGHT, reason) ? REASON_WEIGHT[reason] : 100;
+export function isKnownReason(reason) {
+  return Object.prototype.hasOwnProperty.call(REASON_WEIGHT, reason);
 }
 
-export function score({ reason, severity }) {
+export function reasonWeight(reason) {
+  return isKnownReason(reason) ? REASON_WEIGHT[reason] : 100;
+}
+
+export function score({ reason, severity, planPosition = null }) {
   const base = Object.prototype.hasOwnProperty.call(SEVERITY_BASE, severity) ? SEVERITY_BASE[severity] : 3;
-  const value = base * 100 + reasonWeight(reason);
+  const fraction = reason === "plan_pending" && Number.isInteger(planPosition) ? planPosition / 10000 : 0;
+  const value = base * 100 + reasonWeight(reason) + fraction;
   let priority;
   if (value < 100) priority = "p0";
   else if (value < 200) priority = "p1";

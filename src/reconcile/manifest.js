@@ -11,7 +11,16 @@ import { parseYaml } from "../design/yaml.js";
 export const RECONCILE_DIR = "reconcile";
 export const DETECTOR_MANIFEST = "detectors.yaml";
 
-export const SUPPORTED_DETECTORS = Object.freeze(["plan_pending", "code_drift", "failed_step"]);
+export const SUPPORTED_DETECTORS = Object.freeze([
+  "plan_pending",
+  "code_drift",
+  "failed_step",
+  "coverage_gap",
+  "dependency_drift",
+  "needs_review",
+  "stale_surface",
+  "shadow_conflict",
+]);
 export const EXTENDED_DETECTORS = Object.freeze([
   "coverage_gap",
   "dependency_drift",
@@ -21,6 +30,7 @@ export const EXTENDED_DETECTORS = Object.freeze([
 ]);
 
 const DEFAULT_MANIFEST = `schema_version: 1
+tick_every: 10
 detectors:
   - id: plan_pending
     enabled: true
@@ -46,6 +56,8 @@ detectors:
   - id: stale_surface
     enabled: false
     order: 70
+    params:
+      max_age_days: 30
   - id: shadow_conflict
     enabled: false
     order: 5
@@ -95,5 +107,11 @@ export async function loadDetectorManifest(stateRoot, { create = true } = {}) {
   }
   const detectors = parsed.detectors.map(normalizeDetector);
   detectors.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-  return { path, created, detectors };
+  const tickEvery = Number.parseInt(parsed.tick_every ?? "10", 10);
+  return {
+    path,
+    created,
+    detectors,
+    tickEvery: Number.isInteger(tickEvery) && tickEvery > 0 ? tickEvery : 10,
+  };
 }

@@ -102,6 +102,17 @@ To add a new agent or model:
 
 Do not hardcode agent names anywhere outside `src/targets/`.
 
+## Branch and pull request policy
+
+`main` is protected and read-only. It is the published history, not a working tree.
+
+- Every change goes on a task branch in its own worktree. Never edit or commit on `main`.
+- When the change is ready: commit on the task branch, push the branch, open a pull request, and stop for the user's approval.
+- No self-merge. No bypass. No direct push to `main`, even for the repository owner.
+- Destructive git actions (`reset --hard`, `clean`, `rebase`, force-push, tag deletion) need the user's explicit approval and run only inside the task worktree.
+- The one exception is the initial publish of an empty repository, documented in `docs/releases/fresh-repo.md`; the user runs it once.
+- CI runs on `main` and on every pull request. A pull request merges only after its checks pass and the user approves it.
+
 ## Working rules
 
 - Node 26 or newer. ESM only (`"type": "module"`). External installs also require the system `git` CLI.

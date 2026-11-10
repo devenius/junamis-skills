@@ -30,6 +30,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - `RESUME.md` B4 now fingerprints the design registry as `design_registry: { index_sha256, surface_count, status_counts }` in `state.env_fingerprint`. A mismatch is `BLOCKED_DRIFT` with a design diff; a missing recorded value is a one-time `design_baseline` instead of a block. `last_reviewed_commit` is an optional frontmatter extension used for code drift.
 - Added design contract tests D-T1 to D-T8: schema validation, byte-stable INDEX, idempotent deltas, stale checksum rejection with `needs_review`, code drift in a temporary git repo, gated coverage, deprecated-surface rejection, and B4 `BLOCKED_DRIFT` with a design diff.
 - Adopted `docs/design/_schema.md` as the normative design registry contract. It defines the surface layout, required frontmatter and sections, the `design_delta` shape, drift model, atomic write protocol, generated index, and D-T1 to D-T8 acceptance tests.
+- Exposed `junamis-design-registry` as a package bin for `scripts/design-registry.mjs`, and completed the CLI with `index --check` for CI byte comparison and a `fingerprint` command for the B4 design fingerprint.
 
 ### Security
 - The shipped `opencode.json` allows the first-party state engine command without a shell prompt while every other shell command still asks and the secret denies and hard-deny policies still apply.

@@ -9,7 +9,8 @@ import { applyDelta } from "./delta.js";
 import { bootstrapRegistry } from "./bootstrap.js";
 import { runDrift } from "./drift.js";
 import { DeltaError, UsageError, ValidationError } from "./errors.js";
-import { generateIndex, writeIndex } from "./index-gen.js";
+import { computeDesignFingerprint } from "./fingerprint.js";
+import { generateIndex, indexFilePath, writeIndex } from "./index-gen.js";
 import { readSurface, validateDesignText, validateRegistry } from "./schema.js";
 
 const HELP = `junamis-design-registry
@@ -18,7 +19,7 @@ Usage:
   design-registry validate [<file>] [common]
   design-registry load --surface <surface_id> [common]
   design-registry apply --delta <path> [common]
-  design-registry index [--generated-at <iso>] [--write] [common]
+  design-registry index [--generated-at <iso>] [--write] [--check] [common]
   design-registry drift [common]
   design-registry bootstrap [common]
   design-registry fingerprint [common]
@@ -43,7 +44,7 @@ const VALUE_OPTIONS = new Set([
   "--now",
 ]);
 
-const FLAG_OPTIONS = new Set(["--json", "--quiet", "--help", "--write"]);
+const FLAG_OPTIONS = new Set(["--json", "--quiet", "--help", "--write", "--check"]);
 
 function parseArgs(argv) {
   if (argv.length === 0 || argv.includes("--help") || argv[0] === "help") return { help: true };
@@ -52,6 +53,7 @@ function parseArgs(argv) {
     json: false,
     quiet: false,
     write: false,
+    check: false,
     project: null,
     designRoot: null,
     stateRoot: null,
@@ -67,6 +69,7 @@ function parseArgs(argv) {
       if (arg === "--json") options.json = true;
       else if (arg === "--quiet") options.quiet = true;
       else if (arg === "--write") options.write = true;
+      else if (arg === "--check") options.check = true;
       else return { help: true };
       continue;
     }
@@ -95,6 +98,7 @@ export function resolveContext(options, { env = process.env, cwd = process.cwd()
     json: options.json,
     quiet: options.quiet,
     write: options.write,
+    check: options.check,
     now: options.now ?? null,
     generatedAt: options.generatedAt ?? null,
     surface: options.surface ?? null,
@@ -161,6 +165,23 @@ async function loadCommand(ctx) {
 }
 
 async function indexCommand(ctx) {
+  const path = indexFilePath(ctx.designRoot);
+  if (ctx.check) {
+    const generated = await generateIndex({ designRoot: ctx.designRoot, generatedAt: ctx.generatedAt });
+    const current = await readText(path);
+    const match = current === generated.content;
+    return {
+      check: true,
+      match,
+      path,
+      generatedAt: generated.generatedAt,
+      surfaceCount: generated.surfaceCount,
+      statusCounts: generated.statusCounts,
+      content: generated.content,
+      current,
+      exitCode: match ? 0 : 1,
+    };
+  }
   const result = ctx.write
     ? await writeIndex({ designRoot: ctx.designRoot, generatedAt: ctx.generatedAt })
     : await generateIndex({ designRoot: ctx.designRoot, generatedAt: ctx.generatedAt });
@@ -189,6 +210,14 @@ async function bootstrapCommand(ctx) {
   });
 }
 
+async function fingerprintCommand(ctx) {
+  const result = await computeDesignFingerprint({ designRoot: ctx.designRoot });
+  return {
+    designRegistry: result.registry,
+    designRegistryFiles: result.files,
+  };
+}
+
 function emit(command, ctx, result) {
   if (ctx.json) {
     process.stdout.write(`${JSON.stringify({ ok: true, command, ...result })}\n`);
@@ -210,6 +239,10 @@ function emit(command, ctx, result) {
     return;
   }
   if (command === "index") {
+    if (result.check) {
+      process.stdout.write(result.match ? "index: up to date\n" : `index: differs from ${result.path}\n`);
+      return;
+    }
     if (result.path) process.stdout.write(`index: ${result.path}\n`);
     process.stdout.write(result.content ?? "");
     return;
@@ -231,6 +264,11 @@ function emit(command, ctx, result) {
     process.stdout.write(`skipped: ${result.skipped.length}\n`);
     process.stdout.write(`registry: ${result.registryCreated ? "created" : "kept"}\n`);
     process.stdout.write(`index: ${result.index?.path ?? "none"}\n`);
+    return;
+  }
+  if (command === "fingerprint") {
+    process.stdout.write(`index: ${result.designRegistry?.index_sha256 ?? "none"}\n`);
+    process.stdout.write(`surfaces: ${result.designRegistry?.surface_count ?? 0}\n`);
     return;
   }
   process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -268,6 +306,9 @@ export async function run(argv, { env = process.env, cwd = process.cwd() } = {})
         break;
       case "bootstrap":
         result = await bootstrapCommand(ctx);
+        break;
+      case "fingerprint":
+        result = await fingerprintCommand(ctx);
         break;
       default:
         throw new UsageError(`unknown command ${JSON.stringify(parsed.command)}`);

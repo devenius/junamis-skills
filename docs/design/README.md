@@ -10,14 +10,15 @@ one.
 node scripts/design-registry.mjs validate
 node scripts/design-registry.mjs load --surface web/homepage
 node scripts/design-registry.mjs apply --delta <path>
-node scripts/design-registry.mjs index [--write] [--generated-at <iso>]
+node scripts/design-registry.mjs index [--write] [--check] [--generated-at <iso>]
 node scripts/design-registry.mjs drift
 node scripts/design-registry.mjs bootstrap
 node scripts/design-registry.mjs fingerprint
 ```
 
 Common options: `--project`, `--design-root`, `--state-root`, `--now`,
-`--json`, `--quiet`.
+`--json`, `--quiet`. `index --check` exits non-zero when the committed
+`INDEX.md` differs from the generated content; `index --write` replaces it.
 
 ## Section order
 

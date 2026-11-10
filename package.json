@@ -18,7 +18,8 @@
   "type": "module",
   "bin": {
     "junamis-skills": "bin/junamis-skills.js",
-    "junamis-orchestrator": "scripts/orchestrator-state.mjs"
+    "junamis-orchestrator": "scripts/orchestrator-state.mjs",
+    "junamis-design-registry": "scripts/design-registry.mjs"
   },
   "files": [
     "bin",

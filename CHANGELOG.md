@@ -79,6 +79,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Validate project-supplied JSON in `status` and `doctor` and report malformed input without crashing.
 
 ### Changed
+- The package's own design registry is now small and per project: `other/overview` is the single-project overview and `web/homepage` plus `api/get-user` remain the canonical schema examples. The 53 per-file `src-*`, `scripts-*`, and `bin-*` drafts were removed, `INDEX.md` was regenerated, and D-T1 asserts the canonical surfaces instead of the old 55-file scan.
 - The package is dist-only: `src` is removed from `files`, `dist/` and its declarations are the published runtime, every bin and check launcher imports `dist/`, and `check:pack` fails if any `src/` path or nested upstream clone appears in the packed set. The orchestrator now imports the shared `PACKAGE_ROOT` from `src/guide.ts`, and the transitional `src/guide.js` bridge is deleted.
 - The orchestrator now boots before `route` on every session, reads `resume-report.md`, and stops on exit `2` (`lease_held`), `3` (`BLOCKED_DRIFT`), or `4` (`HALT_CORRUPT`). `NEW_RUN` uses a one task bootstrap plan with `plan set`; a later full graph uses `plan set --replace`. Every dispatch is wrapped by `start` and `end`, with `resolve` after a user decision and `checkpoint`/`finish`/`lease release` at the close.
 - `route` accepts the resume report as its first input and has a `resume` path that starts from the recorded cursor, `resolved_skill`, `resolution_source`, and `owner` without rescanning the request.

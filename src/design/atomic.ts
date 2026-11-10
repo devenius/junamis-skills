@@ -8,10 +8,10 @@ import { atomicWriteFile } from "../orchestrator/fsx.js";
 
 export const DESIGN_FILE_MODE = 0o644;
 
-export async function atomicWriteText(path, text) {
+export async function atomicWriteText(path: string, text: string): Promise<void> {
   await atomicWriteFile(path, text, { mode: DESIGN_FILE_MODE });
 }
 
-export async function atomicWriteJson(path, value) {
+export async function atomicWriteJson(path: string, value: unknown): Promise<void> {
   await atomicWriteText(path, `${JSON.stringify(value, null, 2)}\n`);
 }

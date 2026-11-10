@@ -13,6 +13,14 @@ import { join, relative } from "node:path";
 import { listDir, readJsonFile, statSafe, toPosixPath } from "../orchestrator/fsx.js";
 import { ValidationError } from "./errors.js";
 import { loadSurfaces } from "./schema.js";
+import { isRecord } from "../types/guards.js";
+import type {
+  CodeDriftFlag,
+  CoverageReport,
+  DependencyDriftFlag,
+  DesignSurface,
+  DriftReport,
+} from "../types/design.js";
 
 const EXCLUDED_DIRS = new Set([
   "node_modules",
@@ -56,16 +64,16 @@ const CODE_EXTENSIONS = new Set([
   ".bash",
 ]);
 
-function escapeRegExp(char) {
+function escapeRegExp(char: string): string {
   return /[.*+?^${}()|[\]\\]/.test(char) ? `\\${char}` : char;
 }
 
-export function globToRegExp(pattern) {
+export function globToRegExp(pattern: unknown): RegExp {
   const normalized = String(pattern).replace(/\\/g, "/").replace(/^\.\//, "");
   const source = normalized.endsWith("/") ? `${normalized}**` : normalized;
   let out = "^";
   for (let i = 0; i < source.length; i++) {
-    const char = source[i];
+    const char = source[i] ?? "";
     if (char === "*") {
       if (source[i + 1] === "*") {
         i += 1;
@@ -98,7 +106,7 @@ export function globToRegExp(pattern) {
   return new RegExp(out);
 }
 
-export function matchesAny(path, patterns) {
+export function matchesAny(path: string, patterns: readonly string[] | null | undefined): boolean {
   return (patterns ?? []).some((pattern) => {
     try {
       return globToRegExp(pattern).test(path);
@@ -108,7 +116,7 @@ export function matchesAny(path, patterns) {
   });
 }
 
-async function walk(root, current, out) {
+async function walk(root: string, current: string, out: string[]): Promise<void> {
   const entries = await listDir(current);
   for (const entry of entries) {
     if (entry.isSymbolicLink()) continue;
@@ -124,14 +132,14 @@ async function walk(root, current, out) {
   }
 }
 
-export async function listProjectFiles(projectRoot) {
-  const out = [];
+export async function listProjectFiles(projectRoot: string): Promise<string[]> {
+  const out: string[] = [];
   await walk(projectRoot, projectRoot, out);
   out.sort((a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8")));
   return out;
 }
 
-function gitLines(projectRoot, args) {
+function gitLines(projectRoot: string, args: readonly string[]): string[] | null {
   const result = spawnSync("git", args, {
     cwd: projectRoot,
     encoding: "utf8",
@@ -144,20 +152,27 @@ function gitLines(projectRoot, args) {
     .filter(Boolean);
 }
 
-function gitCommitTime(projectRoot, path) {
+function gitCommitTime(projectRoot: string, path: string): number | null {
   const lines = gitLines(projectRoot, ["log", "-1", "--format=%ct", "--", path]);
   if (!lines || lines.length === 0) return null;
-  const value = Number.parseInt(lines[0], 10);
+  const value = Number.parseInt(lines[0] ?? "", 10);
   return Number.isFinite(value) ? value : null;
 }
 
-async function mtimeMs(path) {
+async function mtimeMs(path: string): Promise<number | null> {
   const stat = await statSafe(path);
   return stat ? stat.mtimeMs : null;
 }
 
-async function codeChangedFiles(surface, { projectRoot, matched, git }) {
+interface CodeChangeInput {
+  readonly projectRoot: string;
+  readonly matched: readonly string[];
+  readonly git: boolean;
+}
+
+async function codeChangedFiles(surface: DesignSurface, { projectRoot, matched, git }: CodeChangeInput): Promise<string[]> {
   const frontmatter = surface.frontmatter;
+  if (!frontmatter) return [];
   const commit = frontmatter.last_reviewed_commit;
   if (git && commit) {
     const changed = gitLines(projectRoot, ["diff", "--name-only", `${commit}..HEAD`, "--", ...matched]);
@@ -179,8 +194,8 @@ async function codeChangedFiles(surface, { projectRoot, matched, git }) {
     }
   }
 
-  const cutoff = new Date(`${frontmatter.last_reviewed}T23:59:59Z`).getTime();
-  const changed = [];
+  const cutoff = new Date(`${frontmatter.last_reviewed ?? ""}T23:59:59Z`).getTime();
+  const changed: string[] = [];
   for (const path of matched) {
     const mtime = await mtimeMs(join(projectRoot, path));
     if (mtime !== null && mtime > cutoff) changed.push(path);
@@ -196,14 +211,20 @@ async function codeChangedFiles(surface, { projectRoot, matched, git }) {
   return changed;
 }
 
-export async function detectCodeDrift({ designRoot, projectRoot, git = true }) {
+export interface CodeDriftInput {
+  readonly designRoot: string;
+  readonly projectRoot: string;
+  readonly git?: boolean;
+}
+
+export async function detectCodeDrift({ designRoot, projectRoot, git = true }: CodeDriftInput): Promise<CodeDriftFlag[]> {
   const loaded = await loadSurfaces(designRoot, { validate: true });
   if (loaded.errors.length > 0) {
     const lines = loaded.errors.flatMap((entry) => entry.errors.map((error) => `${entry.file}: ${error}`));
     throw new ValidationError("cannot detect drift on an invalid design registry", { errors: lines });
   }
   const projectFiles = await listProjectFiles(projectRoot);
-  const flags = [];
+  const flags: CodeDriftFlag[] = [];
   for (const surface of loaded.surfaces) {
     if (surface.frontmatter?.status !== "active") continue;
     const patterns = surface.frontmatter?.code_paths ?? [];
@@ -215,38 +236,43 @@ export async function detectCodeDrift({ designRoot, projectRoot, git = true }) {
       type: "CODE_DRIFT",
       surface_id: surface.surface_id,
       files,
-      last_reviewed: surface.frontmatter.last_reviewed,
-      last_reviewed_commit: surface.frontmatter.last_reviewed_commit ?? null,
+      last_reviewed: surface.frontmatter?.last_reviewed ?? "",
+      last_reviewed_commit: surface.frontmatter?.last_reviewed_commit ?? null,
     });
   }
   return flags;
 }
 
-function parseChangeLog(body) {
-  const entries = [];
+interface ChangeLogEntry {
+  readonly date: string;
+  readonly version: string;
+}
+
+function parseChangeLog(body: unknown): ChangeLogEntry[] {
+  const entries: ChangeLogEntry[] = [];
   for (const line of String(body ?? "").split("\n")) {
     const match = /^-\s+(\d{4}-\d{2}-\d{2})\s+·\s+v(\d+\.\d+\.\d+)/.exec(line.trim());
-    if (match) entries.push({ date: match[1], version: match[2] });
+    if (match) entries.push({ date: match[1] ?? "", version: match[2] ?? "" });
   }
   return entries;
 }
 
-function versionAt(entries, date) {
-  let found = null;
+function versionAt(entries: readonly ChangeLogEntry[], date: string | undefined): string | null {
+  let found: string | null = null;
   for (const entry of entries) {
-    if (entry.date <= date) found = entry.version;
+    if (entry.date <= (date ?? "")) found = entry.version;
   }
   return found;
 }
 
-export async function detectDependencyDrift({ designRoot }) {
+export async function detectDependencyDrift({ designRoot }: { readonly designRoot: string }): Promise<DependencyDriftFlag[]> {
   const loaded = await loadSurfaces(designRoot, { validate: true });
   if (loaded.errors.length > 0) {
     const lines = loaded.errors.flatMap((entry) => entry.errors.map((error) => `${entry.file}: ${error}`));
     throw new ValidationError("cannot detect dependency drift on an invalid design registry", { errors: lines });
   }
   const byId = new Map(loaded.surfaces.map((surface) => [surface.surface_id, surface]));
-  const flags = [];
+  const flags: DependencyDriftFlag[] = [];
   for (const surface of loaded.surfaces) {
     const lastReviewed = surface.frontmatter?.last_reviewed;
     for (const depId of surface.frontmatter?.depends_on ?? []) {
@@ -254,7 +280,7 @@ export async function detectDependencyDrift({ designRoot }) {
       if (!dep) continue;
       const recorded = versionAt(parseChangeLog(dep.body), lastReviewed);
       if (recorded === null) continue;
-      const current = dep.frontmatter?.version;
+      const current = dep.frontmatter?.version ?? null;
       if (recorded !== current) {
         flags.push({
           type: "DEPENDENCY_DRIFT",
@@ -262,7 +288,7 @@ export async function detectDependencyDrift({ designRoot }) {
           depends_on: depId,
           recorded_version: recorded,
           current_version: current,
-          at: lastReviewed,
+          at: lastReviewed ?? "",
         });
       }
     }
@@ -270,15 +296,20 @@ export async function detectDependencyDrift({ designRoot }) {
   return flags;
 }
 
-export async function readBootstrapFlag(designRoot) {
+export async function readBootstrapFlag(designRoot: string): Promise<boolean> {
   const parsed = await readJsonFile(join(designRoot, "_registry.json"));
-  if (!parsed.exists || parsed.error || !parsed.value || typeof parsed.value !== "object") {
+  if (!parsed.exists || parsed.error || !isRecord(parsed.value)) {
     return false;
   }
-  return parsed.value.bootstrap_complete === true;
+  return parsed.value["bootstrap_complete"] === true;
 }
 
-export async function detectCoverage({ designRoot, projectRoot }) {
+export interface CoverageInput {
+  readonly designRoot: string;
+  readonly projectRoot: string;
+}
+
+export async function detectCoverage({ designRoot, projectRoot }: CoverageInput): Promise<CoverageReport> {
   const loaded = await loadSurfaces(designRoot, { validate: true });
   if (loaded.errors.length > 0) {
     const lines = loaded.errors.flatMap((entry) => entry.errors.map((error) => `${entry.file}: ${error}`));
@@ -286,15 +317,16 @@ export async function detectCoverage({ designRoot, projectRoot }) {
   }
   const projectFiles = await listProjectFiles(projectRoot);
   const codeFiles = projectFiles.filter((path) => CODE_EXTENSIONS.has(extnameLower(path)));
-  const claims = new Map();
+  const claims = new Map<string, string[]>();
   for (const surface of loaded.surfaces) {
     for (const path of codeFiles) {
       if (!matchesAny(path, surface.frontmatter?.code_paths ?? [])) continue;
-      if (!claims.has(path)) claims.set(path, []);
-      claims.get(path).push(surface.surface_id);
+      const existing = claims.get(path);
+      if (existing) existing.push(surface.surface_id);
+      else claims.set(path, [surface.surface_id]);
     }
   }
-  const overlaps = [];
+  const overlaps: { path: string; surfaces: string[] }[] = [];
   for (const [path, surfaces] of claims) {
     if (surfaces.length > 1) overlaps.push({ path, surfaces: [...surfaces].sort() });
   }
@@ -311,12 +343,18 @@ export async function detectCoverage({ designRoot, projectRoot }) {
   };
 }
 
-function extnameLower(path) {
+function extnameLower(path: string): string {
   const index = path.lastIndexOf(".");
   return index === -1 ? "" : path.slice(index).toLowerCase();
 }
 
-export async function runDrift({ designRoot, projectRoot, git = true }) {
+export interface RunDriftInput {
+  readonly designRoot: string;
+  readonly projectRoot: string;
+  readonly git?: boolean;
+}
+
+export async function runDrift({ designRoot, projectRoot, git = true }: RunDriftInput): Promise<DriftReport> {
   const code = await detectCodeDrift({ designRoot, projectRoot, git });
   const dependency = await detectDependencyDrift({ designRoot });
   const coverage = await detectCoverage({ designRoot, projectRoot });

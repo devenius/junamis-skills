@@ -10,18 +10,33 @@ import { readBuffer, statSafe, toPosixPath } from "../orchestrator/fsx.js";
 import { sha256Hex } from "../orchestrator/hash.js";
 import { listSurfaceFiles, STATUS_ORDER } from "./schema.js";
 import { parseFrontmatterDocument } from "./yaml.js";
+import type { DesignFingerprint, DesignStatus } from "../types/design.js";
 
-function emptyStatusCounts() {
-  return Object.fromEntries(STATUS_ORDER.map((status) => [status, 0]));
+function emptyStatusCounts(): Record<DesignStatus, number> {
+  const counts: Record<DesignStatus, number> = { active: 0, draft: 0, deprecated: 0, needs_review: 0 };
+  for (const status of STATUS_ORDER) counts[status] = 0;
+  return counts;
 }
 
-export async function computeDesignFingerprint({ designRoot = null } = {}) {
+function isDesignStatus(value: unknown): value is DesignStatus {
+  return typeof value === "string" && (STATUS_ORDER as readonly string[]).includes(value);
+}
+
+export interface DesignFingerprintResult {
+  readonly registry: DesignFingerprint | null;
+  readonly files: Record<string, string> | null;
+  readonly designRoot: string | null;
+}
+
+export async function computeDesignFingerprint({
+  designRoot = null,
+}: { readonly designRoot?: string | null } = {}): Promise<DesignFingerprintResult> {
   if (!designRoot) return { registry: null, files: null, designRoot: null };
   const stat = await statSafe(designRoot);
   if (!stat || !stat.isDirectory()) return { registry: null, files: null, designRoot };
 
   const files = await listSurfaceFiles(designRoot);
-  const fileMap = {};
+  const fileMap: Record<string, string> = {};
   const statusCounts = emptyStatusCounts();
   const hash = createHash("sha256");
 
@@ -41,8 +56,8 @@ export async function computeDesignFingerprint({ designRoot = null } = {}) {
     hash.update("\0");
     try {
       const parsed = parseFrontmatterDocument(bytes.toString("utf8"), { label: relativePath });
-      const status = parsed.data?.status;
-      if (Object.prototype.hasOwnProperty.call(statusCounts, status)) statusCounts[status] += 1;
+      const status = parsed.data["status"];
+      if (isDesignStatus(status)) statusCounts[status] += 1;
     } catch {
       // An unparsable surface still changes the file hash. Boot reports the
       // drift; it does not guess the status.

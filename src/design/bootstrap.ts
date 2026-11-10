@@ -17,6 +17,8 @@ import { headCommit, renderDesignFile } from "./delta.js";
 import { writeIndex } from "./index-gen.js";
 import { computeDesignChecksum, surfacePath, validateDesignText } from "./schema.js";
 import { parseYaml } from "./yaml.js";
+import { isRecord } from "../types/guards.js";
+import type { BootstrapResult, BootstrapTarget, DesignKind } from "../types/design.js";
 
 const WORKSPACE_DIRS = ["apps", "packages", "services", "libs", "plugins"];
 const SOURCE_ROOTS = ["src", "bin", "scripts", "app", "pages", "lib"];
@@ -26,60 +28,65 @@ const DATA_DEPS = ["prisma", "@prisma/client", "drizzle-orm", "typeorm", "sequel
 const INFRA_FILES = ["Dockerfile", "docker-compose.yml", "docker-compose.yaml", "serverless.yml"];
 const INFRA_DIRS = ["terraform", "k8s", "helm", "pulumi"];
 
-function today(now) {
+function today(now: string | null): string {
   if (!now) return new Date().toISOString().slice(0, 10);
   const value = String(now).slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("--now must be a YYYY-MM-DD date");
   return value;
 }
 
-function toPosix(path) {
+function toPosix(path: string): string {
   return path.split("\\").join("/");
 }
 
-async function isDirectory(path) {
+async function isDirectory(path: string): Promise<boolean> {
   const stat = await statSafe(path);
   return Boolean(stat?.isDirectory());
 }
 
-async function isFile(path) {
+async function isFile(path: string): Promise<boolean> {
   const stat = await statSafe(path);
   return Boolean(stat?.isFile());
 }
 
-async function readPackage(dir) {
+async function readPackage(dir: string): Promise<Record<string, unknown> | null> {
   const parsed = await readJsonFile(join(dir, "package.json"));
-  if (!parsed.exists || parsed.error || parsed.value === null || typeof parsed.value !== "object") return null;
+  if (!parsed.exists || parsed.error || !isRecord(parsed.value)) return null;
   return parsed.value;
 }
 
-function packageDependencies(pkg) {
+function depsOf(pkg: Record<string, unknown> | null, key: string): Record<string, unknown> {
+  const value = pkg?.[key];
+  return isRecord(value) ? value : {};
+}
+
+function packageDependencies(pkg: Record<string, unknown> | null): Record<string, unknown> {
   return {
-    ...(pkg?.dependencies ?? {}),
-    ...(pkg?.devDependencies ?? {}),
-    ...(pkg?.peerDependencies ?? {}),
+    ...depsOf(pkg, "dependencies"),
+    ...depsOf(pkg, "devDependencies"),
+    ...depsOf(pkg, "peerDependencies"),
   };
 }
 
-function hasDependency(deps, names) {
+function hasDependency(deps: Record<string, unknown>, names: readonly string[]): boolean {
   return names.some((name) => Object.prototype.hasOwnProperty.call(deps, name));
 }
 
-async function hasAnyDir(base, names) {
+async function hasAnyDir(base: string, names: readonly string[]): Promise<boolean> {
   for (const name of names) {
     if (await isDirectory(join(base, name))) return true;
   }
   return false;
 }
 
-async function hasAnyFile(base, names) {
+async function hasAnyFile(base: string, names: readonly string[]): Promise<boolean> {
   for (const name of names) {
     if (await isFile(join(base, name))) return true;
   }
   return false;
 }
 
-export async function detectKind(dir, pkg = null) {
+export async function detectKind(dir: string, pkg: Record<string, unknown> | null = null): Promise<DesignKind> {
   const deps = packageDependencies(pkg);
 
   if (hasDependency(deps, WEB_DEPS) || (await hasAnyDir(dir, ["app", "pages", "src/app", "src/pages"]))) {
@@ -94,28 +101,28 @@ export async function detectKind(dir, pkg = null) {
   if ((await hasAnyFile(dir, INFRA_FILES)) || (await hasAnyDir(dir, INFRA_DIRS))) {
     return "infra";
   }
-  if (pkg?.bin || (await hasAnyDir(dir, ["src/cli", "bin"]))) {
+  if (pkg?.["bin"] || (await hasAnyDir(dir, ["src/cli", "bin"]))) {
     return "cli";
   }
   return "other";
 }
 
-async function workspacePatterns(projectRoot) {
-  const patterns = [];
+async function workspacePatterns(projectRoot: string): Promise<string[]> {
+  const patterns: string[] = [];
   const rootPackage = await readPackage(projectRoot);
-  const workspaces = rootPackage?.workspaces;
+  const workspaces = rootPackage?.["workspaces"];
   if (Array.isArray(workspaces)) {
-    patterns.push(...workspaces.filter((value) => typeof value === "string"));
-  } else if (workspaces && Array.isArray(workspaces.packages)) {
-    patterns.push(...workspaces.packages.filter((value) => typeof value === "string"));
+    patterns.push(...(workspaces as unknown[]).filter((value): value is string => typeof value === "string"));
+  } else if (isRecord(workspaces) && Array.isArray(workspaces["packages"])) {
+    patterns.push(...(workspaces["packages"] as unknown[]).filter((value): value is string => typeof value === "string"));
   }
 
   const pnpmText = await readText(join(projectRoot, "pnpm-workspace.yaml"));
   if (pnpmText !== null) {
     try {
       const parsed = parseYaml(pnpmText, { label: "pnpm-workspace.yaml" });
-      if (Array.isArray(parsed?.packages)) {
-        patterns.push(...parsed.packages.filter((value) => typeof value === "string"));
+      if (isRecord(parsed) && Array.isArray(parsed["packages"])) {
+        patterns.push(...(parsed["packages"] as unknown[]).filter((value): value is string => typeof value === "string"));
       }
     } catch {
       // A malformed workspace file is not a reason to refuse a bootstrap. The
@@ -125,14 +132,14 @@ async function workspacePatterns(projectRoot) {
   return patterns;
 }
 
-async function expandPattern(projectRoot, pattern) {
+async function expandPattern(projectRoot: string, pattern: string): Promise<string[]> {
   const cleaned = String(pattern).trim().replace(/^\.\//, "").replace(/\/+$/, "");
   if (cleaned.length === 0 || cleaned.startsWith("!")) return [];
 
   if (cleaned.endsWith("/*") && !cleaned.slice(0, -2).includes("*")) {
     const prefix = cleaned.slice(0, -2);
     const entries = await listDir(join(projectRoot, prefix));
-    const out = [];
+    const out: string[] = [];
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const relativeDir = `${prefix}/${entry.name}`;
@@ -145,8 +152,8 @@ async function expandPattern(projectRoot, pattern) {
   return [];
 }
 
-export async function discoverWorkspaces(projectRoot) {
-  const dirs = new Set();
+export async function discoverWorkspaces(projectRoot: string): Promise<string[]> {
+  const dirs = new Set<string>();
   const patterns = await workspacePatterns(projectRoot);
   for (const pattern of patterns) {
     for (const dir of await expandPattern(projectRoot, pattern)) dirs.add(toPosix(dir));
@@ -162,7 +169,7 @@ export async function discoverWorkspaces(projectRoot) {
   return [...dirs].sort((a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8")));
 }
 
-function safeAppName(dir) {
+function safeAppName(dir: string): string {
   const raw = basename(dir)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -170,12 +177,18 @@ function safeAppName(dir) {
   return raw.length > 0 ? raw : "app";
 }
 
-async function discoverTargets(projectRoot) {
+interface DiscoveredTarget {
+  readonly dir: string;
+  readonly app: string | null;
+  readonly monorepo: boolean;
+}
+
+async function discoverTargets(projectRoot: string): Promise<DiscoveredTarget[]> {
   const workspaces = await discoverWorkspaces(projectRoot);
   if (workspaces.length === 0) {
     return [{ dir: ".", app: null, monorepo: false }];
   }
-  const used = new Map();
+  const used = new Map<string, number>();
   return workspaces.map((dir) => {
     const base = safeAppName(dir);
     const count = used.get(base) ?? 0;
@@ -188,23 +201,23 @@ async function discoverTargets(projectRoot) {
   });
 }
 
-async function sourceRoots(projectRoot) {
-  const out = [];
+async function sourceRoots(projectRoot: string): Promise<string[]> {
+  const out: string[] = [];
   for (const root of SOURCE_ROOTS) {
     if (await isDirectory(join(projectRoot, root))) out.push(`${root}/**`);
   }
   return out.length > 0 ? out : ["src/**"];
 }
 
-function section(title, content) {
+function section(title: string, content: string): string {
   return `## ${title}\n\n${content}`;
 }
 
-function table(headers, separator) {
+function table(headers: string, separator: string): string {
   return `${headers}\n${separator}\n| (none yet) |${" |".repeat(headers.split("|").length - 3)}`;
 }
 
-function kindSections(kind, subject) {
+function kindSections(kind: DesignKind, subject: string): string[] {
   if (kind === "web") {
     return [
       section("Structure", `Describe the component tree and layout for ${subject}.`),
@@ -247,7 +260,15 @@ function kindSections(kind, subject) {
   return [];
 }
 
-export function overviewBody({ kind, app = null, codePaths = [], date, monorepo = false }) {
+export interface OverviewBodyInput {
+  readonly kind: DesignKind;
+  readonly app?: string | null;
+  readonly codePaths?: readonly string[];
+  readonly date: string;
+  readonly monorepo?: boolean;
+}
+
+export function overviewBody({ kind, app = null, codePaths = [], date, monorepo = false }: OverviewBodyInput): string {
   const subject = monorepo && app ? `the ${app} workspace` : "this project";
   const paths = codePaths.length > 0 ? codePaths.map((path) => `\`${path}\``).join(", ") : "no source path yet";
   return [
@@ -259,7 +280,17 @@ export function overviewBody({ kind, app = null, codePaths = [], date, monorepo 
   ].join("\n\n");
 }
 
-function surfaceText({ surfaceId, kind, app, codePaths, body, date, commit }) {
+interface SurfaceTextInput {
+  readonly surfaceId: string;
+  readonly kind: DesignKind;
+  readonly app: string | null;
+  readonly codePaths: readonly string[];
+  readonly body: string;
+  readonly date: string;
+  readonly commit: string | null;
+}
+
+function surfaceText({ surfaceId, kind, app, codePaths, body, date, commit }: SurfaceTextInput): string {
   const frontmatter = {
     surface_id: surfaceId,
     ...(app ? { app } : {}),
@@ -277,7 +308,15 @@ function surfaceText({ surfaceId, kind, app, codePaths, body, date, commit }) {
   return renderDesignFile(frontmatter, body);
 }
 
-async function writeSurface({ designRoot, surfaceId, text, created, skipped }) {
+interface WriteSurfaceInput {
+  readonly designRoot: string;
+  readonly surfaceId: string;
+  readonly text: string;
+  readonly created: string[];
+  readonly skipped: string[];
+}
+
+async function writeSurface({ designRoot, surfaceId, text, created, skipped }: WriteSurfaceInput): Promise<boolean> {
   const file = surfacePath(designRoot, surfaceId);
   if (await exists(file)) {
     skipped.push(surfaceId);
@@ -292,7 +331,7 @@ async function writeSurface({ designRoot, surfaceId, text, created, skipped }) {
   return true;
 }
 
-async function ensureSchema(designRoot) {
+async function ensureSchema(designRoot: string): Promise<boolean> {
   const target = join(designRoot, "_schema.md");
   if (await exists(target)) return false;
   const source = fileURLToPath(new URL("../../docs/design/_schema.md", import.meta.url));
@@ -302,7 +341,12 @@ async function ensureSchema(designRoot) {
   return true;
 }
 
-export async function bootstrapRegistry({ projectRoot, now = null } = {}) {
+export interface BootstrapOptions {
+  readonly projectRoot: string;
+  readonly now?: string | null;
+}
+
+export async function bootstrapRegistry({ projectRoot, now = null }: BootstrapOptions): Promise<BootstrapResult> {
   if (typeof projectRoot !== "string" || projectRoot.length === 0) {
     throw new Error("bootstrap needs a project root");
   }
@@ -310,9 +354,9 @@ export async function bootstrapRegistry({ projectRoot, now = null } = {}) {
   const designRoot = join(root, "docs", "design");
   const date = today(now);
   const commit = headCommit(root);
-  const created = [];
-  const skipped = [];
-  const targets = [];
+  const created: string[] = [];
+  const skipped: string[] = [];
+  const targets: BootstrapTarget[] = [];
 
   const schemaCopied = await ensureSchema(designRoot);
   const discovered = await discoverTargets(root);

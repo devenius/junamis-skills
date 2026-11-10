@@ -16,6 +16,7 @@ const REQUIRED_FILES = [
   "src/design/cli.js",
   "scripts/orchestrator-state.mjs",
   "scripts/design-registry.mjs",
+  "scripts/reconcile.mjs",
   "docs/design/_schema.md",
   "library/agents/orchestrator.md",
   "library/skills/route/SKILL.md",

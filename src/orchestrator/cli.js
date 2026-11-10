@@ -328,6 +328,7 @@ function emitHuman(command, res, ctx) {
       lines.push(`lease: ${res.leaseAction ?? res.lease?.action ?? "held"}`);
       if (res.drift && !res.drift.match) lines.push("drift: detected");
       lines.push(`status: ${res.status}`);
+      lines.push(`queue: ${res.reconcileStatus ?? "none"}${res.queueHead ? ` (${res.queueHead.candidate_id})` : ""}`);
       lines.push(`report: ${res.reportPath}`);
       break;
     case "plan set":
@@ -430,6 +431,11 @@ function jsonResult(command, res, ctx, error) {
     tasksSummary: resolved.tasksSummary ?? resolved.run?.tasks_summary ?? null,
     drift,
     lease: resolved.lease ?? resolved.leases ?? null,
+    workQueue: resolved.workQueue ?? null,
+    workQueuePath: resolved.workQueuePath ?? null,
+    reconcileReportPath: resolved.reconcileReportPath ?? null,
+    reconcileStatus: resolved.reconcileStatus ?? null,
+    queueHead: resolved.queueHead ?? null,
     error: error
       ? {
           reason: error.code ?? "error",

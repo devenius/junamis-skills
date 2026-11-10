@@ -122,7 +122,7 @@ $ORCH_STATE_ROOT/
 ```
 
 **Event types (minimum):**
-`run_start`, `run_resume`, `lease_acquired`, `lease_taken_over`, `plan_created`, `step_start`, `step_end`, `task_status`, `drift_detected`, `checkpoint_written`, `escalation`, `run_complete`.
+`run_start`, `run_resume`, `lease_acquired`, `lease_taken_over`, `plan_created`, `step_start`, `step_end`, `task_status`, `drift_detected`, `reconcile_pass`, `checkpoint_written`, `escalation`, `run_complete`.
 
 **Hash chaining:** each event carries `prev_hash` = hash of the previous event line. This makes truncation and tampering detectable during replay.
 
@@ -210,8 +210,13 @@ For each `tasks/<id>/handoffs/*.yaml`, validate against `HANDOFF.md`. Reject mal
 
 **B7 — Emit `resume-report.md`** (§12).
 
+**B7.5 — RECONCILE pass.**
+- If resume Status is `BLOCKED_DRIFT` or `HALT_CORRUPT`: write `$ORCH_STATE_ROOT/work-queue.json` with `status: blocked_drift` and one non-dispatchable `needs_review` item carrying the drift diff. Do not run detectors. Journal `reconcile_pass`.
+- Otherwise run the RECONCILE pass: read `$ORCH_STATE_ROOT/reconcile/detectors.yaml`, run the enabled detectors, and write `work-queue.json` plus `reconcile-report.md`. Journal `reconcile_pass`, including an empty queue.
+- Set `state.reconcile` to `ready` or `no_work` (or `blocked_drift`). Do not rewrite `plan.json`.
+
 **B8 — Hand control to `route`.**
-Pass the resume report as starting context. Set `state.cursor` to the first task in the order: `pending`/`in_progress` (retryable) tasks in `plan.json` dependency order.
+Pass `$ORCH_STATE_ROOT/work-queue.json` (not raw signals) as starting context. Set `state.cursor` to the first task in the order: `pending`/`in_progress` (retryable) tasks in `plan.json` dependency order.
 
 ### 6a. First-run initialization
 

@@ -91,6 +91,7 @@ export function applyEvent(ctx, event) {
       tasks_summary: taskSummary([]),
       journal_head: { seq: event.seq, event_hash: event.hash },
       last_checkpoint: null,
+      reconcile: null,
     };
     ctx.plan = null;
     ctx.tasks = new Map();
@@ -208,6 +209,17 @@ export function applyEvent(ctx, event) {
       ctx.run.run_status = null;
       ctx.run.drift = null;
       ctx.run.updated_at = event.ts;
+      break;
+
+    case "reconcile_pass":
+      // Reconcile is a derived read. It updates the state field but is not a
+      // reason to change updated_at, so two passes on one snapshot stay
+      // byte-identical.
+      ctx.run.reconcile = event.queue_status === "ready"
+        ? "ready"
+        : event.queue_status === "no_work"
+          ? "no_work"
+          : "blocked_drift";
       break;
 
     case "run_complete":

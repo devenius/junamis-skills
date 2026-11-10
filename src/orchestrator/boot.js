@@ -29,6 +29,7 @@ import {
   validateSnapshots,
 } from "./store.js";
 import { writeResumeReport, writeStateMd, writeRunReports } from "./report.js";
+import { runReconcile } from "../reconcile/queue.js";
 import { crashPoint } from "./test-hooks.js";
 import { nowIso } from "./time.js";
 
@@ -86,7 +87,7 @@ async function releaseAfterHalt(loaded, { sessionId, status }) {
   }
 }
 
-async function haltCorrupt({ paths, sessionId, stateRoot, error, currentFingerprint }) {
+async function haltCorrupt({ paths, sessionId, stateRoot, error, currentFingerprint, projectRoot, designRoot, libraryRoot, manifestPath, packageVersion }) {
   try {
     await removeFile(leasePath(stateRoot, sessionId));
   } catch {
@@ -151,6 +152,23 @@ async function haltCorrupt({ paths, sessionId, stateRoot, error, currentFingerpr
   } catch {
     // best effort
   }
+  let reconcile = null;
+  try {
+    reconcile = await runReconcile({
+      stateRoot,
+      projectRoot,
+      designRoot,
+      libraryRoot,
+      manifestPath,
+      packageVersion,
+      trigger: "boot",
+      status: "HALT_CORRUPT",
+      drift: { halt: "corrupt_state", detail: details },
+      sessionId,
+    });
+  } catch {
+    // A corrupt state root may not accept a queue write either.
+  }
   return {
     status: "HALT_CORRUPT",
     exitCode: 4,
@@ -166,6 +184,11 @@ async function haltCorrupt({ paths, sessionId, stateRoot, error, currentFingerpr
     drift: null,
     lease: null,
     reconciliation: null,
+    workQueue: reconcile?.queue ?? null,
+    workQueuePath: reconcile?.queuePath ?? null,
+    reconcileReportPath: reconcile?.reportPath ?? null,
+    reconcileStatus: reconcile?.status ?? null,
+    queueHead: reconcile?.head ?? null,
   };
 }
 
@@ -180,6 +203,7 @@ function finalStatus(loaded) {
 export async function boot(ctx) {
   const {
     stateRoot,
+    projectRoot,
     libraryRoot,
     manifestPath,
     designRoot,
@@ -235,6 +259,19 @@ export async function boot(ctx) {
       currentFingerprint,
       sessionId,
     });
+    // B7.5: establish the initial queue before B8 hands control to route.
+    const reconcile = await runReconcile({
+      stateRoot,
+      projectRoot,
+      designRoot,
+      libraryRoot,
+      manifestPath,
+      packageVersion,
+      trigger: "boot",
+      loaded,
+      currentFingerprint,
+      sessionId,
+    });
     return {
       status: "NEW_RUN",
       exitCode: 0,
@@ -250,6 +287,11 @@ export async function boot(ctx) {
       lease: leaseResult.lease,
       leaseAction: leaseResult.action,
       reconciliation: { interrupted: [], retried: [], escalated: [], malformedHandoffs: [] },
+      workQueue: reconcile.queue,
+      workQueuePath: reconcile.queuePath,
+      reconcileReportPath: reconcile.reportPath,
+      reconcileStatus: reconcile.status,
+      queueHead: reconcile.head,
     };
   }
 
@@ -266,7 +308,18 @@ export async function boot(ctx) {
     await validateSnapshots(loaded);
     if (!loaded.run) throw new CorruptStateError("journal is empty and no checkpoint exists");
   } catch (error) {
-    return haltCorrupt({ paths, sessionId, stateRoot, error, currentFingerprint });
+    return haltCorrupt({
+      paths,
+      sessionId,
+      stateRoot,
+      error,
+      currentFingerprint,
+      projectRoot,
+      designRoot,
+      libraryRoot,
+      manifestPath,
+      packageVersion,
+    });
   }
 
   if (truncatedBytes > 0) {
@@ -320,6 +373,20 @@ export async function boot(ctx) {
       currentFingerprint,
       sessionId,
     });
+    const reconcile = await runReconcile({
+      stateRoot,
+      projectRoot,
+      designRoot,
+      libraryRoot,
+      manifestPath,
+      packageVersion,
+      trigger: "boot",
+      status: "BLOCKED_DRIFT",
+      drift,
+      loaded,
+      currentFingerprint,
+      sessionId,
+    });
     return {
       status: "BLOCKED_DRIFT",
       exitCode: 3,
@@ -335,6 +402,11 @@ export async function boot(ctx) {
       lease: leaseResult.lease,
       leaseAction: leaseResult.action,
       reconciliation: null,
+      workQueue: reconcile.queue,
+      workQueuePath: reconcile.queuePath,
+      reconcileReportPath: reconcile.reportPath,
+      reconcileStatus: reconcile.status,
+      queueHead: reconcile.head,
     };
   }
 
@@ -419,6 +491,19 @@ export async function boot(ctx) {
     currentFingerprint,
     sessionId,
   });
+  // B7.5: B8 receives the queue, not raw signals.
+  const reconcile = await runReconcile({
+    stateRoot,
+    projectRoot,
+    designRoot,
+    libraryRoot,
+    manifestPath,
+    packageVersion,
+    trigger: "boot",
+    loaded,
+    currentFingerprint,
+    sessionId,
+  });
 
   return {
     status,
@@ -435,5 +520,10 @@ export async function boot(ctx) {
     lease: leaseResult.lease,
     leaseAction: leaseResult.action,
     reconciliation,
+    workQueue: reconcile.queue,
+    workQueuePath: reconcile.queuePath,
+    reconcileReportPath: reconcile.reportPath,
+    reconcileStatus: reconcile.status,
+    queueHead: reconcile.head,
   };
 }

@@ -25,6 +25,7 @@ import {
   validateDesignText,
 } from "./schema.js";
 import { parseYaml } from "./yaml.js";
+import { runReconcile } from "../reconcile/queue.js";
 
 const OPERATIONS = new Set(["create", "update", "deprecate", "none"]);
 const ACTIONS = new Set(["replace", "append", "prepend", "remove_line"]);
@@ -294,7 +295,7 @@ function hasChangeLogAction(delta) {
   return delta.sections.some((entry) => entry.section === "Change log");
 }
 
-async function reject({ stateRoot, delta, reason, code = "invalid_delta", detail = null }) {
+async function reject({ stateRoot, projectRoot = null, designRoot = null, delta, reason, code = "invalid_delta", detail = null }) {
   const journal = await appendDesignEvent({
     stateRoot,
     type: "design_delta_rejected",
@@ -309,6 +310,20 @@ async function reject({ stateRoot, delta, reason, code = "invalid_delta", detail
       detail,
     },
   });
+  let reconcile = null;
+  if (projectRoot && designRoot && (await exists(join(stateRoot, "journal.ndjson")))) {
+    try {
+      reconcile = await runReconcile({
+        stateRoot,
+        projectRoot,
+        designRoot,
+        trigger: "design_delta_rejected",
+        sessionId: "s-design-registry",
+      });
+    } catch {
+      // A rejected delta still stands even if the reconcile pass cannot run.
+    }
+  }
   return {
     ok: false,
     rejected: true,
@@ -316,6 +331,7 @@ async function reject({ stateRoot, delta, reason, code = "invalid_delta", detail
     reason,
     code,
     journal,
+    reconcile: reconcile?.status ?? null,
   };
 }
 
@@ -357,7 +373,7 @@ export async function applyDelta({
   if (existing) {
     current = await readSurface(designRoot, delta.surface_id);
     if (!current || !current.ok) {
-      return reject({
+      return reject({ projectRoot, designRoot,
         stateRoot,
         delta,
         reason: `current design file is invalid: ${(current?.errors ?? ["not found"]).join("; ")}`,
@@ -366,7 +382,7 @@ export async function applyDelta({
       });
     }
     if (current.frontmatter.status === "deprecated" || current.frontmatter.status === "needs_review") {
-      return reject({
+      return reject({ projectRoot, designRoot,
         stateRoot,
         delta,
         reason: `cannot apply a delta to a ${current.frontmatter.status} surface`,
@@ -377,10 +393,10 @@ export async function applyDelta({
 
   if (delta.operation === "create") {
     if (existing) {
-      return reject({ stateRoot, delta, reason: "operation create requires the surface not to exist", code: "surface_exists" });
+      return reject({ projectRoot, designRoot, stateRoot, delta, reason: "operation create requires the surface not to exist", code: "surface_exists" });
     }
   } else if (!existing) {
-    return reject({ stateRoot, delta, reason: "surface does not exist", code: "surface_missing" });
+    return reject({ projectRoot, designRoot, stateRoot, delta, reason: "surface does not exist", code: "surface_missing" });
   }
 
   const kind = delta.surface_id.split("/")[0];
@@ -414,7 +430,7 @@ export async function applyDelta({
     try {
       body = applySectionActions(body, delta.sections, kind);
     } catch (error) {
-      return reject({
+      return reject({ projectRoot, designRoot,
         stateRoot,
         delta,
         reason: error.message,
@@ -429,7 +445,7 @@ export async function applyDelta({
 
   if (delta.operation === "update" && newChecksum === oldChecksum) {
     if (delta.base_checksum !== oldChecksum && !delta.idempotent) {
-      return reject({
+      return reject({ projectRoot, designRoot,
         stateRoot,
         delta,
         reason: "base_checksum does not match the current design_checksum",
@@ -448,7 +464,7 @@ export async function applyDelta({
   }
 
   if (delta.operation !== "create" && delta.base_checksum !== oldChecksum) {
-    return reject({
+    return reject({ projectRoot, designRoot,
       stateRoot,
       delta,
       reason: "base_checksum does not match the current design_checksum",
@@ -482,7 +498,7 @@ export async function applyDelta({
   const text = renderDesignFile(frontmatter, body);
   const validated = validateDesignText(text, { file, designRoot, requireChecksum: true });
   if (!validated.ok) {
-    return reject({
+    return reject({ projectRoot, designRoot,
       stateRoot,
       delta,
       reason: `resulting design file is invalid: ${validated.errors.join("; ")}`,

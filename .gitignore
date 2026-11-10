@@ -7,3 +7,6 @@ node_modules/
 !.env.example
 .junamis/
 .orchestrator/
+.orchestrator/work-queue.json
+.orchestrator/reconcile/
+.orchestrator/reconcile-report.md

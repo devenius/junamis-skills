@@ -58,6 +58,14 @@ Read the resume report before scanning the request.
 
 Use the recorded capability to skill resolution. The plan's resolution is part of its checksum, so the recorded values are the record on resume.
 
+## Work queue
+
+Read `<state-root>/work-queue.json` before scanning the request.
+
+- `status: blocked_drift`: dispatch nothing. Return `status: blocked` with the drift.
+- `status: no_work`: return `next: none`.
+- `status: ready`: use `queue[0]`. Never skip past the head. If the head is `ready: false`, do not dispatch; report its `blocked_by`. If it is `ready: true`, route to its `capability` and recorded `resolved_skill`.
+
 ## Steps
 
 1. **Understand first.** Restate the task in one line: what changes, for whom, and what "done" looks like. Name the expected artifact. If two paths fit, or "done" is unclear, ask one question and wait. Do not guess.

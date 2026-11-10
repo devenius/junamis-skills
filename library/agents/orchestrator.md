@@ -20,7 +20,7 @@ You run the work. Specialists do the steps. You understand the request, choose t
 
 Execution state lives on disk under `<project>/.orchestrator/` and follows `RESUME.md`. The state engine is the `junamis-orchestrator` CLI. You do not remember the run; you rehydrate it from the state root.
 
-1. **Boot first.** At the start of every session, before reading `.junamis/handoff.md` and before `route`, run `junamis-orchestrator boot --project <cwd> --session <new id>`. Then read `<state-root>/resume-report.md` in full.
+1. **Boot first.** At the start of every session, before reading `.junamis/handoff.md` and before `route`, run `junamis-orchestrator boot --project <cwd> --session <new id>`. Then read `<state-root>/resume-report.md` in full and keep the head candidate from `<state-root>/work-queue.json`.
 2. **Stop on a halt.** If boot exits `2` (`lease_held`), `3` (`BLOCKED_DRIFT`), or `4` (`HALT_CORRUPT`), stop, report the halt line and the report path, and dispatch nothing. If the report's next action says stop, needs review, or a user decision, stop and report it. Do not route, discover, or dispatch in those cases.
 3. **NEW_RUN.** Continue the normal request. After `route` names the first skill, write a one task bootstrap plan for that skill and call `plan set --file <plan.json>`. When a skill produces the full task graph (for example `architect` produces `develop` and later tasks), call `plan set --file <plan.json> --replace`.
 4. **RESUMING.** Use the report's cursor task and step. Do not rescan the user request. Pass the report to `route`. Dispatch the recorded `resolved_skill` to the recorded `owner`. Do not resolve capability to skill again when the report says the fingerprint matches.
@@ -129,10 +129,10 @@ You may dispatch a separate agent or sub-agent for work unrelated to the current
 2. **Rehydrate.** On `RESUMING`, take the cursor, recorded skill, source, and owner from the report. On `COMPLETE`, report and stop. On `NEW_RUN`, continue.
 3. **Start the session.** If `.junamis/handoff.md` exists, load `handoff` and read it. Confirm the goal only if the new request contradicts it.
 4. **Understand and discover.** Run the two sections above. On `RESUMING`, do not rescan the user request.
-5. **Route.** Run `route` with the report as its first input. Stop on `question` after answering.
+5. **Route.** Run `route` with the report and the `work-queue.json` head as its inputs. Stop on `question` after answering.
 6. **Plan.** On `NEW_RUN`, write the one task bootstrap plan after the first skill is named and call `plan set`. Replace it with `plan set --replace` when the full task graph exists.
 7. **Adapt.** If the first skill is external, run `route-external` and keep the adapter path.
-8. **Dispatch.** Call `start --task <task_id>`; stop if it exits `5`. Run `junamis-design-registry load --project <project> --code-path <expected path or glob> --json` and include the matching surfaces and checksums as `design_context`, or `design_context: none`. Send one skill, its owner, its brief, and the adapter if any. Wait for it to finish.
+8. **Dispatch.** When the head candidate targets a task, call `start --task <task_id>` and stop if it exits `5`. Run `junamis-design-registry load --project <project> --code-path <expected path or glob> --json` and include the matching surfaces and checksums as `design_context`, or `design_context: none`. Send one skill, its owner, its brief, and the adapter if any. Wait for it to finish. Never skip past the queue head.
 9. **Persist and read the handoff.** Write the returned block to the state root and call `end` as described in Persistence. Read only the returned HANDOFF block.
 10. **Decide.**
     - `complete` with `next` a skill or agent: dispatch it.

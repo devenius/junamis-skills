@@ -97,7 +97,7 @@ function renderEvents(events) {
   });
 }
 
-function renderDrift(diff) {
+export function renderDrift(diff) {
   if (!diff || diff.match) return [];
   const lines = ["## Drift"];
   if (diff.manifest?.changed || diff.manifest?.old !== diff.manifest?.new) {

@@ -19,7 +19,8 @@
   "bin": {
     "junamis-skills": "bin/junamis-skills.js",
     "junamis-orchestrator": "scripts/orchestrator-state.mjs",
-    "junamis-design-registry": "scripts/design-registry.mjs"
+    "junamis-design-registry": "scripts/design-registry.mjs",
+    "junamis-reconcile": "scripts/reconcile.mjs"
   },
   "files": [
     "bin",
@@ -27,6 +28,7 @@
     "library",
     "scripts/orchestrator-state.mjs",
     "scripts/design-registry.mjs",
+    "scripts/reconcile.mjs",
     "docs/design/_schema.md",
     "skills-lock.json",
     "SECURITY.md",

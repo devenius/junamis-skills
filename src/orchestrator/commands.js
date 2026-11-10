@@ -50,6 +50,7 @@ import { renderStateMd, writeRunReports, writeStateMd } from "./report.js";
 import { crashPoint } from "./test-hooks.js";
 import { nowIso } from "./time.js";
 import { randomBytes } from "node:crypto";
+import { runReconcile } from "../reconcile/queue.js";
 
 function emptyReconciliation() {
   return { interrupted: [], retried: [], escalated: [], malformedHandoffs: [] };
@@ -105,6 +106,32 @@ async function currentFingerprint(ctx) {
 
 async function renew(ctx, ttlSeconds) {
   return heartbeatLease({ root: ctx.stateRoot, sessionId: ctx.sessionId, ttlSeconds });
+}
+
+async function reconcileNow(ctx, { trigger, status = null, drift = null, loaded = null } = {}) {
+  return runReconcile({
+    stateRoot: ctx.stateRoot,
+    projectRoot: ctx.projectRoot,
+    designRoot: ctx.designRoot,
+    libraryRoot: ctx.libraryRoot,
+    manifestPath: ctx.manifestPath,
+    packageVersion: ctx.packageVersion,
+    trigger,
+    status,
+    drift,
+    loaded,
+    sessionId: ctx.sessionId,
+  });
+}
+
+function queueExtra(reconcile) {
+  return {
+    workQueue: reconcile?.queue ?? null,
+    workQueuePath: reconcile?.queuePath ?? null,
+    reconcileReportPath: reconcile?.reportPath ?? null,
+    reconcileStatus: reconcile?.status ?? null,
+    queueHead: reconcile?.head ?? null,
+  };
 }
 
 function result(loaded, { status, exitCode = 0, reportPath = null, drift = null, halt = null, reconciliation = null, extra = {} }) {
@@ -167,6 +194,12 @@ async function blockForDrift(ctx, loaded, { diff, current }) {  const runId = lo
     currentFingerprint: current,
     sessionId: ctx.sessionId,
   });
+  const reconcile = await reconcileNow(ctx, {
+    trigger: "drift_detected",
+    status: "BLOCKED_DRIFT",
+    drift: diff,
+    loaded,
+  });
   return result(loaded, {
     status: "BLOCKED_DRIFT",
     exitCode: 3,
@@ -174,6 +207,7 @@ async function blockForDrift(ctx, loaded, { diff, current }) {  const runId = lo
     reportPath,
     drift: diff,
     reconciliation: emptyReconciliation(),
+    extra: queueExtra(reconcile),
   });
 }
 
@@ -441,10 +475,17 @@ export async function end(ctx, { taskId, stepId, handoff = null, status = null, 
     await saveLoaded(loaded, { status: runStatus(loaded) });
     crashPoint("after_task_snapshot_on_end");
     await maybeAutoCheckpoint(loaded, { sessionId: ctx.sessionId });
+    const reconcile = await reconcileNow(ctx, { trigger: "step_end" });
     return result(loaded, {
       status: "failed",
       drift: diff,
-      extra: { task: taskId, step: stepId, handoff: null, next: "none" },
+      extra: {
+        task: taskId,
+        step: stepId,
+        handoff: null,
+        next: "none",
+        ...queueExtra(reconcile),
+      },
     });
   }
 
@@ -522,6 +563,7 @@ export async function end(ctx, { taskId, stepId, handoff = null, status = null, 
   await saveLoaded(loaded, { status: runStatus(loaded) });
   crashPoint("after_task_snapshot_on_end");
   await maybeAutoCheckpoint(loaded, { sessionId: ctx.sessionId });
+  const reconcile = await reconcileNow(ctx, { trigger: "step_end" });
   return result(loaded, {
     status: taskStatus,
     drift: diff,
@@ -531,6 +573,7 @@ export async function end(ctx, { taskId, stepId, handoff = null, status = null, 
       handoff: handoffRelative,
       next: nextTarget(loaded),
       handoffStatus: parsedHandoff.status,
+      ...queueExtra(reconcile),
     },
   });
 }

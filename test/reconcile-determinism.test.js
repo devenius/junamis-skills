@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runReconcile } from "../src/reconcile/queue.js";
-import { reasonWeight, score } from "../src/reconcile/score.js";
+import { runReconcile } from "../dist/reconcile/queue.js";
+import { reasonWeight, score } from "../dist/reconcile/score.js";
 import { boot, makeRun, planSet, readJson } from "./helpers/orchestrator.js";
 
 function reconcileOptions(run) {

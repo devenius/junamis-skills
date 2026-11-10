@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { JournalWriter, readJournal } from "../src/orchestrator/journal.js";
-import { runReconcile } from "../src/reconcile/queue.js";
+import { JournalWriter, readJournal } from "../dist/orchestrator/journal.js";
+import { runReconcile } from "../dist/reconcile/queue.js";
 import { writeSurface } from "./design-helpers.js";
 import {
   TASKS,

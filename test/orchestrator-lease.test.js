@@ -10,10 +10,10 @@ import {
   readLeases,
   releaseLease,
   summarizeLeases,
-} from "../src/orchestrator/lease.js";
-import { atomicWriteFile } from "../src/orchestrator/fsx.js";
-import { LeaseHeldError, LeaseLostError } from "../src/orchestrator/errors.js";
-import { toIso } from "../src/orchestrator/time.js";
+} from "../dist/orchestrator/lease.js";
+import { atomicWriteFile } from "../dist/orchestrator/fsx.js";
+import { LeaseHeldError, LeaseLostError } from "../dist/orchestrator/errors.js";
+import { toIso } from "../dist/orchestrator/time.js";
 
 function tempRoot() {
   return mkdtempSync(join(tmpdir(), "orch-lease-"));

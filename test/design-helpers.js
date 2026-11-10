@@ -5,8 +5,8 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderDesignFile } from "../src/design/delta.js";
-import { computeDesignChecksum, KIND_SECTIONS } from "../src/design/schema.js";
+import { renderDesignFile } from "../dist/design/delta.js";
+import { computeDesignChecksum, KIND_SECTIONS } from "../dist/design/schema.js";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const DESIGN_CLI = join(ROOT, "scripts", "design-registry.mjs");

@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { bootstrapRegistry } from "../src/design/bootstrap.js";
-import { readSurface } from "../src/design/schema.js";
+import { bootstrapRegistry } from "../dist/design/bootstrap.js";
+import { readSurface } from "../dist/design/schema.js";
 import { makeDesignFixture, REPO_DESIGN } from "./design-helpers.js";
 
 function writeJson(path, value) {

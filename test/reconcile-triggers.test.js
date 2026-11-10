@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { applyDelta } from "../src/design/delta.js";
+import { applyDelta } from "../dist/design/delta.js";
 import { writeDelta, writeSurface } from "./design-helpers.js";
 import {
   TASKS,

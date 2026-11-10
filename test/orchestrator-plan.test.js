@@ -5,12 +5,12 @@ import { join } from "node:path";
 import {
   assertReplaceAllowed,
   validatePlanInput,
-} from "../src/orchestrator/plan.js";
+} from "../dist/orchestrator/plan.js";
 import {
   IdentityChangeError,
   TransitionError,
   UsageError,
-} from "../src/orchestrator/errors.js";
+} from "../dist/orchestrator/errors.js";
 import {
   boot,
   completeTask,

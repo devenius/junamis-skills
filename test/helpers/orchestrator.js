@@ -18,8 +18,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readJournal, verifyChain } from "../../src/orchestrator/journal.js";
-import { readLatestCheckpoint } from "../../src/orchestrator/compaction.js";
+import { readJournal, verifyChain } from "../../dist/orchestrator/journal.js";
+import { readLatestCheckpoint } from "../../dist/orchestrator/compaction.js";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const CLI = join(ROOT, "scripts", "orchestrator-state.mjs");

@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- Git installs (`npx github:...`) now build `dist/` through the `prepare` script, so the bin can load the CLI.
+
 ## [1.0.0] - 2026-11-10
 
 ### Added

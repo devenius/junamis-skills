@@ -9,8 +9,8 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { groupLock } from "../src/external.js";
-import { getSkillTreeSha, preparePinnedSource } from "../src/pinned-source.js";
+import { groupLock } from "../dist/external.js";
+import { getSkillTreeSha, preparePinnedSource } from "../dist/pinned-source.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

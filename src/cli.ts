@@ -7,6 +7,17 @@ import { getTarget, targets } from "./targets/index.js";
 import { installExternal, validateAgent, validateInstaller } from "./external.js";
 import { planLibraryInstall, applyLibraryInstall, manifestPath } from "./library-install.js";
 import { configRoot, legacyConfigParent } from "./paths.js";
+import { isOneOf, isRecord, parseJsonUnknown } from "./types/guards.js";
+import type {
+  ExternalInstallResult,
+  GuideMarker,
+  GuideResult,
+  InstallScope,
+  LibraryInstallResult,
+  LibraryPlan,
+  ScopeSelection,
+  StatusLocation,
+} from "./types/index.js";
 
 const HELP = `junamis-skills
 
@@ -36,8 +47,28 @@ Usage:
   --scope        global or project for init; global, project, or all for status
 `;
 
-function parseArgs(argv) {
-  const args = {
+const INSTALL_SCOPES = ["global", "project"] as const;
+const ALL_SCOPES = ["global", "project", "all"] as const;
+const INIT_AGENTS = ["opencode", "claude"] as const;
+
+export interface CliArgs {
+  readonly command: string;
+  readonly force: boolean;
+  readonly dryRun: boolean;
+  readonly dir: string;
+  readonly agent: string;
+  readonly scope: string | null;
+}
+
+function parseArgs(argv: readonly string[]): CliArgs {
+  const args: {
+    command: string;
+    force: boolean;
+    dryRun: boolean;
+    dir: string;
+    agent: string;
+    scope: string | null;
+  } = {
     command: argv[0] ?? "help",
     force: false,
     dryRun: false,
@@ -52,68 +83,93 @@ function parseArgs(argv) {
     else if (a === "--dir") args.dir = resolve(requireValue(argv, ++i, a));
     else if (a === "--agent") args.agent = requireValue(argv, ++i, a);
     else if (a === "--scope") args.scope = requireValue(argv, ++i, a);
-    else throw new Error(`unknown option: ${a}`);
+    else throw new Error(`unknown option: ${String(a)}`);
   }
   return args;
 }
 
-function requireValue(argv, i, flag) {
+function requireValue(argv: readonly string[], i: number, flag: string): string {
   const v = argv[i];
   if (v === undefined || v.startsWith("--")) throw new Error(`${flag} needs a value`);
   return v;
 }
 
-async function countSkills(dir) {
+async function countSkills(dir: string): Promise<number | null> {
   if (!existsSync(dir)) return null;
   const entries = await readdir(dir, { withFileTypes: true });
   return entries.filter((e) => e.isDirectory()).length;
 }
 
-async function packageVersion() {
-  return JSON.parse(await readFile(join(PACKAGE_ROOT, "package.json"), "utf8")).version;
+async function packageVersion(): Promise<string> {
+  const parsed = parseJsonUnknown(await readFile(join(PACKAGE_ROOT, "package.json"), "utf8"));
+  if (!parsed.ok) throw new Error(`cannot read package.json: ${parsed.error.message}`);
+  const version = isRecord(parsed.value) ? parsed.value["version"] : undefined;
+  if (typeof version !== "string") {
+    throw new Error("package.json has no version");
+  }
+  return version;
 }
 
-async function lockSkillNames() {
-  const lock = JSON.parse(await readFile(join(PACKAGE_ROOT, "skills-lock.json"), "utf8"));
-  return Object.keys(lock.skills ?? {}).sort();
+async function lockSkillNames(): Promise<string[]> {
+  const parsed = parseJsonUnknown(await readFile(join(PACKAGE_ROOT, "skills-lock.json"), "utf8"));
+  if (!parsed.ok) throw new Error(`cannot read skills-lock.json: ${parsed.error.message}`);
+  const skills = isRecord(parsed.value) ? parsed.value["skills"] : undefined;
+  if (!isRecord(skills)) return [];
+  return Object.keys(skills).sort();
 }
 
-function isPlainObject(value) {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+type JsonFileResult =
+  | { readonly ok: true; readonly value: Record<string, unknown> }
+  | { readonly ok: false; readonly error: string };
+
 // Project files are untrusted. Return a diagnostic instead of throwing so
 // status can report the problem and keep checking other paths.
-async function readJsonObject(path) {
-  let raw;
+async function readJsonObject(path: string): Promise<JsonFileResult> {
+  let raw: string;
   try {
     raw = await readFile(path, "utf8");
   } catch (error) {
-    return { error: `cannot read file: ${error instanceof Error ? error.message : String(error)}` };
+    return { ok: false, error: `cannot read file: ${error instanceof Error ? error.message : String(error)}` };
   }
-  let value;
-  try {
-    value = JSON.parse(raw);
-  } catch (error) {
-    return { error: `invalid JSON: ${error instanceof Error ? error.message : String(error)}` };
-  }
-  if (!isPlainObject(value)) return { error: "expected a JSON object" };
-  return { value };
+  const parsed = parseJsonUnknown(raw);
+  if (!parsed.ok) return { ok: false, error: `invalid JSON: ${parsed.error.message}` };
+  if (!isPlainObject(parsed.value)) return { ok: false, error: "expected a JSON object" };
+  return { ok: true, value: parsed.value };
 }
 
-function describeLibraryManifest(value) {
-  if (!Array.isArray(value.files)) return "files must be an array";
-  const bad = value.files.find((entry) => !isPlainObject(entry) || typeof entry.path !== "string");
-  if (bad) return "every files entry needs a string path";
+function describeLibraryManifest(value: Record<string, unknown>): string | null {
+  const files = value["files"];
+  if (!Array.isArray(files)) return "files must be an array";
+  const bad = (files as unknown[]).find((entry) => !isPlainObject(entry) || typeof entry["path"] !== "string");
+  if (bad !== undefined) return "every files entry needs a string path";
   return null;
 }
 
-function resolvedScope(scope, fallback) {
+function resolvedScope(scope: string | null | undefined, fallback: InstallScope): InstallScope {
   if (scope === null || scope === undefined) return fallback;
-  if (!new Set(["global", "project"]).has(scope)) {
+  if (!isOneOf(scope, INSTALL_SCOPES)) {
     throw new Error(`unknown scope "${scope}"; expected global or project`);
   }
   return scope;
+}
+
+export type ConfigStatus = "written" | "unchanged" | "kept" | "would-write" | "would-replace";
+
+export interface OpencodeConfigResult {
+  readonly status: ConfigStatus;
+  readonly path: string;
+}
+
+export interface OpencodeConfigOptions {
+  readonly dir?: string;
+  readonly scope?: string;
+  readonly force?: boolean;
+  readonly dryRun?: boolean;
+  readonly packageRoot?: string;
 }
 
 // Write or refresh opencode.json for the OpenCode target. No prompts: when the
@@ -124,8 +180,8 @@ export async function writeOpencodeConfig({
   force = false,
   dryRun = false,
   packageRoot = PACKAGE_ROOT,
-} = {}) {
-  if (!new Set(["global", "project"]).has(scope)) {
+}: OpencodeConfigOptions = {}): Promise<OpencodeConfigResult> {
+  if (!isOneOf(scope, INSTALL_SCOPES)) {
     throw new Error(`unknown scope "${scope}"; expected global or project`);
   }
   const targetPath = scope === "global"
@@ -155,7 +211,7 @@ export async function writeOpencodeConfig({
   return { status: "written", path: targetPath };
 }
 
-function reportGuide(result, projectDir) {
+function reportGuide(result: GuideResult, projectDir: string): void {
   if (result.status === "created") {
     console.log(`guide: wrote ${result.path}`);
     console.log(`marker: ${join(projectDir, MARKER_PATH)}`);
@@ -166,21 +222,21 @@ function reportGuide(result, projectDir) {
     console.log(`guide: ${result.path} exists and was not written by junamis-skills; left unchanged.`);
     console.log("guide: use --force to replace it.");
   } else {
-    console.log(`guide: ${result.status} (${result.path})`);
+    console.log(`guide: ${String(result.status)} (${result.path})`);
   }
 }
 
-function reportConfig(result) {
+function reportConfig(result: OpencodeConfigResult): void {
   if (result.status === "written") console.log(`config: wrote ${result.path}`);
   else if (result.status === "unchanged") console.log(`config: unchanged (${result.path})`);
   else if (result.status === "kept") console.log(`config: left unchanged; use --force (${result.path})`);
   else if (result.status === "would-write") console.log(`config: would write ${result.path}`);
   else if (result.status === "would-replace") console.log(`config: would replace ${result.path} (--force)`);
-  else console.log(`config: ${result.status} (${result.path})`);
+  else console.log(`config: ${String(result.status)} (${result.path})`);
 }
 
-function reportLibrary(args, scope, result, version) {
-  const counts = {};
+function reportLibrary(args: { readonly agent?: string; readonly dryRun: boolean }, scope: InstallScope, result: LibraryInstallResult, version: string): number {
+  const counts: Record<string, number> = {};
   for (const a of [...result.actions, ...(result.linkActions ?? [])]) {
     counts[a.action] = (counts[a.action] ?? 0) + 1;
   }
@@ -204,23 +260,51 @@ function reportLibrary(args, scope, result, version) {
   return 0;
 }
 
+/** Injectable dependencies, so tests never touch the network. */
+export interface InitDeps {
+  readonly writeGuide?: typeof writeGuide;
+  readonly writeOpencodeConfig?: typeof writeOpencodeConfig;
+  readonly planLibraryInstall?: typeof planLibraryInstall;
+  readonly applyLibraryInstall?: typeof applyLibraryInstall;
+  readonly installExternal?: typeof installExternal;
+  readonly packageVersion?: () => Promise<string>;
+}
+
+export interface InitArgs {
+  readonly agent?: string;
+  readonly scope?: string | null;
+  readonly dir: string;
+  readonly force: boolean;
+  readonly dryRun: boolean;
+}
+
+/** The external install tally plus the dry-run count. */
+export interface InitExternalSummary extends ExternalInstallResult {
+  readonly planned?: number;
+}
+
+export interface InitResult {
+  readonly exitCode: number;
+  readonly scope: InstallScope;
+  readonly external: InitExternalSummary;
+}
+
 /**
  * Run `init` with injectable dependencies so tests never touch the network.
  * deps may override writeGuide, writeOpencodeConfig, planLibraryInstall,
  * applyLibraryInstall, installExternal, and packageVersion.
  */
-export async function runInit(args, deps = {}) {
+export async function runInit(args: InitArgs, deps: InitDeps = {}): Promise<InitResult> {
   const d = {
-    writeGuide,
-    writeOpencodeConfig,
-    planLibraryInstall,
-    applyLibraryInstall,
-    installExternal,
-    packageVersion,
-    ...deps,
+    writeGuide: deps.writeGuide ?? writeGuide,
+    writeOpencodeConfig: deps.writeOpencodeConfig ?? writeOpencodeConfig,
+    planLibraryInstall: deps.planLibraryInstall ?? planLibraryInstall,
+    applyLibraryInstall: deps.applyLibraryInstall ?? applyLibraryInstall,
+    installExternal: deps.installExternal ?? installExternal,
+    packageVersion: deps.packageVersion ?? packageVersion,
   };
   const agent = args.agent ?? "opencode";
-  if (!new Set(["opencode", "claude"]).has(agent)) {
+  if (!isOneOf(agent, INIT_AGENTS)) {
     throw new Error(`unknown agent "${agent}"; expected opencode or claude`);
   }
   const scope = resolvedScope(args.scope, "global");
@@ -249,7 +333,7 @@ export async function runInit(args, deps = {}) {
 
   // 3. Library.
   const version = await d.packageVersion();
-  const files = await d.planLibraryInstall({
+  const files: LibraryPlan = await d.planLibraryInstall({
     packageRoot: PACKAGE_ROOT,
     agent,
     scope,
@@ -267,10 +351,10 @@ export async function runInit(args, deps = {}) {
   exitCode ||= reportLibrary(args, scope, libraryResult, version);
 
   // 4. Every pinned external skill, non-interactively.
-  let external = { groups: 0, installed: 0, skipped: 0, failed: 0, planned: 0 };
+  let external: InitExternalSummary = { groups: 0, installed: 0, skipped: 0, failed: 0, planned: 0 };
   if (args.dryRun) {
     const names = await lockSkillNames();
-    external.planned = names.length;
+    external = { ...external, planned: names.length };
     console.log(`external: ${names.length} pinned skills would be installed with skillsio`);
   } else {
     validateInstaller("skillsio");
@@ -289,20 +373,24 @@ export async function runInit(args, deps = {}) {
   console.log(`  guide:    ${args.dryRun ? "planned" : "done"}`);
   console.log(`  config:   ${agent === "opencode" ? (args.dryRun ? "planned" : "done") : "skipped"}`);
   console.log(`  library:  ${args.dryRun ? "planned" : "done"} (${scope})`);
-  console.log(`  external: ${args.dryRun ? `planned (${external.planned})` : `${external.installed} installed, ${external.skipped} skipped, ${external.failed} failed`}`);
+  console.log(`  external: ${args.dryRun ? `planned (${String(external.planned)})` : `${external.installed} installed, ${external.skipped} skipped, ${external.failed} failed`}`);
   console.log(`  exit:     ${exitCode === 0 ? "ok" : "needs attention"}`);
 
   return { exitCode, scope, external };
 }
 
-export function statusLocations(agentId, scope = "all", projectDir = process.cwd()) {
+export function statusLocations(
+  agentId: string,
+  scope: ScopeSelection = "all",
+  projectDir: string = process.cwd(),
+): StatusLocation[] {
   const target = getTarget(agentId);
   if (!target) throw new Error(`unknown agent "${agentId}"`);
-  if (!new Set(["global", "project", "all"]).has(scope)) {
+  if (!isOneOf(scope, ALL_SCOPES)) {
     throw new Error(`unknown scope "${scope}"; expected global, project, or all`);
   }
 
-  const scopes = scope === "all" ? ["global", "project"] : [scope];
+  const scopes: InstallScope[] = scope === "all" ? ["global", "project"] : [scope];
   return scopes.map((installScope) => ({
     scope: installScope,
     skillsDir: installScope === "project" ? target.projectSkillsDir(projectDir) : target.globalSkillsDir(),
@@ -315,19 +403,20 @@ export function statusLocations(agentId, scope = "all", projectDir = process.cwd
   }));
 }
 
-async function canonicalAgents(dir) {
+async function canonicalAgents(dir: string): Promise<string[] | null> {
   if (!existsSync(dir)) return null;
   const entries = await readdir(dir, { withFileTypes: true });
   return entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name).sort();
 }
 
-function describeAgentLink(canonicalPath, linkPath) {
-  let stat;
+function describeAgentLink(canonicalPath: string, linkPath: string): string {
+  let stat: ReturnType<typeof lstatSync>;
   try {
     stat = lstatSync(linkPath);
   } catch (error) {
-    if (error && typeof error === "object" && error.code === "ENOENT") return "missing";
-    return `unreadable (${error?.code ?? "error"})`;
+    if (isRecord(error) && error["code"] === "ENOENT") return "missing";
+    const code = isRecord(error) ? error["code"] : undefined;
+    return `unreadable (${typeof code === "string" ? code : "error"})`;
   }
   if (stat.isSymbolicLink()) {
     const current = readlinkSync(linkPath);
@@ -340,9 +429,9 @@ function describeAgentLink(canonicalPath, linkPath) {
 }
 
 // Legacy leftovers from the flat layout. Reported only; never deleted.
-async function legacyLeftovers(scope, projectDir) {
+async function legacyLeftovers(scope: InstallScope, projectDir: string): Promise<string[]> {
   const parent = legacyConfigParent(scope, projectDir);
-  const found = [];
+  const found: string[] = [];
   if (!existsSync(parent)) return found;
   for (const entry of await readdir(parent, { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith(".md")) {
@@ -364,14 +453,14 @@ async function legacyLeftovers(scope, projectDir) {
   return found;
 }
 
-async function status(args) {
+async function status(args: CliArgs): Promise<number> {
   const scope = args.scope ?? "global";
-  if (!new Set(["global", "project", "all"]).has(scope)) {
+  if (!isOneOf(scope, ALL_SCOPES)) {
     throw new Error(`unknown scope "${scope}"; expected global, project, or all`);
   }
-  const scopes = scope === "all" ? ["global", "project"] : [scope];
-  const failures = [];
-  const check = (label, pass, detail = "") => {
+  const scopes: InstallScope[] = scope === "all" ? ["global", "project"] : [scope];
+  const failures: string[] = [];
+  const check = (label: string, pass: boolean, detail: string = ""): boolean => {
     console.log(`${pass ? "✔" : "✖"} ${label}${detail ? `: ${detail}` : ""}`);
     if (!pass) failures.push(label);
     return pass;
@@ -386,16 +475,21 @@ async function status(args) {
   console.log(`guide:    ${guideExists ? "present" : "missing"} (${GUIDE_NAME})`);
 
   const markerPath = join(args.dir, MARKER_PATH);
-  let marker = null;
-  let markerProblem = null;
+  let marker: GuideMarker | null = null;
+  let markerProblem: string | null = null;
   if (existsSync(markerPath)) {
     const parsed = await readJsonObject(markerPath);
-    if (parsed.error) {
+    if (!parsed.ok) {
       markerProblem = parsed.error;
-    } else if (typeof parsed.value.writtenAt !== "string" || typeof parsed.value.version !== "string") {
-      markerProblem = "writtenAt and version must be strings";
     } else {
-      marker = parsed.value;
+      const writtenAt = parsed.value["writtenAt"];
+      const version = parsed.value["version"];
+      if (typeof writtenAt !== "string" || typeof version !== "string") {
+        markerProblem = "writtenAt and version must be strings";
+      } else {
+        const guide = parsed.value["guide"];
+        marker = { guide: typeof guide === "string" ? guide : "", writtenAt, version };
+      }
     }
   }
   console.log(`marker:   ${marker ? `written ${marker.writtenAt} by ${marker.version}` : "none"}`);
@@ -414,7 +508,7 @@ async function status(args) {
     for (const location of statusLocations(t.id, scope, args.dir)) {
       const libraryCount = await countSkills(location.librarySkillsDir);
       const externalCount = await countSkills(location.skillsDir);
-      const state = (count) => (count === null ? "no skills dir" : `${count} skill folders`);
+      const state = (count: number | null): string => (count === null ? "no skills dir" : `${count} skill folders`);
       console.log(`    ${location.scope.padEnd(8)} internal ${location.librarySkillsDir} (${state(libraryCount)})`);
       console.log(`    ${location.scope.padEnd(8)} external ${location.skillsDir} (${state(externalCount)})`);
 
@@ -434,14 +528,20 @@ async function status(args) {
         continue;
       }
       const parsed = await readJsonObject(location.manifestPath);
-      const problem = parsed.error ?? (parsed.value ? describeLibraryManifest(parsed.value) : "unknown error");
+      if (!parsed.ok) {
+        console.error(`✖ library manifest invalid (${location.manifestPath}): ${parsed.error}`);
+        failures.push("library manifest");
+        continue;
+      }
+      const problem = describeLibraryManifest(parsed.value);
       if (problem) {
         console.error(`✖ library manifest invalid (${location.manifestPath}): ${problem}`);
         failures.push("library manifest");
         continue;
       }
-      const data = parsed.value;
-      console.log(`      library ${data.version} installed ${data.installedAt} (${data.files.length} files)`);
+      const manifestFiles = parsed.value["files"];
+      const fileCount = Array.isArray(manifestFiles) ? manifestFiles.length : 0;
+      console.log(`      library ${String(parsed.value["version"])} installed ${String(parsed.value["installedAt"])} (${fileCount} files)`);
     }
   }
 
@@ -453,7 +553,7 @@ async function status(args) {
   }
 
   // opencode.json validity for the selected scopes.
-  const candidates = [
+  const candidates: Array<{ readonly scope: InstallScope; readonly path: string }> = [
     { scope: "project", path: join(args.dir, "opencode.json") },
     { scope: "global", path: join(homedir(), ".config", "opencode", "opencode.json") },
   ];
@@ -464,16 +564,19 @@ async function status(args) {
       continue;
     }
     const parsed = await readJsonObject(candidate.path);
-    if (parsed.error) {
+    if (!parsed.ok) {
       check(`config (${candidate.scope})`, false, `${candidate.path}: ${parsed.error}`);
       continue;
     }
-    const valid = parsed.value.permission === undefined
-      && Array.isArray(parsed.value.permissions)
-      && parsed.value.permissions.length > 0
-      && isPlainObject(parsed.value.mcp)
-      && isPlainObject(parsed.value.mcp.servers)
-      && Array.isArray(parsed.value.plugins);
+    const permissions = parsed.value["permissions"];
+    const mcp = parsed.value["mcp"];
+    const plugins = parsed.value["plugins"];
+    const valid = parsed.value["permission"] === undefined
+      && Array.isArray(permissions)
+      && permissions.length > 0
+      && isPlainObject(mcp)
+      && isPlainObject(mcp["servers"])
+      && Array.isArray(plugins);
     check(
       `config (${candidate.scope})`,
       valid,
@@ -487,7 +590,9 @@ async function status(args) {
   // skills directory used by the OpenCode target. Report only; a missing skill
   // is not a status failure.
   const lockNames = await lockSkillNames();
-  const externalDir = getTarget("opencode").globalSkillsDir();
+  const opencode = getTarget("opencode");
+  if (!opencode) throw new Error('unknown agent "opencode"');
+  const externalDir = opencode.globalSkillsDir();
   const missing = lockNames.filter((name) => !existsSync(join(externalDir, name)));
   const coverage = `${lockNames.length - missing.length}/${lockNames.length}`;
   const coverageDetail = missing.length === 0 ? `${coverage} in ${externalDir}` : `${coverage}; missing ${missing.join(", ")}`;
@@ -496,7 +601,7 @@ async function status(args) {
   // SECURITY.md is the recorded scan vetted at install time. Report its status
   // without failing; the scan record is part of the package, not the install.
   const securityPath = join(PACKAGE_ROOT, "SECURITY.md");
-  let securityMonth = null;
+  let securityMonth: string | null = null;
   if (existsSync(securityPath)) {
     const text = await readFile(securityPath, "utf8");
     securityMonth = text.match(/^Last external scan:\s*(\d{4}-\d{2})/m)?.[1] ?? null;
@@ -511,7 +616,7 @@ async function status(args) {
   return passed ? 0 : 1;
 }
 
-export async function run(argv) {
+export async function run(argv: readonly string[]): Promise<InitResult | number | undefined> {
   const args = parseArgs(argv);
   switch (args.command) {
     case "init": {
@@ -525,7 +630,7 @@ export async function run(argv) {
     case "--help":
     case "-h":
       console.log(HELP);
-      return;
+      return undefined;
     default:
       throw new Error(`unknown command: ${args.command}. Use "init" or "status".`);
   }

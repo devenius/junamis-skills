@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { InstallScope } from "./types/index.js";
 
 // Single source of truth for where this package writes.
 //
@@ -16,7 +17,7 @@ import { join } from "node:path";
 
 export const PROJECT_SEGMENT = "skills";
 
-export function configRoot(scope = "global", projectDir = process.cwd()) {
+export function configRoot(scope: InstallScope = "global", projectDir: string = process.cwd()): string {
   if (scope === "project") {
     return join(projectDir, ".config", "junamis", PROJECT_SEGMENT);
   }
@@ -25,25 +26,25 @@ export function configRoot(scope = "global", projectDir = process.cwd()) {
 
 // The legacy root, before the nested layout. Used only to report leftovers;
 // nothing is ever written or deleted there by this package.
-export function legacyConfigParent(scope = "global", projectDir = process.cwd()) {
+export function legacyConfigParent(scope: InstallScope = "global", projectDir: string = process.cwd()): string {
   if (scope === "project") {
     return join(projectDir, ".config", "junamis");
   }
   return join(homedir(), ".config", "junamis");
 }
 
-export function internalSkillsDir(scope = "global", projectDir = process.cwd()) {
+export function internalSkillsDir(scope: InstallScope = "global", projectDir: string = process.cwd()): string {
   return join(configRoot(scope, projectDir), "skills");
 }
 
-export function canonicalAgentsDir(scope = "global", projectDir = process.cwd()) {
+export function canonicalAgentsDir(scope: InstallScope = "global", projectDir: string = process.cwd()): string {
   return join(configRoot(scope, projectDir), "agents");
 }
 
-export function sharedDocsDir(scope = "global", projectDir = process.cwd()) {
+export function sharedDocsDir(scope: InstallScope = "global", projectDir: string = process.cwd()): string {
   return configRoot(scope, projectDir);
 }
 
-export function manifestPath(agentId, scope = "global", projectDir = process.cwd()) {
+export function manifestPath(agentId: string, scope: InstallScope = "global", projectDir: string = process.cwd()): string {
   return join(configRoot(scope, projectDir), "installed", `library-${agentId}.json`);
 }

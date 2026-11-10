@@ -5,6 +5,16 @@ import { devNull, tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { getSkillTreeSha, preparePinnedSource } from "./pinned-source.js";
 import { getTarget } from "./targets/index.js";
+import { isRecord, parseJsonUnknown } from "./types/guards.js";
+import type {
+  ExternalInstallResult,
+  LockGroup,
+  LockedSkill,
+  PinnedSourceSkill,
+  PreparedCheckout,
+  SkillPartition,
+  SkillRef,
+} from "./types/index.js";
 
 // Installs every skill in skills-lock.json with the pinned skillsio scanner.
 //
@@ -32,9 +42,16 @@ const MAX_CAPTURE_BYTES = 64 * 1024;
 export const KILL_GRACE_MS = 5000;
 const SETTLE_GRACE_MS = KILL_GRACE_MS + 2000;
 
+export interface Scanner {
+  readonly name: string;
+  readonly version: string;
+  readonly registry: string;
+  readonly integrity: string;
+}
+
 // The scanner is the trusted component in the whole supply-chain story, so its
 // registry and tarball integrity are constants, not project configuration.
-export const SCANNER = {
+export const SCANNER: Scanner = {
   name: "skillsio",
   version: "1.1.3",
   registry: "https://registry.npmjs.org/",
@@ -43,12 +60,12 @@ export const SCANNER = {
 
 const DENIED_ENV = /^(npm_config_|NPM_CONFIG_|pnpm_config_|PNPM_CONFIG_|NODE_OPTIONS|NODE_PATH|COREPACK_)/;
 // CI markers make some tools switch to non-interactive or auto-accept paths.
-const DENIED_ENV_EXACT = new Set(["CI", "GITHUB_ACTIONS"]);
+const DENIED_ENV_EXACT: ReadonlySet<string> = new Set(["CI", "GITHUB_ACTIONS"]);
 
 // A hostile project can set registry or Node options through the environment.
 // Only keep the variables a scanner needs, then force our own registry paths.
-export function sanitizedEnv(base = process.env) {
-  const env = {};
+export function sanitizedEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(base)) {
     if (!DENIED_ENV.test(key) && !DENIED_ENV_EXACT.has(key) && value !== undefined) env[key] = value;
   }
@@ -64,7 +81,19 @@ export function sanitizedEnv(base = process.env) {
 
 const SCANNER_TARBALL = `${SCANNER.registry}${SCANNER.name}/-/${SCANNER.name}-${SCANNER.version}.tgz`;
 
-export async function verifyScannerIntegrity(fetchImpl = fetch) {
+/** The subset of a fetch Response the integrity check reads. */
+export interface RegistryResponse {
+  readonly ok: boolean;
+  readonly status: number;
+  json(): Promise<unknown>;
+}
+
+export type FetchLike = (
+  url: string,
+  init: { readonly headers: Readonly<Record<string, string>>; readonly signal: AbortSignal },
+) => Promise<RegistryResponse>;
+
+export async function verifyScannerIntegrity(fetchImpl: FetchLike = fetch): Promise<void> {
   const url = `${SCANNER.registry}${SCANNER.name}/${SCANNER.version}`;
   const response = await fetchImpl(url, {
     headers: { accept: "application/json" },
@@ -73,14 +102,15 @@ export async function verifyScannerIntegrity(fetchImpl = fetch) {
   if (!response.ok) {
     throw new Error(`could not verify ${SCANNER.name}@${SCANNER.version}: HTTP ${response.status}`);
   }
-  const metadata = await response.json();
-  const integrity = metadata?.dist?.integrity;
+  const metadata: unknown = await response.json();
+  const dist = isRecord(metadata) && isRecord(metadata["dist"]) ? metadata["dist"] : {};
+  const integrity = dist["integrity"];
   if (integrity !== SCANNER.integrity) {
     throw new Error(
       `${SCANNER.name}@${SCANNER.version} integrity mismatch (expected ${SCANNER.integrity}, got ${String(integrity)})`,
     );
   }
-  const tarball = metadata?.dist?.tarball;
+  const tarball = dist["tarball"];
   if (tarball !== SCANNER_TARBALL) {
     throw new Error(
       `${SCANNER.name}@${SCANNER.version} tarball mismatch (expected ${SCANNER_TARBALL}, got ${String(tarball)})`,
@@ -88,7 +118,7 @@ export async function verifyScannerIntegrity(fetchImpl = fetch) {
   }
 }
 
-export function stripControlSequences(value) {
+export function stripControlSequences(value: unknown): string {
   return String(value)
     // OSC: ESC ] ... BEL or ST
     // eslint-disable-next-line no-control-regex
@@ -104,7 +134,7 @@ export function stripControlSequences(value) {
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 }
 
-function isValidSkillPath(value) {
+function isValidSkillPath(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const segments = value.split("/");
   return segments.at(-1) === "SKILL.md" && segments.every((segment) =>
@@ -113,23 +143,34 @@ function isValidSkillPath(value) {
 }
 
 // Agent ids accepted on the command line, mapped to the name skillsio expects.
-const SKILLSIO_AGENT = { opencode: "opencode", claude: "claude-code", "claude-code": "claude-code" };
+const SKILLSIO_AGENT: ReadonlyMap<string, string> = new Map([
+  ["opencode", "opencode"],
+  ["claude", "claude-code"],
+  ["claude-code", "claude-code"],
+]);
 
-const INSTALLERS = {
-  skillsio: ["pnpm", "--registry", SCANNER.registry, "dlx", `${SCANNER.name}@${SCANNER.version}`],
-};
+const INSTALLERS: ReadonlyMap<string, readonly string[]> = new Map([
+  ["skillsio", ["pnpm", "--registry", SCANNER.registry, "dlx", `${SCANNER.name}@${SCANNER.version}`]],
+]);
 
-export function validateAgent(agent) {
-  if (!Object.hasOwn(SKILLSIO_AGENT, agent)) {
-    throw new Error(`unknown agent "${agent}"; expected one of: ${Object.keys(SKILLSIO_AGENT).join(", ")}`);
+function installerRunner(installer: string): readonly string[] {
+  const runner = INSTALLERS.get(installer);
+  if (!runner) {
+    throw new Error(`unknown installer "${installer}"; expected one of: ${[...INSTALLERS.keys()].join(", ")}`);
   }
-  return SKILLSIO_AGENT[agent];
+  return runner;
 }
 
-export function validateInstaller(installer) {
-  if (!Object.hasOwn(INSTALLERS, installer)) {
-    throw new Error(`unknown installer "${installer}"; expected one of: ${Object.keys(INSTALLERS).join(", ")}`);
+export function validateAgent(agent: string): string {
+  const mapped = SKILLSIO_AGENT.get(agent);
+  if (mapped === undefined) {
+    throw new Error(`unknown agent "${agent}"; expected one of: ${[...SKILLSIO_AGENT.keys()].join(", ")}`);
   }
+  return mapped;
+}
+
+export function validateInstaller(installer: string): string {
+  installerRunner(installer);
   return installer;
 }
 
@@ -137,7 +178,7 @@ export function validateInstaller(installer) {
 // line about security that also says cancel/decline/block/fail as a failure,
 // but never turn an explicit pass into a cancellation. Match whole words only:
 // a bare substring test would read the "fail" inside "failures" as a decline.
-export function isSecurityCancellation(output) {
+export function isSecurityCancellation(output: unknown): boolean {
   const text = String(output);
   if (text.toLowerCase().includes(SECURITY_CANCELLATION.toLowerCase())) return true;
   return text.split(/\r?\n/).some((line) => {
@@ -148,55 +189,70 @@ export function isSecurityCancellation(output) {
   });
 }
 
-export function installerExitCode(code, output) {
+export function installerExitCode(code: number | null | undefined, output: unknown): number {
   return isSecurityCancellation(output) ? SECURITY_CANCELLATION_EXIT : code ?? 1;
 }
 
-// Group lock entries by source so each source is one installer call.
-export function groupLock(lock) {
-  if (!lock || typeof lock !== "object" || !lock.skills || typeof lock.skills !== "object" || Array.isArray(lock.skills)) {
-    throw new Error("lock must contain a skills object");
-  }
-  if (Object.keys(lock.skills).length === 0) {
+// Lock entries are external input: every field is proved before it is grouped.
+export function groupLock(lock: unknown): LockGroup[] {
+  if (!isRecord(lock)) throw new Error("lock must contain a skills object");
+  const skills = lock["skills"];
+  if (!isRecord(skills)) throw new Error("lock must contain a skills object");
+  if (Object.keys(skills).length === 0) {
     throw new Error("lock must contain at least one skill");
   }
 
-  const groups = new Map();
-  for (const [name, entry] of Object.entries(lock.skills ?? {})) {
+  const groups = new Map<string, { source: string; ref: string; skills: LockedSkill[] }>();
+  for (const [name, entry] of Object.entries(skills)) {
     if (!SKILL_NAME.test(name)) throw new Error(`invalid skill name in lock: "${name}"`);
-    if (!entry || typeof entry.source !== "string" || !SOURCE.test(entry.source)) {
-      throw new Error(`invalid source for "${name}" in lock: ${JSON.stringify(entry?.source)}`);
+    const source = isRecord(entry) ? entry["source"] : undefined;
+    if (typeof source !== "string" || !SOURCE.test(source)) {
+      throw new Error(`invalid source for "${name}" in lock: ${JSON.stringify(source)}`);
     }
-    if (entry.sourceType !== "github") {
+    if (!isRecord(entry) || entry["sourceType"] !== "github") {
       throw new Error(`invalid sourceType for "${name}" in lock`);
     }
-    if (!isValidSkillPath(entry.skillPath)) {
+    const skillPath = entry["skillPath"];
+    if (!isValidSkillPath(skillPath)) {
       throw new Error(`invalid skillPath for "${name}" in lock`);
     }
-    if (typeof entry.license !== "string" || entry.license.trim() === "") {
+    const license = entry["license"];
+    if (typeof license !== "string" || license.trim() === "") {
       throw new Error(`missing license for "${name}" in lock`);
     }
-    if (typeof entry.ref !== "string" || !SHA.test(entry.ref)) {
+    const ref = entry["ref"];
+    if (typeof ref !== "string" || !SHA.test(ref)) {
       throw new Error(`invalid commit SHA for "${name}" in lock`);
     }
-    if (typeof entry.treeSha !== "string" || !SHA.test(entry.treeSha)) {
+    const treeSha = entry["treeSha"];
+    if (typeof treeSha !== "string" || !SHA.test(treeSha)) {
       throw new Error(`invalid tree SHA for "${name}" in lock`);
     }
-    const key = `${entry.source}\0${entry.ref}`;
-    if (!groups.has(key)) groups.set(key, { source: entry.source, ref: entry.ref, skills: [] });
-    groups.get(key).skills.push({ name, skillPath: entry.skillPath, treeSha: entry.treeSha });
+    const key = `${source}\0${ref}`;
+    const skill: LockedSkill = { name, skillPath, treeSha };
+    const group = groups.get(key);
+    if (group) group.skills.push(skill);
+    else groups.set(key, { source, ref, skills: [skill] });
   }
   return [...groups.values()].map((group) => ({
     ...group,
-    skills: group.skills.sort((left, right) => left.name.localeCompare(right.name)),
+    skills: [...group.skills].sort((left, right) => left.name.localeCompare(right.name)),
   }));
+}
+
+export interface BuildCommandInput {
+  readonly installer: string;
+  readonly source: string;
+  readonly agent: string;
+  readonly skills: readonly string[];
+  readonly local?: boolean;
 }
 
 // Returns an argv array. Never a string. Always includes --skip-scan: the
 // scanner's high/critical prompt cannot be bypassed with -y, and install-time
 // scanning is skipped by design (SECURITY.md is the recorded vetting record).
-export function buildCommand({ installer, source, agent, skills, local = false }) {
-  const runner = INSTALLERS[validateInstaller(installer)];
+export function buildCommand({ installer, source, agent, skills, local = false }: BuildCommandInput): string[] {
+  const runner = installerRunner(validateInstaller(installer));
   const skillsioAgent = validateAgent(agent);
   if (local ? !isAbsolute(source) : !SOURCE.test(source)) {
     throw new Error(`invalid ${local ? "local source path" : "source"}: ${JSON.stringify(source)}`);
@@ -205,26 +261,34 @@ export function buildCommand({ installer, source, agent, skills, local = false }
   return [...runner, "add", source, "--agent", skillsioAgent, "--skill", ...skills, "--skip-scan", "-g", "-y"];
 }
 
-export async function verifySkillTree(directory, skill, readTreeSha = getSkillTreeSha) {
+export async function verifySkillTree(
+  directory: string,
+  skill: PinnedSourceSkill,
+  readTreeSha: (directory: string, skillPath: string) => Promise<string> = getSkillTreeSha,
+): Promise<void> {
   const actual = await readTreeSha(directory, skill.skillPath);
   if (actual !== skill.treeSha) {
     throw new Error(`locked tree SHA mismatch for "${skill.name}" (expected ${skill.treeSha}, got ${actual})`);
   }
 }
 
-function pathExists(path) {
+function pathExists(path: string): boolean {
   try {
     lstatSync(path);
     return true;
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return false;
+    if (isRecord(error) && error["code"] === "ENOENT") return false;
     throw error;
   }
 }
 
-export function partitionExistingSkills(skills, skillsDir, exists = pathExists) {
-  const available = [];
-  const conflicts = [];
+export function partitionExistingSkills<T extends SkillRef>(
+  skills: readonly T[],
+  skillsDir: string,
+  exists: (path: string) => boolean = pathExists,
+): SkillPartition<T> {
+  const available: T[] = [];
+  const conflicts: Array<T & { readonly path: string }> = [];
   for (const skill of skills) {
     const path = join(skillsDir, skill.name);
     if (exists(path)) conflicts.push({ ...skill, path });
@@ -233,10 +297,17 @@ export function partitionExistingSkills(skills, skillsDir, exists = pathExists) 
   return { available, conflicts };
 }
 
-export function runCommand(argv, timeout = 300000, options = {}) {
+export interface RunCommandOptions {
+  readonly cwd?: string;
+  readonly env?: NodeJS.ProcessEnv;
+}
+
+export function runCommand(argv: readonly string[], timeout = 300000, options: RunCommandOptions = {}): Promise<number> {
   const { cwd = tmpdir(), env = sanitizedEnv() } = options;
   return new Promise((resolve) => {
-    const child = spawn(argv[0], argv.slice(1), {
+    const [program, ...args] = argv;
+    if (program === undefined) throw new Error("runCommand needs a program");
+    const child = spawn(program, args, {
       stdio: ["inherit", "pipe", "pipe"],
       shell: false,
       cwd,
@@ -247,10 +318,10 @@ export function runCommand(argv, timeout = 300000, options = {}) {
     let capturedOutput = "";
     let securityCancellationDetected = false;
     let timedOut = false;
-    let killTimer = null;
-    let settleTimer = null;
+    let killTimer: NodeJS.Timeout | undefined;
+    let settleTimer: NodeJS.Timeout | undefined;
 
-    const killGroup = (signal) => {
+    const killGroup = (signal: NodeJS.Signals): void => {
       try {
         if (child.pid) process.kill(-child.pid, signal);
         else child.kill(signal);
@@ -258,8 +329,8 @@ export function runCommand(argv, timeout = 300000, options = {}) {
         try { child.kill(signal); } catch { /* ignore */ }
       }
     };
-    const capture = (stream, destination) => {
-      stream?.on("data", (chunk) => {
+    const capture = (stream: NodeJS.ReadableStream, destination: NodeJS.WritableStream): void => {
+      stream.on("data", (chunk: Buffer) => {
         const text = chunk.toString();
         capturedOutput = (capturedOutput + text).slice(-MAX_CAPTURE_BYTES);
         securityCancellationDetected ||= isSecurityCancellation(capturedOutput);
@@ -270,7 +341,7 @@ export function runCommand(argv, timeout = 300000, options = {}) {
     capture(child.stdout, process.stdout);
     capture(child.stderr, process.stderr);
 
-    const finish = (code) => {
+    const finish = (code: number | null): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -291,11 +362,25 @@ export function runCommand(argv, timeout = 300000, options = {}) {
           finish(124);
         }, SETTLE_GRACE_MS);
       }, timeout)
-      : null;
+      : undefined;
     // Resolve only once the child (and its process group) is actually gone.
-    child.on("close", (code) => finish(code));
+    child.on("close", (code: number | null) => finish(code));
     child.on("error", () => finish(1));
   });
+}
+
+export interface InstallExternalOptions {
+  readonly lockPath: string;
+  readonly agent: string;
+  readonly installer?: string;
+  readonly log?: (message: string) => void;
+  readonly run?: (argv: readonly string[], timeout: number) => Promise<number>;
+  readonly prepareSource?: (group: LockGroup, options: { readonly timeout: number }) => Promise<PreparedCheckout>;
+  readonly verifyTree?: (directory: string, skill: PinnedSourceSkill) => Promise<void>;
+  readonly verifyScanner?: () => Promise<void>;
+  readonly exists?: (path: string) => boolean;
+  readonly retries?: number;
+  readonly timeout?: number;
 }
 
 export async function installExternal({
@@ -310,13 +395,14 @@ export async function installExternal({
   exists = pathExists,
   retries = 1,
   timeout = 300000,
-}) {
+}: InstallExternalOptions): Promise<ExternalInstallResult> {
   validateInstaller(installer);
   validateAgent(agent);
   const target = getTarget(agent);
   if (!target) throw new Error(`unknown agent "${agent}"`);
-  const lock = JSON.parse(await readFile(lockPath, "utf8"));
-  const groups = groupLock(lock);
+  const parsed = parseJsonUnknown(await readFile(lockPath, "utf8"));
+  if (!parsed.ok) throw new Error(`cannot read ${lockPath}: ${parsed.error.message}`);
+  const groups = groupLock(parsed.value);
   let installed = 0;
   let skipped = 0;
   let failed = 0;
@@ -325,7 +411,7 @@ export async function installExternal({
   log("scan: skipped at install by design; recorded results are in SECURITY.md (see library/SAFETY.md)");
 
   for (const group of groups) {
-    let checkout;
+    let checkout: PreparedCheckout | undefined;
     let { available, conflicts } = partitionExistingSkills(group.skills, target.globalSkillsDir(), exists);
     skipped += conflicts.length;
     log(`\n--> ${group.source}`);

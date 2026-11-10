@@ -6,6 +6,7 @@
 import { resolve } from "node:path";
 import { isInside, readText, realpathDeep } from "../orchestrator/fsx.js";
 import { applyDelta } from "./delta.js";
+import { bootstrapRegistry } from "./bootstrap.js";
 import { runDrift } from "./drift.js";
 import { DeltaError, UsageError, ValidationError } from "./errors.js";
 import { generateIndex, writeIndex } from "./index-gen.js";
@@ -180,6 +181,14 @@ async function driftCommand(ctx) {
   return { ...result, exitCode: result.ok ? 0 : 1 };
 }
 
+async function bootstrapCommand(ctx) {
+  return bootstrapRegistry({
+    projectRoot: ctx.projectRoot,
+    designRoot: ctx.designRoot,
+    now: ctx.now,
+  });
+}
+
 function emit(command, ctx, result) {
   if (ctx.json) {
     process.stdout.write(`${JSON.stringify({ ok: true, command, ...result })}\n`);
@@ -217,6 +226,13 @@ function emit(command, ctx, result) {
     }
     return;
   }
+  if (command === "bootstrap") {
+    process.stdout.write(`created: ${result.created.length}\n`);
+    process.stdout.write(`skipped: ${result.skipped.length}\n`);
+    process.stdout.write(`registry: ${result.registryCreated ? "created" : "kept"}\n`);
+    process.stdout.write(`index: ${result.index?.path ?? "none"}\n`);
+    return;
+  }
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
@@ -249,6 +265,9 @@ export async function run(argv, { env = process.env, cwd = process.cwd() } = {})
         break;
       case "drift":
         result = await driftCommand(ctx);
+        break;
+      case "bootstrap":
+        result = await bootstrapCommand(ctx);
         break;
       default:
         throw new UsageError(`unknown command ${JSON.stringify(parsed.command)}`);

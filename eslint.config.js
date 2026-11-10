@@ -27,6 +27,8 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/**", "coverage/**"],
+    // TypeScript is gated by `tsc`, not ESLint. Keep `eslint .` parsing the JS
+    // that still ships on this branch.
+    ignores: ["node_modules/**", "coverage/**", "dist/**", "src/**/*.ts", "test/types/**"],
   },
 ];

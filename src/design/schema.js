@@ -51,6 +51,10 @@ export function isKind(value) {
   return typeof value === "string" && KINDS.includes(value);
 }
 
+export function isSurfaceId(value) {
+  return typeof value === "string" && SURFACE_ID_RE.test(value);
+}
+
 export function isStatus(value) {
   return typeof value === "string" && STATUSES.includes(value);
 }

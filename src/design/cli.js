@@ -5,8 +5,9 @@
 
 import { resolve } from "node:path";
 import { isInside, readText, realpathDeep } from "../orchestrator/fsx.js";
-import { UsageError, ValidationError } from "./errors.js";
-import { validateDesignText, validateRegistry } from "./schema.js";
+import { applyDelta } from "./delta.js";
+import { DeltaError, UsageError, ValidationError } from "./errors.js";
+import { readSurface, validateDesignText, validateRegistry } from "./schema.js";
 
 const HELP = `junamis-design-registry
 
@@ -125,6 +126,37 @@ async function readTarget(path) {
   return (await readText(path)) ?? "";
 }
 
+async function applyCommand(ctx) {
+  if (!ctx.delta) throw new UsageError("apply needs --delta <path>");
+  const result = await applyDelta({
+    projectRoot: ctx.projectRoot,
+    designRoot: ctx.designRoot,
+    stateRoot: ctx.stateRoot,
+    deltaPath: ctx.delta,
+    now: ctx.now,
+  });
+  if (!result.ok) {
+    throw new DeltaError(result.reason ?? "design delta rejected", {
+      code: result.code ?? "design_delta_rejected",
+      detail: result,
+    });
+  }
+  return result;
+}
+
+async function loadCommand(ctx) {
+  if (!ctx.surface) throw new UsageError("load needs --surface <surface_id>");
+  const surface = await readSurface(ctx.designRoot, ctx.surface);
+  if (!surface) throw new ValidationError(`surface ${ctx.surface} does not exist`);
+  if (!surface.ok) throw new ValidationError(`surface ${ctx.surface} is invalid`, { errors: surface.errors });
+  return {
+    surface_id: surface.surfaceId,
+    frontmatter: surface.frontmatter,
+    checksum: surface.checksum,
+    body: surface.body,
+  };
+}
+
 function emit(command, ctx, result) {
   if (ctx.json) {
     process.stdout.write(`${JSON.stringify({ ok: true, command, ...result })}\n`);
@@ -133,6 +165,16 @@ function emit(command, ctx, result) {
   if (ctx.quiet) return;
   if (command === "validate") {
     process.stdout.write(`valid: ${result.count} file(s)\n`);
+    return;
+  }
+  if (command === "apply") {
+    process.stdout.write(`surface: ${result.surface_id}\n`);
+    process.stdout.write(`status: ${result.unchanged ? "unchanged" : "applied"}\n`);
+    if (result.version) process.stdout.write(`version: ${result.version}\n`);
+    return;
+  }
+  if (command === "load") {
+    process.stdout.write(`${result.body ?? ""}`);
     return;
   }
   process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -155,6 +197,12 @@ export async function run(argv, { env = process.env, cwd = process.cwd() } = {})
     switch (parsed.command) {
       case "validate":
         result = await validateCommand(ctx);
+        break;
+      case "apply":
+        result = await applyCommand(ctx);
+        break;
+      case "load":
+        result = await loadCommand(ctx);
         break;
       default:
         throw new UsageError(`unknown command ${JSON.stringify(parsed.command)}`);

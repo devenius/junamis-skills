@@ -2,8 +2,9 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { canonicalAgentsDir } from "../paths.js";
+import type { TargetAdapter } from "../types/index.js";
 
-export default {
+const windsurf: TargetAdapter = {
   id: "windsurf",
   label: "Windsurf / Devin",
   globalSkillsDir() {
@@ -19,16 +20,16 @@ export default {
   libraryAgentsDir() {
     return join(homedir(), ".config", "devin", "agents");
   },
-  projectSkillsDir(projectDir) {
+  projectSkillsDir(projectDir: string) {
     return join(projectDir, ".windsurf", "skills");
   },
-  projectLibrarySkillsDir(projectDir) {
+  projectLibrarySkillsDir(projectDir: string) {
     return join(projectDir, ".windsurf", "skills");
   },
-  projectLibraryAgentsCanonicalDir(projectDir) {
+  projectLibraryAgentsCanonicalDir(projectDir: string) {
     return canonicalAgentsDir("project", projectDir);
   },
-  projectAgentsDir(projectDir) {
+  projectAgentsDir(projectDir: string) {
     return join(projectDir, ".devin", "agents");
   },
   libraryAgentFormat: "claude",
@@ -38,3 +39,5 @@ export default {
       || existsSync(join(homedir(), ".windsurf"));
   },
 };
+
+export default windsurf;

@@ -3,7 +3,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { groupLock } from "../src/external.js";
+import { groupLock } from "../dist/external.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

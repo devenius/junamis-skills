@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { targets, getTarget } from "../src/targets/index.js";
-import { statusLocations } from "../src/cli.js";
+import { targets, getTarget } from "../dist/targets/index.js";
+import { statusLocations } from "../dist/cli.js";
 
 test("opencode target resolves external and internal skill directories separately", () => {
   const target = getTarget("opencode");

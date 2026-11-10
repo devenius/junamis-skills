@@ -1,0 +1,242 @@
+import { existsSync } from "node:fs";
+import { mkdir, readFile, readdir, writeFile, rename, rm } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { isRecord, parseJsonUnknown } from "./types/guards.js";
+import type {
+  GuideAgent,
+  GuideInput,
+  GuideResult,
+  LockedSkillSummary,
+} from "./types/index.js";
+
+export const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+export const GUIDE_NAME = "junamis-skills-guide.md";
+export const MARKER_PATH = join(".junamis", "junamis-skills.json");
+
+async function atomicWriteFile(path: string, content: string): Promise<void> {
+  const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.${Date.now()}.tmp`);
+  await writeFile(tmp, content, { flag: "wx" });
+  try {
+    await rename(tmp, path);
+  } catch (error) {
+    try { await rm(tmp, { force: true }); } catch { /* best-effort cleanup */ }
+    throw error;
+  }
+}
+
+// package.json is package-owned but still parsed JSON: prove the shape before
+// reading it.
+async function readPackageVersion(packageRoot: string): Promise<string> {
+  const parsed = parseJsonUnknown(await readFile(join(packageRoot, "package.json"), "utf8"));
+  if (!parsed.ok) throw new Error(`cannot read package.json in ${packageRoot}: ${parsed.error.message}`);
+  if (!isRecord(parsed.value) || typeof parsed.value["version"] !== "string") {
+    throw new Error(`package.json in ${packageRoot} has no version`);
+  }
+  return parsed.value["version"];
+}
+
+async function listLibrarySkills(packageRoot: string): Promise<string[]> {
+  const dir = join(packageRoot, "library", "skills");
+  const entries = await readdir(dir, { withFileTypes: true });
+  return entries.filter((e) => e.isDirectory()).map((e) => e.name).sort();
+}
+
+async function listLibraryAgents(packageRoot: string): Promise<GuideAgent[]> {
+  const dir = join(packageRoot, "library", "agents");
+  const entries = await readdir(dir, { withFileTypes: true });
+  const out: GuideAgent[] = [];
+  for (const e of entries.filter((x) => x.isFile() && x.name.endsWith(".md"))) {
+    const text = await readFile(join(dir, e.name), "utf8");
+    const fm = text.match(/^---\n([\s\S]*?)\n---\n/);
+    const fields: Record<string, string> = {};
+    if (fm) for (const line of (fm[1] ?? "").split("\n")) {
+      const kv = line.match(/^([a-z]+):\s*(.*)$/);
+      if (kv && kv[1] !== undefined && kv[2] !== undefined) fields[kv[1]] = kv[2].trim();
+    }
+    const skills = (fields["skills"] ?? "").replace(/^\[|\]$/g, "").split(",").map((s) => s.trim()).filter(Boolean);
+    out.push({ name: e.name.replace(/\.md$/, ""), description: fields["description"] ?? "", skills });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// skills-lock.json is the package's own manifest. Read it as unknown and keep
+// the two fields the guide needs; a malformed lock fails the guide write.
+async function listLockedSkills(packageRoot: string): Promise<LockedSkillSummary[]> {
+  const parsed = parseJsonUnknown(await readFile(join(packageRoot, "skills-lock.json"), "utf8"));
+  if (!parsed.ok) throw new Error(`cannot read skills-lock.json in ${packageRoot}: ${parsed.error.message}`);
+  if (!isRecord(parsed.value) || !isRecord(parsed.value["skills"])) {
+    throw new Error("skills-lock.json must contain a skills object");
+  }
+  const out: LockedSkillSummary[] = [];
+  for (const [name, entry] of Object.entries(parsed.value["skills"])) {
+    if (!isRecord(entry) || typeof entry["source"] !== "string") {
+      throw new Error(`skills-lock.json entry "${name}" has no source`);
+    }
+    const license = typeof entry["license"] === "string" ? entry["license"] : "unknown";
+    out.push({ name, source: entry["source"], license });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function renderGuide({ version, library, agents, locked }: GuideInput): string {
+  const unknown = locked.filter((s) => s.license === "unknown").map((s) => s.name);
+  const specialistCount = agents.filter((agent) => agent.name !== "orchestrator").length;
+  const lockedLines = locked
+    .map((s) => `| ${s.name} | ${s.source} | ${s.license} |`)
+    .join("\n");
+
+  const agentLines = agents
+    .map((a) => `- **${a.name}** — ${a.description}\n  Owns: ${a.skills.join(", ")}`)
+    .join("\n");
+
+  const libraryLines = library.join(", ");
+
+  return `# junamis-skills setup guide
+
+Installed junamis-skills ${version}. This guide explains how the agents are wired together and how to drive them. It is a project file, not a skill, and no agent loads it automatically. Read it once, then keep it for reference or delete it.
+
+## What was installed
+
+- **Library skills** (owned by this project, in \`library/skills/\`): ${libraryLines}.
+- **External skills** (from \`skills-lock.json\`, installed globally by your skills installer): ${locked.length} entries.
+
+| Skill | Source | License |
+|---|---|---|
+${lockedLines}
+
+${unknown.length > 0 ? `Licenses marked \`unknown\` are not verified. Do not publish work that depends on: ${unknown.join(", ")}.\n` : ""}
+## How the agents are structured
+
+There is one entry point and ${specialistCount} specialist${specialistCount === 1 ? "" : "s"}. Every request starts at the orchestrator. The orchestrator never does the work itself; it routes and dispatches.
+
+${agentLines}
+
+### The dispatch loop
+
+1. You send a request to the **orchestrator**.
+2. The orchestrator runs the \`route\` skill, which classifies the request into one path: feature, bug, refactor, dependency, migration, release, deploy verification, rollback, incident, security, performance, environment, decision, skill, research, or question.
+3. The orchestrator looks up the owning agent and skill for that path and dispatches exactly one step.
+4. The specialist runs its skill and ends with a HANDOFF block (see \`~/.config/junamis/skills/HANDOFF.md\` in the installed package).
+5. The orchestrator reads only the HANDOFF block. It checks that every listed artifact exists on disk.
+6. It then decides: dispatch the \`next\` skill, ask you a question, or stop.
+
+### Handoff contract
+
+Every specialist ends with one YAML block:
+
+\`\`\`yaml
+agent: <name>
+status: complete | blocked | needs-decision | failed
+artifacts:
+  - path: <file written>
+next: <one skill name, agent name, user, or none>
+\`\`\`
+
+- \`complete\` means the files exist on disk. The orchestrator checks before moving on.
+- \`needs-decision\` stops the chain. You answer, then the orchestrator continues from that step.
+- \`blocked\` and \`failed\` stop the chain and report. Nothing retries silently.
+- \`next\` names exactly one target. A specialist never calls another specialist directly.
+- Chat is not state. Anything a later agent needs must be in a file.
+
+### Safety
+
+Destructive or external actions need your explicit approval for that exact command. The full list is in \`~/.config/junamis/skills/SAFETY.md\` in the installed package. In short: deleting files, \`sudo\`, global installs, \`git push\`, production deploys, forced overwrites, and data changes. The \`-y\` flag is not approval.
+
+## Always start with the orchestrator
+
+Do not call a library skill or an external skill directly, even if you know its name. Send the request to the orchestrator. It reads the skills available to it, both the library skills and the external skills in your global skills folder, and uses their descriptions to decide what runs next. You do not need to name a skill yourself.
+
+If a skill you need is not installed, the orchestrator stops and tells you which one is missing. It does not improvise.
+
+## Installing the library and the external skills
+
+One command, run once per machine. Review the dry run before the real install:
+
+        npx junamis-skills init --agent opencode --dry-run
+        npx junamis-skills init --agent opencode
+
+It writes this guide, writes \`opencode.json\` when it is missing (OpenCode only), installs the library, and installs every external skill from the manifest. External skills are checked out at the commit recorded in the lock, their folder tree SHAs are verified, and then the pinned scanner runs before installation. Existing external skills are left unchanged and reported as skipped. The library install never overwrites a file you edited; it stops and lists the file. Use \`--force\` only after you have reviewed it. Use \`--scope project\` to install into the project instead of globally.
+
+Check what is installed with:
+
+        npx junamis-skills status
+
+skillsio shows its security scan. Critical findings are vetted in \`SECURITY.md\`; nothing else is answered for you. Skills install as a set from the manifest. Never install one skill in isolation, because skills reference each other.
+
+## What to configure
+
+1. **Your CLIs.** Tell the agent which CLIs you use (for example \`vercel\`, \`gh\`, \`pnpm\`). The setup step records their versions in \`docs/env-report.md\`.
+2. **Environment names.** Local env variable names the project needs. The agent records names only, never values.
+3. **Tokens and logins.** Any token (for example Vercel) is yours to create and paste when asked. The agent never stores one in a file.
+
+## Where state lives
+
+- \`.junamis/handoff.md\`: session state, written by the orchestrator at the end of work.
+- \`docs/decisions/\`: decisions you make, so later work checks against them.
+- \`docs/research/\`, \`docs/reviews/\`, \`docs/releases/\`: outputs of their skills.
+
+## To start
+
+Open a project in OpenCode and send your first request to the orchestrator. For example: "set up this project's environment" or "what should I work on next".
+`;
+}
+
+// The marker is project-controlled JSON. A malformed marker is treated as
+// absent so a broken file never blocks the write path. It is returned as raw
+// records: only the fields the guide needs are narrowed, and only where used.
+async function readMarker(projectDir: string): Promise<Record<string, unknown> | null> {
+  const path = join(projectDir, MARKER_PATH);
+  if (!existsSync(path)) return null;
+  try {
+    const parsed = parseJsonUnknown(await readFile(path, "utf8"));
+    if (!parsed.ok || !isRecord(parsed.value)) return null;
+    return parsed.value;
+  } catch {
+    return null;
+  }
+}
+
+export interface WriteGuideOptions {
+  readonly projectDir: string;
+  readonly force?: boolean;
+  readonly packageRoot?: string;
+}
+
+/**
+ * Write the one-time setup guide into projectDir.
+ * - Idempotent: if the guide was already written by this package, do nothing.
+ * - Never overwrites a guide the user has, unless force is true.
+ */
+export async function writeGuide({
+  projectDir,
+  force = false,
+  packageRoot = PACKAGE_ROOT,
+}: WriteGuideOptions): Promise<GuideResult> {
+  const guidePath = join(projectDir, GUIDE_NAME);
+  const marker = await readMarker(projectDir);
+  const version = await readPackageVersion(packageRoot);
+  const markerVersion = marker?.["version"];
+
+  if (!force && marker?.["guide"] === GUIDE_NAME && existsSync(guidePath)) {
+    return { status: "exists", path: guidePath, version: typeof markerVersion === "string" ? markerVersion : version };
+  }
+  if (!force && existsSync(guidePath) && !marker) {
+    return { status: "kept-user-file", path: guidePath, version };
+  }
+
+  const library = await listLibrarySkills(packageRoot);
+  const agents = await listLibraryAgents(packageRoot);
+  const locked = await listLockedSkills(packageRoot);
+  // init --dir <new> may point at a directory that does not exist yet.
+  await mkdir(projectDir, { recursive: true });
+  await atomicWriteFile(guidePath, renderGuide({ version, library, agents, locked }));
+
+  await mkdir(join(projectDir, ".junamis"), { recursive: true });
+  await atomicWriteFile(
+    join(projectDir, MARKER_PATH),
+    JSON.stringify({ guide: GUIDE_NAME, version, writtenAt: new Date().toISOString() }, null, 2) + "\n",
+  );
+
+  return { status: "created", path: guidePath, version };
+}

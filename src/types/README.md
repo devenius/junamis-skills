@@ -18,7 +18,7 @@ consumer reads these shapes; no module defines a second copy.
 
 | File | Contract |
 |---|---|
-| `common.ts` | JSON, `Result`, severity, priority, lifecycle, `ErrorLike` |
+| `common.ts` | JSON, `Result`, severity, priority, lifecycle, `ErrorLike`, install scopes, target adapters, and the installer's plan/manifest/result shapes |
 | `handoff.ts` | `library/HANDOFF.md` block |
 | `orchestrator.ts` | journal, derived state, boot result, command result, context |
 | `design.ts` | `docs/design/_schema.md` surface, delta, fingerprint |

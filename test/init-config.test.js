@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeOpencodeConfig } from "../src/cli.js";
+import { writeOpencodeConfig } from "../dist/cli.js";
 
 function tempDirs() {
   const home = mkdtempSync(join(tmpdir(), "junamis-home-"));

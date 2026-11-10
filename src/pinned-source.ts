@@ -2,11 +2,13 @@ import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { devNull, tmpdir } from "node:os";
 import { join, posix } from "node:path";
+import { isRecord } from "./types/guards.js";
+import type { PinnedSource, PreparedCheckout } from "./types/index.js";
 
 const SOURCE = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const SHA = /^[a-f0-9]{40}$/;
 
-function isValidSkillPath(value) {
+function isValidSkillPath(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const segments = value.split("/");
   return segments.at(-1) === "SKILL.md" && segments.every((segment) =>
@@ -14,7 +16,13 @@ function isValidSkillPath(value) {
   );
 }
 
-export function validatePinnedSource({ source, ref, skills }) {
+// The lock is external input until each field is proved here.
+export function validatePinnedSource(input: unknown): void {
+  if (!isRecord(input)) throw new Error("pinned source must be an object");
+  const source = input["source"];
+  const ref = input["ref"];
+  const skills = input["skills"];
+
   if (typeof source !== "string" || !SOURCE.test(source)) {
     throw new Error(`invalid GitHub source: ${JSON.stringify(source)}`);
   }
@@ -25,17 +33,18 @@ export function validatePinnedSource({ source, ref, skills }) {
     throw new Error(`no skills listed for ${source}`);
   }
 
-  for (const skill of skills) {
-    if (!skill || typeof skill.name !== "string" || !isValidSkillPath(skill.skillPath)) {
-      throw new Error(`invalid skill path for ${skill?.name ?? "unknown skill"}`);
+  for (const skill of skills as unknown[]) {
+    if (!isRecord(skill) || typeof skill["name"] !== "string" || !isValidSkillPath(skill["skillPath"])) {
+      const named = isRecord(skill) && typeof skill["name"] === "string" ? skill["name"] : "unknown skill";
+      throw new Error(`invalid skill path for ${named}`);
     }
-    if (typeof skill.treeSha !== "string" || !SHA.test(skill.treeSha)) {
-      throw new Error(`invalid tree SHA for ${skill.name}`);
+    if (typeof skill["treeSha"] !== "string" || !SHA.test(skill["treeSha"])) {
+      throw new Error(`invalid tree SHA for ${skill["name"]}`);
     }
   }
 }
 
-export function buildPinnedCheckoutCommands(source, ref, directory) {
+export function buildPinnedCheckoutCommands(source: string, ref: string, directory: string): string[][] {
   if (typeof source !== "string" || !SOURCE.test(source)) {
     throw new Error(`invalid GitHub source: ${JSON.stringify(source)}`);
   }
@@ -56,12 +65,26 @@ const MAX_CAPTURE_BYTES = 64 * 1024;
 const KILL_GRACE_MS = 5000;
 const SETTLE_GRACE_MS = KILL_GRACE_MS + 2000;
 
+interface GitResult {
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+interface GitOptions {
+  readonly maxBytes?: number;
+}
+
+const EMPTY_RESULT: GitResult = { code: 1, stdout: "", stderr: "" };
+
 // maxBytes = 0 means unlimited. Local repository metadata (rev-parse, cat-file,
 // ls-tree) can legitimately be large; network commands keep the small cap.
-function runGit(args, timeout = 300000, { maxBytes = MAX_CAPTURE_BYTES } = {}) {
+function runGit(args: readonly string[], timeout = 300000, { maxBytes = MAX_CAPTURE_BYTES }: GitOptions = {}): Promise<GitResult> {
   const limit = maxBytes > 0 ? maxBytes : Number.POSITIVE_INFINITY;
   return new Promise((resolve, reject) => {
-    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_CONFIG_")));
+    const env: NodeJS.ProcessEnv = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_CONFIG_")),
+    );
     Object.assign(env, {
       GIT_CONFIG_NOSYSTEM: "1",
       GIT_CONFIG_GLOBAL: devNull,
@@ -75,10 +98,10 @@ function runGit(args, timeout = 300000, { maxBytes = MAX_CAPTURE_BYTES } = {}) {
     let settled = false;
     let timedOut = false;
     let overflowed = false;
-    let killTimer = null;
-    let settleTimer = null;
+    let killTimer: NodeJS.Timeout | undefined;
+    let settleTimer: NodeJS.Timeout | undefined;
 
-    const killGroup = (signal) => {
+    const killGroup = (signal: NodeJS.Signals): void => {
       try {
         if (child.pid) process.kill(-child.pid, signal);
         else child.kill(signal);
@@ -86,7 +109,7 @@ function runGit(args, timeout = 300000, { maxBytes = MAX_CAPTURE_BYTES } = {}) {
         try { child.kill(signal); } catch { /* ignore */ }
       }
     };
-    const finish = (error, result) => {
+    const finish = (error: Error | null, result: GitResult): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -95,16 +118,16 @@ function runGit(args, timeout = 300000, { maxBytes = MAX_CAPTURE_BYTES } = {}) {
       if (error) reject(error);
       else resolve(result);
     };
-    const terminate = () => {
+    const terminate = (): void => {
       killGroup("SIGTERM");
       if (!killTimer) killTimer = setTimeout(() => killGroup("SIGKILL"), KILL_GRACE_MS);
       if (!settleTimer) settleTimer = setTimeout(() => {
         // A detached descendant can hold the pipes open forever. Stop waiting.
         child.stdout?.destroy();
         child.stderr?.destroy();
-        if (timedOut) return finish(new Error("git operation timed out"));
-        if (overflowed) return finish(new Error("git output exceeded the 64 KiB capture limit"));
-        finish(new Error("git operation did not close"));
+        if (timedOut) return finish(new Error("git operation timed out"), EMPTY_RESULT);
+        if (overflowed) return finish(new Error("git output exceeded the 64 KiB capture limit"), EMPTY_RESULT);
+        finish(new Error("git operation did not close"), EMPTY_RESULT);
       }, SETTLE_GRACE_MS);
     };
     const timer = timeout > 0
@@ -112,10 +135,10 @@ function runGit(args, timeout = 300000, { maxBytes = MAX_CAPTURE_BYTES } = {}) {
         timedOut = true;
         terminate();
       }, timeout)
-      : null;
+      : undefined;
 
-    const capture = (stream, which) => {
-      stream.on("data", (chunk) => {
+    const capture = (stream: NodeJS.ReadableStream, which: "stdout" | "stderr"): void => {
+      stream.on("data", (chunk: Buffer) => {
         const text = chunk.toString();
         const next = (which === "stdout" ? stdout : stderr) + text;
         if (next.length > limit) {
@@ -129,16 +152,16 @@ function runGit(args, timeout = 300000, { maxBytes = MAX_CAPTURE_BYTES } = {}) {
     };
     capture(child.stdout, "stdout");
     capture(child.stderr, "stderr");
-    child.on("error", (error) => finish(error));
-    child.on("close", (code) => {
-      if (timedOut) return finish(new Error("git operation timed out"));
-      if (overflowed) return finish(new Error("git output exceeded the 64 KiB capture limit"));
+    child.on("error", (error: Error) => finish(error, EMPTY_RESULT));
+    child.on("close", (code: number | null) => {
+      if (timedOut) return finish(new Error("git operation timed out"), EMPTY_RESULT);
+      if (overflowed) return finish(new Error("git output exceeded the 64 KiB capture limit"), EMPTY_RESULT);
       finish(null, { code: code ?? 1, stdout, stderr });
     });
   });
 }
 
-async function runCheckedGit(args, timeout, options) {
+async function runCheckedGit(args: readonly string[], timeout: number, options?: GitOptions): Promise<string> {
   const result = await runGit(args, timeout, options);
   if (result.code !== 0) {
     throw new Error(`git ${args.slice(1).join(" ")} failed (exit ${result.code}): ${result.stderr.trim()}`);
@@ -146,7 +169,7 @@ async function runCheckedGit(args, timeout, options) {
   return result.stdout.trim();
 }
 
-export async function verifyCheckout(directory, ref, timeout = 300000) {
+export async function verifyCheckout(directory: string, ref: string, timeout = 300000): Promise<string> {
   if (typeof ref !== "string" || !SHA.test(ref)) {
     throw new Error(`invalid locked commit SHA: ${JSON.stringify(ref)}`);
   }
@@ -157,15 +180,22 @@ export async function verifyCheckout(directory, ref, timeout = 300000) {
   return head;
 }
 
-export async function preparePinnedSource({ source, ref, skills }, { timeout = 300000 } = {}) {
-  validatePinnedSource({ source, ref, skills });
+export interface PreparePinnedSourceOptions {
+  readonly timeout?: number;
+}
+
+export async function preparePinnedSource(
+  source: PinnedSource,
+  { timeout = 300000 }: PreparePinnedSourceOptions = {},
+): Promise<PreparedCheckout> {
+  validatePinnedSource(source);
   const directory = await mkdtemp(join(tmpdir(), "junamis-skills-"));
 
   try {
-    for (const command of buildPinnedCheckoutCommands(source, ref, directory)) {
+    for (const command of buildPinnedCheckoutCommands(source.source, source.ref, directory)) {
       await runCheckedGit(command, timeout);
     }
-    await verifyCheckout(directory, ref, timeout);
+    await verifyCheckout(directory, source.ref, timeout);
   } catch (error) {
     await rm(directory, { recursive: true, force: true });
     throw error;
@@ -179,7 +209,15 @@ export async function preparePinnedSource({ source, ref, skills }, { timeout = 3
   };
 }
 
-export async function getSkillTreeSha(directory, skillPath, { timeout = 300000 } = {}) {
+export interface GetSkillTreeShaOptions {
+  readonly timeout?: number;
+}
+
+export async function getSkillTreeSha(
+  directory: string,
+  skillPath: string,
+  { timeout = 300000 }: GetSkillTreeShaOptions = {},
+): Promise<string> {
   if (!isValidSkillPath(skillPath)) {
     throw new Error(`invalid skill path: ${JSON.stringify(skillPath)}`);
   }
@@ -203,8 +241,8 @@ export async function getSkillTreeSha(directory, skillPath, { timeout = 300000 }
       // In-tree symlinks are legitimate (for example CLAUDE.md -> AGENTS.md).
       // Read the blob and allow it only when its target stays inside the skill
       // folder; an absolute or escaping target is rejected.
-      const target = await runCheckedGit(["-C", directory, "cat-file", "blob", object], timeout, { maxBytes: 0 });
-      assertContainedSymlink(entryPath, target, skillPath, line);
+      const target = await runCheckedGit(["-C", directory, "cat-file", "blob", object ?? ""], timeout, { maxBytes: 0 });
+      assertContainedSymlink(entryPath ?? "", target, skillPath, line);
       continue;
     }
     if (mode === "160000") {
@@ -217,7 +255,7 @@ export async function getSkillTreeSha(directory, skillPath, { timeout = 300000 }
 
 // Resolve a symlink target lexically from the link's own directory using POSIX
 // rules. Reject absolute targets and anything that climbs above the skill folder.
-function assertContainedSymlink(entryPath, target, skillPath, line) {
+function assertContainedSymlink(entryPath: string, target: string, skillPath: string, line: string): void {
   if (posix.isAbsolute(target)) {
     throw new Error(`pinned path for ${skillPath} contains an absolute symlink: ${line}`);
   }

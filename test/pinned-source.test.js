@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildPinnedCheckoutCommands, getSkillTreeSha, validatePinnedSource, verifyCheckout } from "../src/pinned-source.js";
+import { buildPinnedCheckoutCommands, getSkillTreeSha, validatePinnedSource, verifyCheckout } from "../dist/pinned-source.js";
 
 const commit = "a".repeat(40);
 const treeSha = "b".repeat(40);

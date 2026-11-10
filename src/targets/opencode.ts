@@ -2,9 +2,10 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { canonicalAgentsDir, internalSkillsDir } from "../paths.js";
+import type { TargetAdapter } from "../types/index.js";
 
 // Verified against https://opencode.ai/docs/skills and https://opencode.ai/docs/agents
-export default {
+const opencode: TargetAdapter = {
   id: "opencode",
   label: "OpenCode",
   // External skills (skillsio -g --agent opencode) land here.
@@ -27,16 +28,16 @@ export default {
   libraryAgentsDir() {
     return join(homedir(), ".config", "opencode", "agents");
   },
-  projectSkillsDir(projectDir) {
+  projectSkillsDir(projectDir: string) {
     return join(projectDir, ".agents", "skills");
   },
-  projectLibrarySkillsDir(projectDir) {
+  projectLibrarySkillsDir(projectDir: string) {
     return internalSkillsDir("project", projectDir);
   },
-  projectLibraryAgentsCanonicalDir(projectDir) {
+  projectLibraryAgentsCanonicalDir(projectDir: string) {
     return canonicalAgentsDir("project", projectDir);
   },
-  projectAgentsDir(projectDir) {
+  projectAgentsDir(projectDir: string) {
     return join(projectDir, ".opencode", "agents");
   },
   // OpenCode passes unknown frontmatter keys to the model provider, so only these are written.
@@ -45,3 +46,5 @@ export default {
     return existsSync(join(homedir(), ".config", "opencode"));
   },
 };
+
+export default opencode;

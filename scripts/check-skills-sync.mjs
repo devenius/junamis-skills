@@ -3,7 +3,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getTarget } from "../src/targets/index.js";
+import { getTarget } from "../dist/targets/index.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const lockPath = join(root, "skills-lock.json");

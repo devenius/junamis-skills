@@ -2,9 +2,10 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { canonicalAgentsDir } from "../paths.js";
+import type { TargetAdapter } from "../types/index.js";
 
 // Verified against https://code.claude.com/docs/en/sub-agents
-export default {
+const claude: TargetAdapter = {
   id: "claude",
   label: "Claude Code",
   globalSkillsDir() {
@@ -22,16 +23,16 @@ export default {
   libraryAgentsDir() {
     return join(homedir(), ".claude", "agents");
   },
-  projectSkillsDir(projectDir) {
+  projectSkillsDir(projectDir: string) {
     return join(projectDir, ".claude", "skills");
   },
-  projectLibrarySkillsDir(projectDir) {
+  projectLibrarySkillsDir(projectDir: string) {
     return join(projectDir, ".claude", "skills");
   },
-  projectLibraryAgentsCanonicalDir(projectDir) {
+  projectLibraryAgentsCanonicalDir(projectDir: string) {
     return canonicalAgentsDir("project", projectDir);
   },
-  projectAgentsDir(projectDir) {
+  projectAgentsDir(projectDir: string) {
     return join(projectDir, ".claude", "agents");
   },
   libraryAgentFormat: "claude",
@@ -39,3 +40,5 @@ export default {
     return existsSync(join(homedir(), ".claude"));
   },
 };
+
+export default claude;

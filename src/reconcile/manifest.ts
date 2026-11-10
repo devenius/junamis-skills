@@ -7,11 +7,13 @@
 import { join } from "node:path";
 import { readText, writeIfMissing } from "../orchestrator/fsx.js";
 import { parseYaml } from "../design/yaml.js";
+import { errorMessage, isRecord } from "../types/guards.js";
+import type { DetectorEntry, DetectorManifest } from "../types/reconcile.js";
 
 export const RECONCILE_DIR = "reconcile";
 export const DETECTOR_MANIFEST = "detectors.yaml";
 
-export const SUPPORTED_DETECTORS = Object.freeze([
+export const SUPPORTED_DETECTORS: readonly string[] = Object.freeze([
   "plan_pending",
   "code_drift",
   "failed_step",
@@ -21,7 +23,7 @@ export const SUPPORTED_DETECTORS = Object.freeze([
   "stale_surface",
   "shadow_conflict",
 ]);
-export const EXTENDED_DETECTORS = Object.freeze([
+export const EXTENDED_DETECTORS: readonly string[] = Object.freeze([
   "coverage_gap",
   "dependency_drift",
   "needs_review",
@@ -63,51 +65,62 @@ detectors:
     order: 5
 `;
 
-export function detectorManifestPath(stateRoot) {
+export function detectorManifestPath(stateRoot: string): string {
   return join(stateRoot, RECONCILE_DIR, DETECTOR_MANIFEST);
 }
 
-function normalizeDetector(raw, index) {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+function normalizeDetector(raw: unknown, index: number): DetectorEntry {
+  if (!isRecord(raw)) {
     throw new Error(`detectors[${index}] must be a mapping`);
   }
-  if (typeof raw.id !== "string" || raw.id.length === 0) {
+  const id = raw["id"];
+  if (typeof id !== "string" || id.length === 0) {
     throw new Error(`detectors[${index}].id must be a non-empty string`);
   }
-  const order = Number.parseInt(raw.order ?? "0", 10);
-  const params = raw.params && typeof raw.params === "object" && !Array.isArray(raw.params) ? raw.params : {};
+  const orderValue = raw["order"] ?? "0";
+  const order = Number.parseInt(String(orderValue), 10);
+  const rawParams = raw["params"];
+  const params = isRecord(rawParams) ? rawParams : {};
   return {
-    id: raw.id,
-    enabled: raw.enabled === true,
+    id,
+    enabled: raw["enabled"] === true,
     order: Number.isFinite(order) ? order : 0,
     params,
-    supported: SUPPORTED_DETECTORS.includes(raw.id),
+    supported: SUPPORTED_DETECTORS.includes(id),
   };
 }
 
-export async function loadDetectorManifest(stateRoot, { create = true } = {}) {
+export interface LoadManifestOptions {
+  readonly create?: boolean;
+}
+
+export async function loadDetectorManifest(
+  stateRoot: string,
+  { create = true }: LoadManifestOptions = {},
+): Promise<DetectorManifest> {
   const path = detectorManifestPath(stateRoot);
   const created = create ? await writeIfMissing(path, DEFAULT_MANIFEST) : false;
   const text = await readText(path);
   if (text === null) throw new Error(`detector manifest not found: ${path}`);
-  let parsed;
+  let parsed: unknown;
   try {
     parsed = parseYaml(text, { label: "detectors.yaml" });
   } catch (error) {
-    throw new Error(`invalid detector manifest ${path}: ${error.message}`, { cause: error });
+    throw new Error(`invalid detector manifest ${path}: ${errorMessage(error)}`);
   }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+  if (!isRecord(parsed)) {
     throw new Error(`invalid detector manifest ${path}: expected a mapping`);
   }
-  if (parsed.schema_version !== 1 && parsed.schema_version !== "1") {
+  if (parsed["schema_version"] !== 1 && parsed["schema_version"] !== "1") {
     throw new Error(`invalid detector manifest ${path}: schema_version must be 1`);
   }
-  if (!Array.isArray(parsed.detectors)) {
+  const rawDetectors = parsed["detectors"];
+  if (!Array.isArray(rawDetectors)) {
     throw new Error(`invalid detector manifest ${path}: detectors must be a list`);
   }
-  const detectors = parsed.detectors.map(normalizeDetector);
+  const detectors = (rawDetectors as unknown[]).map(normalizeDetector);
   detectors.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-  const tickEvery = Number.parseInt(parsed.tick_every ?? "10", 10);
+  const tickEvery = Number.parseInt(String(parsed["tick_every"] ?? "10"), 10);
   return {
     path,
     created,

@@ -1,6 +1,7 @@
 // The RECONCILE work-queue contract from docs/RECONCILE.md.
 
-import type { JsonObject, Priority, Severity } from "./common.js";
+import type { Priority, Severity } from "./common.js";
+import type { DriftDiff, LoadedRun } from "./orchestrator.js";
 
 export type TargetKind = "surface" | "task" | "repo";
 
@@ -12,7 +13,7 @@ export interface CandidateTarget {
   readonly id: string;
 }
 
-/** Detector ids and the fixed reason weights in src/reconcile/score.js. */
+/** Detector ids and the fixed reason weights in src/reconcile/score.ts. */
 export type CandidateReason =
   | "shadow_conflict"
   | "needs_review"
@@ -47,7 +48,12 @@ export interface Candidate {
   readonly candidate_id: string;
   readonly capability: string;
   readonly target: CandidateTarget;
-  readonly reason: CandidateReason;
+  /**
+   * One of `CandidateReason` for every detector this package ships. A detector
+   * may report an unknown reason; the pass keeps it, scores it last, and audits
+   * it with a journal event, so the type stays open.
+   */
+  readonly reason: string;
   readonly priority: Priority;
   readonly severity: Severity;
   readonly effort: Effort;
@@ -60,7 +66,24 @@ export interface Candidate {
   readonly plan_position: number | null;
   readonly non_dispatchable?: boolean;
   readonly shadow_conflict?: boolean;
-  readonly drift?: JsonObject | null;
+  readonly drift?: Partial<DriftDiff> | null;
+}
+
+/**
+ * A detector's pre-resolution output. The pass dedupes it, resolves a skill,
+ * and scores it into a `Candidate`.
+ */
+export interface RawCandidate {
+  readonly capability: string;
+  readonly target: CandidateTarget;
+  readonly reason: string;
+  readonly severity: Severity;
+  readonly plan_position: number | null;
+  readonly rationale: string;
+  readonly provenance: readonly ProvenanceEntry[];
+  readonly non_dispatchable?: boolean;
+  readonly resolved_skill?: string;
+  readonly resolution_source?: ResolutionSource;
 }
 
 export interface QueueSummary {
@@ -95,14 +118,15 @@ export interface WorkQueue {
   readonly summary: QueueSummary;
   readonly queue: readonly Candidate[];
   readonly stalled?: boolean;
-  readonly drift?: JsonObject | null;
+  readonly drift?: Partial<DriftDiff> | null;
 }
 
 export interface DetectorEntry {
   readonly id: string;
   readonly enabled: boolean;
   readonly order: number;
-  readonly params?: JsonObject;
+  /** The raw YAML params mapping. Detectors read the keys they need. */
+  readonly params?: Record<string, unknown>;
   readonly supported?: boolean;
 }
 
@@ -118,6 +142,16 @@ export interface DetectorManifest {
   readonly tickEvery: number;
 }
 
+/** One row of the detector status table in the reconcile report. */
+export interface DetectorStatus {
+  readonly id: string;
+  readonly enabled: boolean;
+  readonly fired: number;
+  readonly candidates: number;
+  readonly skipped?: string;
+  readonly error?: string;
+}
+
 /** A `priority_override` journal event, with the rationale RECONCILE requires. */
 export interface PriorityOverride {
   readonly candidate_id: string;
@@ -126,4 +160,36 @@ export interface PriorityOverride {
   readonly rationale: string;
   readonly by: string;
   readonly ts?: string;
+}
+
+/** The options one RECONCILE pass accepts. */
+export interface ReconcileOptions {
+  readonly stateRoot: string;
+  readonly projectRoot: string;
+  readonly designRoot?: string | null;
+  readonly libraryRoot?: string | null;
+  readonly manifestPath?: string | null;
+  readonly packageVersion?: string;
+  readonly trigger?: string;
+  readonly status?: string | null;
+  readonly drift?: Partial<DriftDiff> | null;
+  readonly loaded?: LoadedRun | null;
+  readonly sessionId?: string;
+}
+
+/** The result of one RECONCILE pass. */
+export interface ReconcileResult {
+  readonly ok: true;
+  readonly status: WorkQueueStatus;
+  readonly passId: string;
+  readonly queue: WorkQueue;
+  readonly queuePath: string;
+  readonly reportPath: string;
+  readonly head: Candidate | null;
+  readonly detectorStatus: readonly DetectorStatus[];
+  readonly event: unknown;
+  readonly events: readonly unknown[];
+  readonly tick: boolean;
+  readonly stale: { readonly pass_id: string | null; readonly mismatched_field: string } | null;
+  readonly overridesRejected: readonly unknown[];
 }

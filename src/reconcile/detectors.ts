@@ -8,8 +8,31 @@ import { join } from "node:path";
 import { exists, readJsonFile } from "../orchestrator/fsx.js";
 import { detectCodeDrift, detectCoverage, detectDependencyDrift } from "../design/drift.js";
 import { orderTasks } from "../orchestrator/plan.js";
+import { isRecord } from "../types/guards.js";
+import type { Severity } from "../types/common.js";
+import type { DesignSurface } from "../types/design.js";
+import type { JournalEvent, PlanSnapshot, PlanTask, TaskRecord } from "../types/orchestrator.js";
+import type { CandidateTarget, ProvenanceEntry, RawCandidate, ResolutionSource } from "../types/reconcile.js";
 
-function orderedPlanTasks(plan) {
+/** One detector run's read-only snapshot. Every runner takes this shape. */
+export interface DetectorContext {
+  readonly plan: PlanSnapshot | null;
+  readonly tasks: readonly TaskRecord[];
+  readonly events: readonly JournalEvent[];
+  readonly surfaces?: readonly DesignSurface[];
+  readonly designRoot?: string | null;
+  readonly projectRoot?: string;
+  readonly libraryRoot?: string | null;
+  readonly manifestPath?: string | null;
+  readonly overridesStale?: boolean;
+  readonly lastSeq?: number;
+  readonly lastTs?: string;
+  readonly params?: Record<string, unknown> | undefined;
+}
+
+export type DetectorRunner = (ctx: DetectorContext) => RawCandidate[] | Promise<RawCandidate[]>;
+
+function orderedPlanTasks(plan: PlanSnapshot | null): readonly PlanTask[] {
   if (!plan || !Array.isArray(plan.tasks)) return [];
   try {
     return orderTasks(plan.tasks);
@@ -18,21 +41,37 @@ function orderedPlanTasks(plan) {
   }
 }
 
-function lastEvent(events, types) {
+function lastEvent(events: readonly JournalEvent[], types: readonly string[]): JournalEvent | null {
   for (let index = events.length - 1; index >= 0; index--) {
-    if (types.includes(events[index]?.type)) return events[index];
+    const event = events[index];
+    if (event && types.includes(event.type)) return event;
   }
   return null;
 }
 
-function latestStepEndByTask(events) {
-  const map = new Map();
+function latestStepEndByTask(events: readonly JournalEvent[]): Map<string, JournalEvent> {
+  const map = new Map<string, JournalEvent>();
   for (const event of events) {
     if (event?.type === "step_end" && typeof event.task_id === "string") {
       map.set(event.task_id, event);
     }
   }
   return map;
+}
+
+interface CandidateInput {
+  readonly capability: string;
+  readonly target: CandidateTarget;
+  readonly reason: string;
+  readonly severity: Severity;
+  readonly planPosition?: number | null;
+  readonly rationale: string;
+  readonly detector: string;
+  readonly atSeq?: number | null | undefined;
+  readonly atTs?: string | null | undefined;
+  readonly nonDispatchable?: boolean;
+  readonly resolvedSkill?: string | null;
+  readonly resolutionSource?: ResolutionSource | null;
 }
 
 function candidate({
@@ -48,7 +87,14 @@ function candidate({
   nonDispatchable = false,
   resolvedSkill = null,
   resolutionSource = null,
-}) {
+}: CandidateInput): RawCandidate {
+  const provenance: ProvenanceEntry[] = [
+    {
+      detector,
+      at_seq: atSeq ?? 0,
+      at_ts: atTs ?? null,
+    },
+  ];
   return {
     capability,
     target,
@@ -56,24 +102,18 @@ function candidate({
     severity,
     plan_position: planPosition,
     rationale,
-    provenance: [
-      {
-        detector,
-        at_seq: atSeq ?? 0,
-        at_ts: atTs ?? null,
-      },
-    ],
+    provenance,
     ...(nonDispatchable ? { non_dispatchable: true } : {}),
     ...(resolvedSkill ? { resolved_skill: resolvedSkill } : {}),
     ...(resolutionSource ? { resolution_source: resolutionSource } : {}),
   };
 }
 
-export function runPlanPending({ plan, tasks, events }) {
+export function runPlanPending({ plan, tasks, events }: DetectorContext): RawCandidate[] {
   const ordered = orderedPlanTasks(plan);
   const byId = new Map((tasks ?? []).map((task) => [task.task_id, task]));
   const planEvent = lastEvent(events, ["plan_created", "plan_updated"]);
-  const candidates = [];
+  const candidates: RawCandidate[] = [];
   ordered.forEach((planTask, index) => {
     const task = byId.get(planTask.task_id);
     const status = task?.status ?? "pending";
@@ -93,10 +133,17 @@ export function runPlanPending({ plan, tasks, events }) {
   return candidates;
 }
 
-export async function runCodeDrift({ designRoot, projectRoot, events, lastSeq, lastTs, params = {} }) {
+export async function runCodeDrift({
+  designRoot,
+  projectRoot,
+  events,
+  lastSeq,
+  lastTs,
+  params = {},
+}: DetectorContext): Promise<RawCandidate[]> {
   if (!designRoot) return [];
-  const useGit = params.use_git !== false;
-  const flags = await detectCodeDrift({ designRoot, projectRoot, git: useGit });
+  const useGit = params["use_git"] !== false;
+  const flags = await detectCodeDrift({ designRoot, projectRoot: projectRoot ?? "", git: useGit });
   const last = events.length > 0 ? events[events.length - 1] : null;
   return flags.map((flag) => candidate({
     capability: "document",
@@ -110,12 +157,12 @@ export async function runCodeDrift({ designRoot, projectRoot, events, lastSeq, l
   }));
 }
 
-export function runFailedStep({ plan, tasks, events, lastSeq, lastTs }) {
+export function runFailedStep({ plan, tasks, events, lastSeq, lastTs }: DetectorContext): RawCandidate[] {
   const ordered = orderedPlanTasks(plan);
   const taskById = new Map((tasks ?? []).map((task) => [task.task_id, task]));
   const planById = new Map((plan?.tasks ?? []).map((task) => [task.task_id, task]));
   const latestStepEnd = latestStepEndByTask(events);
-  const candidates = [];
+  const candidates: RawCandidate[] = [];
   for (const task of ordered) {
     const record = taskById.get(task.task_id);
     const stepEnd = latestStepEnd.get(task.task_id);
@@ -136,14 +183,19 @@ export function runFailedStep({ plan, tasks, events, lastSeq, lastTs }) {
   return candidates;
 }
 
-export async function runCoverageGap({ designRoot, projectRoot, lastSeq, lastTs }) {
+export async function runCoverageGap({
+  designRoot,
+  projectRoot,
+  lastSeq,
+  lastTs,
+}: DetectorContext): Promise<RawCandidate[]> {
   if (!designRoot) return [];
-  const coverage = await detectCoverage({ designRoot, projectRoot });
-  const candidates = [];
+  const coverage = await detectCoverage({ designRoot, projectRoot: projectRoot ?? "" });
+  const candidates: RawCandidate[] = [];
   for (const overlap of coverage.overlaps) {
     candidates.push(candidate({
       capability: "document",
-      target: { kind: "surface", id: overlap.surfaces[0] },
+      target: { kind: "surface", id: overlap.surfaces[0] ?? "" },
       reason: "coverage_gap",
       severity: "medium",
       rationale: `overlapping code path ${overlap.path} claimed by ${overlap.surfaces.join(", ")}`,
@@ -167,7 +219,7 @@ export async function runCoverageGap({ designRoot, projectRoot, lastSeq, lastTs 
   return candidates;
 }
 
-export async function runDependencyDrift({ designRoot, lastSeq, lastTs }) {
+export async function runDependencyDrift({ designRoot, lastSeq, lastTs }: DetectorContext): Promise<RawCandidate[]> {
   if (!designRoot) return [];
   const flags = await detectDependencyDrift({ designRoot });
   return flags.map((flag) => candidate({
@@ -175,15 +227,15 @@ export async function runDependencyDrift({ designRoot, lastSeq, lastTs }) {
     target: { kind: "surface", id: flag.surface_id },
     reason: "dependency_drift",
     severity: "medium",
-    rationale: `depends_on ${flag.depends_on} moved from v${flag.recorded_version} to v${flag.current_version}`,
+    rationale: `depends_on ${flag.depends_on} moved from v${flag.recorded_version} to v${String(flag.current_version)}`,
     detector: "dependency_drift",
     atSeq: lastSeq,
     atTs: lastTs,
   }));
 }
 
-export function runNeedsReview({ plan, tasks, surfaces = [], lastSeq, lastTs }) {
-  const candidates = [];
+export function runNeedsReview({ plan, tasks, surfaces = [], lastSeq, lastTs }: DetectorContext): RawCandidate[] {
+  const candidates: RawCandidate[] = [];
   for (const surface of surfaces) {
     if (surface.frontmatter?.status !== "needs_review") continue;
     candidates.push(candidate({
@@ -221,15 +273,17 @@ export function runNeedsReview({ plan, tasks, surfaces = [], lastSeq, lastTs }) 
   return candidates;
 }
 
-export function runStaleSurface({ surfaces = [], lastSeq, lastTs, params = {} }) {
-  const maxAgeDays = Number.parseInt(params.max_age_days ?? "30", 10);
+export function runStaleSurface({ surfaces = [], lastSeq, lastTs, params = {} }: DetectorContext): RawCandidate[] {
+  const maxAgeDays = Number.parseInt(String(params["max_age_days"] ?? "30"), 10);
   if (!Number.isFinite(maxAgeDays) || maxAgeDays <= 0 || !lastTs) return [];
   const now = Date.parse(`${String(lastTs).slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(now)) return [];
-  const candidates = [];
+  const candidates: RawCandidate[] = [];
   for (const surface of surfaces) {
     if (surface.frontmatter?.status !== "active") continue;
-    const reviewed = Date.parse(`${surface.frontmatter.last_reviewed}T00:00:00Z`);
+    const reviewedAt = surface.frontmatter.last_reviewed;
+    if (typeof reviewedAt !== "string") continue;
+    const reviewed = Date.parse(`${reviewedAt}T00:00:00Z`);
     if (Number.isNaN(reviewed)) continue;
     const days = Math.floor((now - reviewed) / 86_400_000);
     if (days <= maxAgeDays) continue;
@@ -238,7 +292,7 @@ export function runStaleSurface({ surfaces = [], lastSeq, lastTs, params = {} })
       target: { kind: "surface", id: surface.surface_id },
       reason: "stale_surface",
       severity: "low",
-      rationale: `active surface ${surface.surface_id} last reviewed ${surface.frontmatter.last_reviewed} (${days} days)`,
+      rationale: `active surface ${surface.surface_id} last reviewed ${reviewedAt} (${days} days)`,
       detector: "stale_surface",
       atSeq: lastSeq,
       atTs: lastTs,
@@ -247,16 +301,23 @@ export function runStaleSurface({ surfaces = [], lastSeq, lastTs, params = {} })
   return candidates;
 }
 
-export async function runShadowConflict({ plan, libraryRoot, manifestPath, overridesStale, lastSeq, lastTs }) {
-  let manifestSkills = {};
+export async function runShadowConflict({
+  plan,
+  libraryRoot,
+  manifestPath,
+  overridesStale,
+  lastSeq,
+  lastTs,
+}: DetectorContext): Promise<RawCandidate[]> {
+  let manifestSkills: Record<string, unknown> = {};
   if (manifestPath) {
     const parsed = await readJsonFile(manifestPath);
-    if (parsed.exists && !parsed.error && parsed.value?.skills && typeof parsed.value.skills === "object") {
-      manifestSkills = parsed.value.skills;
+    if (parsed.exists && !parsed.error && isRecord(parsed.value) && isRecord(parsed.value["skills"])) {
+      manifestSkills = parsed.value["skills"];
     }
   }
-  const seen = new Set();
-  const candidates = [];
+  const seen = new Set<string>();
+  const candidates: RawCandidate[] = [];
   for (const planTask of orderedPlanTasks(plan)) {
     const capability = planTask.capability;
     if (!capability || seen.has(capability) || capability === "needs_review" || capability === "audit") continue;
@@ -284,7 +345,7 @@ export async function runShadowConflict({ plan, libraryRoot, manifestPath, overr
   return candidates;
 }
 
-export const DETECTOR_RUNNERS = Object.freeze({
+export const DETECTOR_RUNNERS: Readonly<Record<string, DetectorRunner>> = Object.freeze({
   plan_pending: runPlanPending,
   code_drift: runCodeDrift,
   failed_step: runFailedStep,

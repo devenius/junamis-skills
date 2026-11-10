@@ -18,28 +18,57 @@ import { loadSurfaces } from "../design/schema.js";
 import { DETECTOR_RUNNERS } from "./detectors.js";
 import { loadDetectorManifest } from "./manifest.js";
 import { compareCandidates, isKnownReason, reasonWeight, score } from "./score.js";
+import { isOneOf, isRecord } from "../types/guards.js";
+import type { Priority } from "../types/common.js";
+import type { DesignSurface } from "../types/design.js";
+import type {
+  JournalEvent,
+  JournalEventInput,
+  DriftDiff,
+  LoadedRun,
+  PlanSnapshot,
+  RunState,
+  TaskRecord,
+} from "../types/orchestrator.js";
+import type {
+  Candidate,
+  CandidateTarget,
+  DetectorStatus,
+  ProvenanceEntry,
+  QueueInputFingerprint,
+  QueueSummary,
+  RawCandidate,
+  ReconcileOptions,
+  ReconcileResult,
+  ResolutionSource,
+  WorkQueue,
+  WorkQueueStatus,
+} from "../types/reconcile.js";
 
 const CAPABILITY_RE = /^[a-z0-9][a-z0-9-]*$/;
-const PRIORITIES = new Set(["p0", "p1", "p2", "p3"]);
+const PRIORITIES: readonly Priority[] = ["p0", "p1", "p2", "p3"];
 
-function cell(value) {
+/** A candidate the pass is still building: its priority can be overridden. */
+type QueueCandidate = { -readonly [K in keyof Candidate]: Candidate[K] };
+
+function cell(value: unknown): string {
   const text = value === null || value === undefined ? "" : String(value);
   return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
-function short(value) {
-  return value ?? "not present";
+function short(value: unknown): string {
+  return typeof value === "string" ? value : "not present";
 }
 
-function candidateId(target, reason) {
+function candidateId(target: CandidateTarget, reason: string): string {
   return `cand-${sha256Hex(`${target.kind}:${target.id}:${reason}`).slice(0, 16)}`;
 }
 
-function isReconcileEvent(event) {
+function isReconcileEvent(event: JournalEvent | undefined): boolean {
   return event?.type === "reconcile_pass" || event?.reconcile === true;
 }
 
-function lastMeaningfulEvent(events) {
+function lastMeaningfulEvent(events: readonly JournalEvent[]): JournalEvent | null {
   for (let index = events.length - 1; index >= 0; index--) {
     const event = events[index];
     if (!isReconcileEvent(event)) return event ?? null;
@@ -47,21 +76,37 @@ function lastMeaningfulEvent(events) {
   return null;
 }
 
-async function resolveSkill({ capability, libraryRoot, manifestPath }) {
+interface ResolvedSkill {
+  readonly resolved_skill: string | null;
+  readonly resolution_source: ResolutionSource;
+}
+
+async function resolveSkill({
+  capability,
+  libraryRoot,
+  manifestPath,
+}: {
+  readonly capability: string;
+  readonly libraryRoot: string | null;
+  readonly manifestPath: string | null;
+}): Promise<ResolvedSkill> {
   if (!CAPABILITY_RE.test(capability)) return { resolved_skill: null, resolution_source: "needs_review" };
   if (libraryRoot && (await exists(join(libraryRoot, "skills", capability, "SKILL.md")))) {
     return { resolved_skill: `library/${capability}`, resolution_source: "internal_override" };
   }
   if (manifestPath) {
     const parsed = await readJsonFile(manifestPath);
-    if (parsed.exists && !parsed.error && parsed.value?.skills?.[capability]) {
-      return { resolved_skill: `external/${capability}`, resolution_source: "manifest" };
+    if (parsed.exists && !parsed.error && isRecord(parsed.value) && isRecord(parsed.value["skills"])) {
+      const skills = parsed.value["skills"];
+      if (skills[capability]) {
+        return { resolved_skill: `external/${capability}`, resolution_source: "manifest" };
+      }
     }
   }
   return { resolved_skill: null, resolution_source: "needs_review" };
 }
 
-function mergeProvenance(existing, incoming) {
+function mergeProvenance(existing: ProvenanceEntry[], incoming: readonly ProvenanceEntry[]): void {
   const seen = new Set(existing.map((entry) => `${entry.detector}:${entry.at_seq}`));
   for (const entry of incoming) {
     const key = `${entry.detector}:${entry.at_seq}`;
@@ -72,11 +117,19 @@ function mergeProvenance(existing, incoming) {
   }
 }
 
-function groupCandidates(rawCandidates) {
-  const groups = new Map();
+interface CandidateGroup {
+  primary: RawCandidate;
+  rationales: string[];
+  provenance: ProvenanceEntry[];
+  nonDispatchable: boolean;
+}
+
+function groupCandidates(rawCandidates: readonly RawCandidate[]): CandidateGroup[] {
+  const groups = new Map<string, CandidateGroup>();
   for (const raw of rawCandidates) {
     const key = `${raw.target.kind}\0${raw.target.id}`;
-    if (!groups.has(key)) {
+    const existing = groups.get(key);
+    if (!existing) {
       groups.set(key, {
         primary: raw,
         rationales: [raw.rationale],
@@ -85,17 +138,22 @@ function groupCandidates(rawCandidates) {
       });
       continue;
     }
-    const group = groups.get(key);
-    mergeProvenance(group.provenance, raw.provenance);
-    if (raw.rationale && !group.rationales.includes(raw.rationale)) group.rationales.push(raw.rationale);
-    group.nonDispatchable = group.nonDispatchable || raw.non_dispatchable === true;
-    if (reasonWeight(raw.reason) < reasonWeight(group.primary.reason)) group.primary = raw;
+    mergeProvenance(existing.provenance, raw.provenance);
+    if (raw.rationale && !existing.rationales.includes(raw.rationale)) existing.rationales.push(raw.rationale);
+    existing.nonDispatchable = existing.nonDispatchable || raw.non_dispatchable === true;
+    if (reasonWeight(raw.reason) < reasonWeight(existing.primary.reason)) existing.primary = raw;
   }
   return [...groups.values()];
 }
 
-function blockersFor(candidate, { plan, tasks, surfaces }) {
-  const blockers = [];
+interface BlockersInput {
+  readonly plan: PlanSnapshot | null;
+  readonly tasks: readonly TaskRecord[];
+  readonly surfaces: Map<string, DesignSurface>;
+}
+
+function blockersFor(candidate: RawCandidate, { plan, tasks, surfaces }: BlockersInput): string[] {
+  const blockers: string[] = [];
   if (candidate.target.kind === "task") {
     const planTask = (plan?.tasks ?? []).find((task) => task.task_id === candidate.target.id);
     const byId = new Map((tasks ?? []).map((task) => [task.task_id, task]));
@@ -117,7 +175,23 @@ function blockersFor(candidate, { plan, tasks, surfaces }) {
   return [...new Set(blockers)];
 }
 
-async function buildCandidate(group, { plan, tasks, surfaces, libraryRoot, manifestPath, shadowConflict }) {
+interface BuildCandidateInput {
+  readonly plan: PlanSnapshot | null;
+  readonly tasks: readonly TaskRecord[];
+  readonly surfaces: Map<string, DesignSurface>;
+  readonly libraryRoot: string | null;
+  readonly manifestPath: string | null;
+  readonly shadowConflict: boolean;
+}
+
+async function buildCandidate(group: CandidateGroup, {
+  plan,
+  tasks,
+  surfaces,
+  libraryRoot,
+  manifestPath,
+  shadowConflict,
+}: BuildCandidateInput): Promise<QueueCandidate> {
   const primary = group.primary;
   let capability = primary.capability;
   let reason = primary.reason;
@@ -165,13 +239,18 @@ async function buildCandidate(group, { plan, tasks, surfaces, libraryRoot, manif
   };
 }
 
-function summaryFor(queue, { stalled = false, blockingSet = [] } = {}) {
-  const byPriority = { p0: 0, p1: 0, p2: 0, p3: 0 };
+interface SummaryOptions {
+  readonly stalled?: boolean;
+  readonly blockingSet?: readonly string[];
+}
+
+function summaryFor(queue: readonly Candidate[], { stalled = false, blockingSet = [] }: SummaryOptions = {}): QueueSummary {
+  const byPriority: Record<Priority, number> = { p0: 0, p1: 0, p2: 0, p3: 0 };
   let ready = 0;
   let blocked = 0;
   let needsReview = 0;
   for (const candidate of queue) {
-    byPriority[candidate.priority] += 1;
+    byPriority[candidate.priority] = (byPriority[candidate.priority] ?? 0) + 1;
     if (candidate.ready) ready += 1;
     else blocked += 1;
     if (candidate.resolution_source === "needs_review") needsReview += 1;
@@ -186,8 +265,15 @@ function summaryFor(queue, { stalled = false, blockingSet = [] } = {}) {
   };
 }
 
-function blockedCandidate({ status, drift, seq, ts }) {
-  const target = { kind: "repo", id: "drift" };
+interface BlockedCandidateInput {
+  readonly status: string | null;
+  readonly drift: Partial<DriftDiff> | null;
+  readonly seq: number;
+  readonly ts: string;
+}
+
+function blockedCandidate({ status, drift, seq, ts }: BlockedCandidateInput): QueueCandidate {
+  const target: CandidateTarget = { kind: "repo", id: "drift" };
   return {
     candidate_id: candidateId(target, "needs_review"),
     capability: "needs_review",
@@ -201,13 +287,33 @@ function blockedCandidate({ status, drift, seq, ts }) {
     resolved_skill: "needs_review",
     resolution_source: "needs_review",
     provenance: [{ detector: "drift_guard", at_seq: seq ?? 0, at_ts: ts ?? null }],
-    rationale: `resume status ${status}: reconcile is blocked until the drift is reviewed`,
+    rationale: `resume status ${String(status)}: reconcile is blocked until the drift is reviewed`,
     plan_position: null,
     drift: drift ?? null,
   };
 }
 
-function makeQueue({ passId, generatedAt, inputFingerprint, status, queue, drift, stalled = false, blockingSet = [] }) {
+interface MakeQueueInput {
+  readonly passId: string;
+  readonly generatedAt: string;
+  readonly inputFingerprint: QueueInputFingerprint;
+  readonly status: WorkQueueStatus;
+  readonly queue: readonly Candidate[];
+  readonly drift?: Partial<DriftDiff> | null;
+  readonly stalled?: boolean;
+  readonly blockingSet?: readonly string[];
+}
+
+function makeQueue({
+  passId,
+  generatedAt,
+  inputFingerprint,
+  status,
+  queue,
+  drift,
+  stalled = false,
+  blockingSet = [],
+}: MakeQueueInput): WorkQueue {
   return {
     schema_version: 1,
     pass_id: passId,
@@ -221,7 +327,13 @@ function makeQueue({ passId, generatedAt, inputFingerprint, status, queue, drift
   };
 }
 
-function renderReport({ queue, detectorStatus, tick }) {
+interface ReportInput {
+  readonly queue: WorkQueue;
+  readonly detectorStatus: readonly DetectorStatus[];
+  readonly tick: boolean;
+}
+
+function renderReport({ queue, detectorStatus, tick }: ReportInput): string {
   const lines = [
     "# Reconcile Report",
     "",
@@ -281,55 +393,80 @@ function renderReport({ queue, detectorStatus, tick }) {
   return lines.join("\n");
 }
 
-function mismatchedField(previous, current) {
-  for (const key of ["journal_head_seq", "plan_checksum", "design_index_sha256", "env_fingerprint"]) {
-    if (canonicalJson(previous?.[key] ?? null) !== canonicalJson(current?.[key] ?? null)) return key;
+function mismatchedField(previous: unknown, current: QueueInputFingerprint): string {
+  const record: Record<string, unknown> = isRecord(previous) ? previous : {};
+  for (const key of ["journal_head_seq", "plan_checksum", "design_index_sha256", "env_fingerprint"] as const) {
+    if (canonicalJson(record[key] ?? null) !== canonicalJson(current[key] ?? null)) return key;
   }
   return "unknown";
 }
 
-function readOverrides(events) {
-  const applied = new Map();
-  const rejected = [];
+interface RejectedOverride {
+  readonly type: string;
+  readonly candidate_id: unknown;
+  readonly from: unknown;
+  readonly to: unknown;
+  readonly by: unknown;
+  readonly reason: string;
+  readonly override_seq: number;
+}
+
+interface Overrides {
+  readonly applied: Map<string, Priority>;
+  readonly rejected: RejectedOverride[];
+}
+
+function readOverrides(events: readonly JournalEvent[]): Overrides {
+  const applied = new Map<string, Priority>();
+  const rejected: RejectedOverride[] = [];
   const alreadyRejected = new Set(
     events
-      .filter((event) => event?.type === "priority_override_rejected" && Number.isInteger(event.override_seq))
+      .filter((event) => event.type === "priority_override_rejected" && Number.isInteger(event.override_seq))
       .map((event) => event.override_seq),
   );
   for (const event of events) {
-    if (event?.type !== "priority_override") continue;
-    let reason = null;
-    if (typeof event.candidate_id !== "string" || event.candidate_id.length === 0) reason = "missing candidate_id";
-    else if (!PRIORITIES.has(event.from) || !PRIORITIES.has(event.to)) reason = "invalid priority value";
-    else if (typeof event.rationale !== "string" || event.rationale.trim().length === 0) reason = "missing rationale";
-    else if (typeof event.by !== "string" || event.by.trim().length === 0) reason = "missing by";
+    if (event.type !== "priority_override") continue;
+    let reason: string | null = null;
+    const candidateKey = event["candidate_id"];
+    const from = event["from"];
+    const to = event["to"];
+    const rationale = event["rationale"];
+    const by = event["by"];
+    if (typeof candidateKey !== "string" || candidateKey.length === 0) reason = "missing candidate_id";
+    else if (!isOneOf(from, PRIORITIES) || !isOneOf(to, PRIORITIES)) reason = "invalid priority value";
+    else if (typeof rationale !== "string" || rationale.trim().length === 0) reason = "missing rationale";
+    else if (typeof by !== "string" || by.trim().length === 0) reason = "missing by";
     if (reason) {
       if (!alreadyRejected.has(event.seq)) {
         rejected.push({
           type: "priority_override_rejected",
-          candidate_id: event.candidate_id ?? null,
-          from: event.from ?? null,
-          to: event.to ?? null,
-          by: event.by ?? null,
+          candidate_id: candidateKey ?? null,
+          from: from ?? null,
+          to: to ?? null,
+          by: by ?? null,
           reason,
           override_seq: event.seq,
         });
       }
       continue;
     }
-    applied.set(event.candidate_id, event.to);
+    if (typeof candidateKey === "string" && isOneOf(to, PRIORITIES)) applied.set(candidateKey, to);
   }
   return { applied, rejected };
 }
 
-function stalledInfo(queueItems, surfaces) {
+interface StalledInfo {
+  readonly blocking_set: readonly string[];
+}
+
+function stalledInfo(queueItems: readonly Candidate[], surfaces: Map<string, DesignSurface>): StalledInfo | null {
   const planItems = queueItems.filter((candidate) => candidate.target.kind === "task" && candidate.reason === "plan_pending");
   if (planItems.length === 0) return null;
   const byId = new Map(planItems.map((candidate) => [candidate.target.id, candidate]));
-  const blocking = new Set();
-  const visiting = new Set();
+  const blocking = new Set<string>();
+  const visiting = new Set<string>();
 
-  const blockedByDesign = (candidate) => {
+  const blockedByDesign = (candidate: Candidate): boolean => {
     if (candidate.ready) return false;
     if (candidate.blocked_by.length === 0) return false;
     let reachedDesign = false;
@@ -360,7 +497,7 @@ function stalledInfo(queueItems, surfaces) {
   return { blocking_set: [...blocking].sort((a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"))) };
 }
 
-function tickDue(events, tickEvery) {
+function tickDue(events: readonly JournalEvent[], tickEvery: number): boolean {
   let lastPassSeq = 0;
   for (const event of events) {
     if (event?.type === "reconcile_pass" && Number.isInteger(event.seq) && event.seq > lastPassSeq) {
@@ -371,7 +508,13 @@ function tickDue(events, tickEvery) {
   return stepEnds >= tickEvery;
 }
 
-async function appendEvent({ loaded, stateRoot, payload }) {
+interface AppendEventInput {
+  readonly loaded: LoadedRun | null;
+  readonly stateRoot: string;
+  readonly payload: JournalEventInput;
+}
+
+async function appendEvent({ loaded, stateRoot, payload }: AppendEventInput): Promise<JournalEvent | null> {
   if (loaded) {
     return loaded.journal.append({
       ...payload,
@@ -406,7 +549,7 @@ export async function runReconcile({
   drift = null,
   loaded: providedLoaded = null,
   sessionId = "s-reconcile",
-} = {}) {
+}: ReconcileOptions): Promise<ReconcileResult> {
   const current = await computeFingerprint({
     libraryRoot,
     manifestPath,
@@ -414,7 +557,7 @@ export async function runReconcile({
     version: packageVersion,
   });
 
-  let loaded = providedLoaded;
+  let loaded: LoadedRun | null = providedLoaded;
   if (!loaded) {
     try {
       if (await exists(join(stateRoot, "journal.ndjson"))) loaded = await loadRun(stateRoot);
@@ -423,13 +566,16 @@ export async function runReconcile({
     }
   }
 
-  const resolvedStatus = status ?? loaded?.run?.run_status ?? null;
+  const resolvedStatus: string | null = status ?? loaded?.run?.run_status ?? null;
   const blocked = resolvedStatus === "BLOCKED_DRIFT" || resolvedStatus === "HALT_CORRUPT";
-  const events = loaded?.journal?.events ?? [];
+  const events: readonly JournalEvent[] = loaded?.journal?.events ?? [];
   const last = lastMeaningfulEvent(events);
   const stateFile = loaded ? null : await readJsonFile(join(stateRoot, "state.json"));
-  const generatedAt = loaded?.run?.updated_at ?? stateFile?.value?.updated_at ?? last?.ts ?? "1970-01-01T00:00:00Z";
-  const inputFingerprint = {
+  const stateUpdatedAt = stateFile && isRecord(stateFile.value) && typeof stateFile.value["updated_at"] === "string"
+    ? stateFile.value["updated_at"]
+    : null;
+  const generatedAt = loaded?.run?.updated_at ?? stateUpdatedAt ?? last?.ts ?? "1970-01-01T00:00:00Z";
+  const inputFingerprint: QueueInputFingerprint = {
     journal_head_seq: last?.seq ?? 0,
     plan_checksum: loaded?.plan?.checksum ?? null,
     design_index_sha256: current.design_registry?.index_sha256 ?? null,
@@ -440,20 +586,22 @@ export async function runReconcile({
   };
   const passId = `rec-${sha256Hex(canonicalJson(inputFingerprint)).slice(0, 16)}`;
   const previousQueue = await readJsonFile(join(stateRoot, "work-queue.json"));
+  const previousValue = isRecord(previousQueue.value) ? previousQueue.value : null;
   const stale = previousQueue.exists &&
     !previousQueue.error &&
-    previousQueue.value?.input_fingerprint &&
-    canonicalJson(previousQueue.value.input_fingerprint) !== canonicalJson(inputFingerprint)
+    previousValue &&
+    isRecord(previousValue["input_fingerprint"]) &&
+    canonicalJson(previousValue["input_fingerprint"]) !== canonicalJson(inputFingerprint)
     ? {
-        pass_id: previousQueue.value.pass_id ?? null,
-        mismatched_field: mismatchedField(previousQueue.value.input_fingerprint, inputFingerprint),
+        pass_id: typeof previousValue["pass_id"] === "string" ? previousValue["pass_id"] : null,
+        mismatched_field: mismatchedField(previousValue["input_fingerprint"], inputFingerprint),
       }
     : null;
 
-  let queue;
-  let detectorStatus = [];
+  let queue: WorkQueue;
+  const detectorStatus: DetectorStatus[] = [];
   let tick = false;
-  const unknownReasons = new Map();
+  const unknownReasons = new Map<string, { readonly reason: string; readonly detector: string }>();
   const overrides = readOverrides(events);
   const driftForReport = drift ?? loaded?.run?.drift ?? null;
 
@@ -477,7 +625,7 @@ export async function runReconcile({
     tick = tickDue(events, manifest.tickEvery);
     const loadedDesign = designRoot
       ? await loadSurfaces(designRoot, { validate: false })
-      : { surfaces: [] };
+      : { surfaces: [] as DesignSurface[] };
     const surfaces = new Map(loadedDesign.surfaces.map((surface) => [surface.surface_id, surface]));
     const overridesStale = Boolean(
       loaded?.run?.env_fingerprint?.library_overrides_sha256 &&
@@ -485,7 +633,7 @@ export async function runReconcile({
       loaded.run.env_fingerprint.library_overrides_sha256 !== current.library_overrides_sha256,
     );
 
-    const rawCandidates = [];
+    const rawCandidates: RawCandidate[] = [];
     for (const detector of manifest.detectors) {
       if (!detector.enabled) {
         detectorStatus.push({ id: detector.id, enabled: false, fired: 0, candidates: 0 });
@@ -529,7 +677,7 @@ export async function runReconcile({
       }
     }
 
-    const queueItems = [];
+    const queueItems: QueueCandidate[] = [];
     for (const group of groupCandidates(rawCandidates)) {
       queueItems.push(await buildCandidate(group, {
         plan: loaded?.plan ?? null,
@@ -542,14 +690,15 @@ export async function runReconcile({
     }
 
     for (const candidate of queueItems) {
-      if (overrides.applied.has(candidate.candidate_id)) {
-        candidate.priority = overrides.applied.get(candidate.candidate_id);
+      const override = overrides.applied.get(candidate.candidate_id);
+      if (override) {
+        candidate.priority = override;
       }
     }
 
     const stall = stalledInfo(queueItems, surfaces);
     queueItems.sort(compareCandidates);
-    const queueStatus = queueItems.length === 0 || stall ? "no_work" : "ready";
+    const queueStatus: WorkQueueStatus = queueItems.length === 0 || stall ? "no_work" : "ready";
     queue = makeQueue({
       passId,
       generatedAt,
@@ -566,7 +715,7 @@ export async function runReconcile({
   await atomicWriteFile(queuePath, `${JSON.stringify(queue, null, 2)}\n`);
   await atomicWriteFile(reportPath, renderReport({ queue, detectorStatus, tick }));
 
-  const emitted = [];
+  const emitted: (JournalEvent | null)[] = [];
   const passEvent = await appendEvent({
     loaded,
     stateRoot,
@@ -619,9 +768,8 @@ export async function runReconcile({
       loaded,
       stateRoot,
       payload: {
-        type: "priority_override_rejected",
-        session_id: sessionId,
         ...rejection,
+        session_id: sessionId,
         reconcile: true,
       },
     }));
@@ -652,7 +800,7 @@ export async function runReconcile({
           reconcile: true,
         },
       }));
-    } else if (loaded?.plan && loaded.plan.tasks.length > 0 && allTasksDone(loaded.plan, loaded.tasks) && !loaded.run.completed_at) {
+    } else if (loaded?.plan && loaded.plan.tasks.length > 0 && allTasksDone(loaded.plan, loaded.tasks) && !loaded.run?.completed_at) {
       emitted.push(await appendEvent({
         loaded,
         stateRoot,
@@ -696,11 +844,14 @@ export async function runReconcile({
     // Replay all new events so the state model carries reconcile, then write
     // state.json only. plan.json is owned by the plan and is never rewritten.
     refreshLoaded(loaded);
-    loaded.run.reconcile = queue.status === "ready" ? "ready" : queue.status === "no_work" ? "no_work" : "blocked_drift";
-    loaded.run.stalled = Boolean(queue.stalled);
-    loaded.run.journal_head = loaded.journal.head;
-    if (queue.stalled) loaded.run.stalled = true;
-    await writeState(loaded.paths.root, loaded.run);
+    const run: RunState | null = loaded.run;
+    if (run) {
+      run.reconcile = queue.status === "ready" ? "ready" : queue.status === "no_work" ? "no_work" : "blocked_drift";
+      run.stalled = Boolean(queue.stalled);
+      run.journal_head = loaded.journal.head;
+      if (queue.stalled) run.stalled = true;
+      await writeState(loaded.paths.root, run);
+    }
   }
 
   return {
@@ -713,7 +864,7 @@ export async function runReconcile({
     head,
     detectorStatus,
     event: passEvent,
-    events: emitted.filter(Boolean),
+    events: emitted.filter((event): event is JournalEvent => event !== null),
     tick,
     stale,
     overridesRejected: overrides.rejected,

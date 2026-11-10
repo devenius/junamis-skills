@@ -59,6 +59,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.types.json",
     "test": "pnpm build && pnpm typecheck && node --test test/*.test.js",
     "prepack": "pnpm build",
+    "prepare": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "check:config": "node scripts/check-opencode-config.mjs",
     "check:skills-lock": "node scripts/check-skills-lock.mjs",

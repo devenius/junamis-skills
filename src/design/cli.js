@@ -7,17 +7,18 @@ import { resolve } from "node:path";
 import { isInside, readText, realpathDeep } from "../orchestrator/fsx.js";
 import { applyDelta } from "./delta.js";
 import { bootstrapRegistry } from "./bootstrap.js";
-import { runDrift } from "./drift.js";
+import { matchesAny, runDrift } from "./drift.js";
 import { DeltaError, UsageError, ValidationError } from "./errors.js";
 import { computeDesignFingerprint } from "./fingerprint.js";
 import { generateIndex, indexFilePath, writeIndex } from "./index-gen.js";
-import { readSurface, validateDesignText, validateRegistry } from "./schema.js";
+import { loadSurfaces, readSurface, validateDesignText, validateRegistry } from "./schema.js";
 
 const HELP = `junamis-design-registry
 
 Usage:
   design-registry validate [<file>] [common]
   design-registry load --surface <surface_id> [common]
+  design-registry load --code-path <path or glob> [common]
   design-registry apply --delta <path> [common]
   design-registry index [--generated-at <iso>] [--write] [--check] [common]
   design-registry drift [common]
@@ -39,6 +40,7 @@ const VALUE_OPTIONS = new Set([
   "--design-root",
   "--state-root",
   "--surface",
+  "--code-path",
   "--delta",
   "--generated-at",
   "--now",
@@ -58,6 +60,7 @@ function parseArgs(argv) {
     designRoot: null,
     stateRoot: null,
     surface: null,
+    codePath: null,
     delta: null,
     generatedAt: null,
     now: null,
@@ -77,7 +80,7 @@ function parseArgs(argv) {
       const value = argv[i + 1];
       if (value === undefined || value.startsWith("--")) throw new UsageError(`${arg} needs a value`);
       i += 1;
-      const key = arg === "--design-root" ? "designRoot" : arg === "--state-root" ? "stateRoot" : arg.slice(2);
+      const key = arg === "--design-root" ? "designRoot" : arg === "--state-root" ? "stateRoot" : arg === "--code-path" ? "codePath" : arg.slice(2);
       options[key] = value;
       continue;
     }
@@ -102,6 +105,7 @@ export function resolveContext(options, { env = process.env, cwd = process.cwd()
     now: options.now ?? null,
     generatedAt: options.generatedAt ?? null,
     surface: options.surface ?? null,
+    codePath: options.codePath ?? null,
     delta: options.delta ?? null,
     rest: options.rest ?? [],
   };
@@ -152,16 +156,41 @@ async function applyCommand(ctx) {
 }
 
 async function loadCommand(ctx) {
-  if (!ctx.surface) throw new UsageError("load needs --surface <surface_id>");
-  const surface = await readSurface(ctx.designRoot, ctx.surface);
-  if (!surface) throw new ValidationError(`surface ${ctx.surface} does not exist`);
-  if (!surface.ok) throw new ValidationError(`surface ${ctx.surface} is invalid`, { errors: surface.errors });
-  return {
-    surface_id: surface.surfaceId,
-    frontmatter: surface.frontmatter,
-    checksum: surface.checksum,
-    body: surface.body,
-  };
+  if (ctx.surface) {
+    const surface = await readSurface(ctx.designRoot, ctx.surface);
+    if (!surface) throw new ValidationError(`surface ${ctx.surface} does not exist`);
+    if (!surface.ok) throw new ValidationError(`surface ${ctx.surface} is invalid`, { errors: surface.errors });
+    return {
+      surface_id: surface.surfaceId,
+      frontmatter: surface.frontmatter,
+      checksum: surface.checksum,
+      body: surface.body,
+    };
+  }
+  if (ctx.codePath) {
+    const loaded = await loadSurfaces(ctx.designRoot, { validate: true });
+    if (loaded.errors.length > 0) {
+      const lines = loaded.errors.flatMap((entry) => entry.errors.map((error) => `${entry.file}: ${error}`));
+      throw new ValidationError("cannot load design context from an invalid design registry", { errors: lines });
+    }
+    const surfaces = loaded.surfaces.filter((surface) => {
+      const patterns = surface.frontmatter?.code_paths ?? [];
+      if (matchesAny(ctx.codePath, patterns)) return true;
+      return patterns.some((pattern) => matchesAny(pattern, [ctx.codePath]));
+    });
+    return {
+      design_context: surfaces.length > 0 ? "loaded" : "none",
+      surfaces: surfaces.map((surface) => ({
+        surface_id: surface.surface_id,
+        app: surface.frontmatter?.app ?? null,
+        kind: surface.frontmatter?.kind ?? null,
+        status: surface.frontmatter?.status ?? null,
+        checksum: surface.checksum,
+        body: surface.body,
+      })),
+    };
+  }
+  throw new UsageError("load needs --surface <surface_id> or --code-path <path>");
 }
 
 async function indexCommand(ctx) {
@@ -235,6 +264,13 @@ function emit(command, ctx, result) {
     return;
   }
   if (command === "load") {
+    if (result.design_context) {
+      process.stdout.write(`design_context: ${result.design_context}\n`);
+      for (const surface of result.surfaces ?? []) {
+        process.stdout.write(`surface: ${surface.surface_id} (${surface.status})\n`);
+      }
+      return;
+    }
     process.stdout.write(`${result.body ?? ""}`);
     return;
   }
@@ -262,6 +298,8 @@ function emit(command, ctx, result) {
   if (command === "bootstrap") {
     process.stdout.write(`created: ${result.created.length}\n`);
     process.stdout.write(`skipped: ${result.skipped.length}\n`);
+    process.stdout.write(`targets: ${result.targets.length}\n`);
+    process.stdout.write(`schema: ${result.schemaCopied ? "copied" : "kept"}\n`);
     process.stdout.write(`registry: ${result.registryCreated ? "created" : "kept"}\n`);
     process.stdout.write(`index: ${result.index?.path ?? "none"}\n`);
     return;

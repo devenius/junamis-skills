@@ -33,6 +33,20 @@ Execution state lives on disk under `<project>/.orchestrator/` and follows `RESU
 
 The engine never runs a gated command. The approval gate in `SAFETY.md` still applies to every dispatched skill.
 
+## Project start (design registry)
+
+The project root is the user's cwd for this session. It is not the `junamis-skills` package checkout. The registry lives at `<project>/docs/design/`.
+
+1. **Missing registry.** If `<project>/docs/design/INDEX.md` or `<project>/docs/design/_registry.json` is missing, tell the user exactly what will happen before acting:
+   - scan the project's apps and packages;
+   - create draft surfaces under `<project>/docs/design/`;
+   - copy the design schema and create `_registry.json`;
+   - make no code changes and never promote a draft.
+   Ask once with `status: needs-decision` and wait. On approval run `junamis-design-registry bootstrap --project <project>`. On refusal continue with `design_context: none` and record the missing registry as a gap or finding.
+2. **Existing registry.** Do not bootstrap. Reuse it.
+3. **Before dispatch.** Run `junamis-design-registry load --project <project> --code-path <expected path or glob> --json`. Pass the matching `surfaces` and their `checksum` values as `design_context`. If no surface matches, pass `design_context: none` and require the skill to declare whether it should have matched.
+4. **Narrow reads.** Do not read the whole registry when a code-path lookup is enough.
+
 ## Understand the request first
 
 Before routing:
@@ -74,6 +88,7 @@ Send exactly one skill to exactly one owner. The brief contains:
 - the goal, the scope, the files the agent may change, and the files it must not touch;
 - the expected artifacts and how "done" is proven;
 - the approval gate from `SAFETY.md`, with any command the user already approved;
+- the design context from `junamis-design-registry load --project <project> --code-path <expected path or glob> --json`, or `design_context: none` with the requirement that the skill declare whether a surface should have matched;
 - the instruction to end with exactly one HANDOFF block and stop.
 
 Do not send two skills at once. Do not pre-solve the task. Do not tell the agent the answer you expect. Let it finish.
@@ -117,7 +132,7 @@ You may dispatch a separate agent or sub-agent for work unrelated to the current
 5. **Route.** Run `route` with the report as its first input. Stop on `question` after answering.
 6. **Plan.** On `NEW_RUN`, write the one task bootstrap plan after the first skill is named and call `plan set`. Replace it with `plan set --replace` when the full task graph exists.
 7. **Adapt.** If the first skill is external, run `route-external` and keep the adapter path.
-8. **Dispatch.** Call `start --task <task_id>`; stop if it exits `5`. Send one skill, its owner, its brief, and the adapter if any. Wait for it to finish.
+8. **Dispatch.** Call `start --task <task_id>`; stop if it exits `5`. Run `junamis-design-registry load --project <project> --code-path <expected path or glob> --json` and include the matching surfaces and checksums as `design_context`, or `design_context: none`. Send one skill, its owner, its brief, and the adapter if any. Wait for it to finish.
 9. **Persist and read the handoff.** Write the returned block to the state root and call `end` as described in Persistence. Read only the returned HANDOFF block.
 10. **Decide.**
     - `complete` with `next` a skill or agent: dispatch it.

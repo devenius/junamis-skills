@@ -93,14 +93,16 @@ Features:
 
   DesignRegistry:
     Description: >
-      A durable design surface registry under docs/design/ that the orchestrator
-      fingerprints and skills update only through design deltas.
-    Commands: "junamis-design-registry validate, load, apply, index, drift, bootstrap, fingerprint"
+      A durable design surface registry under <project>/docs/design/ that the
+      orchestrator fingerprints, loads by code path before dispatch, and skills
+      update only through design deltas.
+    Commands: "junamis-design-registry validate, load --surface|--code-path, apply, index, drift, bootstrap, fingerprint"
+    Bootstrap: "One draft overview per project, or per app/package in a monorepo; copies the package schema, creates _registry.json with bootstrap_complete false, and never promotes a draft."
     Schemas: "web, api, data, infra, cli, and other; common Intent, Current state, Known gaps, and Change log sections plus kind sections."
     Checksum: "sha256 over the canonicalized body in fixed section order; frontmatter excluded."
     Deltas: "replace, append, prepend, remove_line with a base_checksum guard, version bump, change log, atomic write, and design_update or design_delta_rejected journal event."
     Drift: "CODE_DRIFT, DEPENDENCY_DRIFT, and COVERAGE_GAP; coverage failure is gated by docs/design/_registry.json bootstrap_complete."
-    Tests: "D-T1 schema, D-T2 INDEX determinism, D-T3 delta idempotency, D-T4 checksum guard, D-T5 code drift, D-T6 coverage, D-T7 deprecated guard, D-T8 resume drift."
+    Tests: "D-T1 schema, D-T2 INDEX determinism, D-T3 delta idempotency, D-T4 checksum guard, D-T5 code drift, D-T6 coverage, D-T7 deprecated guard, D-T8 resume drift; project/monorepo bootstrap and load --code-path tests."
 
   Library:
     OwnedSkills: 20
@@ -261,7 +263,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (243 tests)"
+  - "pnpm test (248 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

@@ -39,6 +39,7 @@ export function writeSurface({
   designRoot,
   surfaceId,
   kind = surfaceId.split("/")[0],
+  app = null,
   status = "draft",
   version = "0.1.0",
   codePaths = [],
@@ -53,6 +54,7 @@ export function writeSurface({
   const bodyText = Array.isArray(content) ? content.join("\n\n") : content;
   const frontmatter = {
     surface_id: surfaceId,
+    ...(app ? { app } : {}),
     kind,
     status,
     version,

@@ -9,16 +9,47 @@ one.
 ```
 node scripts/design-registry.mjs validate
 node scripts/design-registry.mjs load --surface web/homepage
+node scripts/design-registry.mjs load --code-path apps/storefront/src/App.tsx
 node scripts/design-registry.mjs apply --delta <path>
 node scripts/design-registry.mjs index [--write] [--check] [--generated-at <iso>]
 node scripts/design-registry.mjs drift
-node scripts/design-registry.mjs bootstrap
+node scripts/design-registry.mjs bootstrap --project <project>
 node scripts/design-registry.mjs fingerprint
 ```
 
 Common options: `--project`, `--design-root`, `--state-root`, `--now`,
 `--json`, `--quiet`. `index --check` exits non-zero when the committed
 `INDEX.md` differs from the generated content; `index --write` replaces it.
+
+## Per-project and monorepo bootstrap
+
+`bootstrap` resolves the project from `--project` (default `cwd`) and the
+registry from `<project>/docs/design`. It copies the package's `_schema.md`
+when the project has none, creates `_registry.json` with
+`bootstrap_complete: false`, writes `INDEX.md`, and never overwrites an
+existing surface.
+
+Workspaces are discovered from root `package.json` `workspaces` (array or
+`{ packages: [] }`), `pnpm-workspace.yaml` `packages`, and direct children of
+`apps/`, `packages/`, `services/`, `libs/`, and `plugins/` that contain a
+`package.json`. Simple `dir/*` patterns are expanded with `listDir`.
+
+- A monorepo gets one draft overview per workspace under
+  `docs/design/<kind>/<app>/overview.md`, with `app: <app>` and
+  `code_paths: ["<app-dir>/**"]`.
+- A single project gets `docs/design/<kind>/overview.md` with no `app` and
+  code paths from its detected source roots.
+
+The kind is detected from dependencies, `bin`, and conventional directories:
+`web`, `api`, `data`, `infra`, `cli`, then `other`. Bootstrap creates drafts
+only. `web/homepage.md` and `api/get-user.md` are examples in this package, not
+a template every project receives.
+
+The orchestrator must ask before bootstrapping a missing registry. Before a
+dispatch it runs `load --code-path <path or glob>` and passes the matching
+surfaces and checksums as `design_context`; an unmatched path is
+`design_context: none` and the skill must say whether it should have matched.
+It does not read the whole registry for a narrow code-path lookup.
 
 ## Section order
 

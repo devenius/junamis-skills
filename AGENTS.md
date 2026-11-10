@@ -35,6 +35,16 @@ The old agent layer (`.agents/`, `.opencode/`) was removed from the repo. It is 
 - Every request from a user goes to the `orchestrator` agent first. Do not dispatch a skill or specialist directly.
 - The orchestrator reads the available skills (library and installed external) and uses their descriptions to choose the next step. Keep skill descriptions accurate, because routing depends on them.
 
+## Design registry
+
+- The registry is per project: `<cwd>/docs/design/`. It is never the package's own registry.
+- When `<cwd>/docs/design/INDEX.md` or `_registry.json` is missing, tell the user what bootstrap will do: scan the project's apps and packages, create draft surfaces under `docs/design/`, copy the schema, create `_registry.json`, make no code changes, and never promote a draft. Ask once and wait.
+- On approval run `junamis-design-registry bootstrap --project <cwd>`. On refusal continue with `design_context: none` and record the missing registry as a gap or finding.
+- A monorepo gets explicit per-app and per-package folders: `docs/design/<kind>/<app>/overview.md`. A single project gets `docs/design/<kind>/overview.md`.
+- Bootstrap creates drafts only. Never promote a draft to active automatically.
+- Before dispatching a skill, run `junamis-design-registry load --project <cwd> --code-path <path or glob> --json` and pass the matching surfaces and checksums as `design_context`.
+- Do not scan the whole registry when a code-path lookup is enough.
+
 ## Orchestrator state
 
 Every orchestrator session rehydrates execution state from disk before `route` or any skill dispatch.

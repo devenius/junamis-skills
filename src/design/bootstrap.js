@@ -1,40 +1,30 @@
-// One-shot design registry bootstrap.
+// Per-project and monorepo design registry bootstrap.
 //
-// Scans src/, bin/, and scripts/ and drafts one `other` surface per source
-// file. It also writes the two canonical acceptance examples. Drafts are never
-// promoted. Existing surfaces are never overwritten, so a rerun is safe.
+// The project root is the caller's cwd. The registry always lives at
+// <projectRoot>/docs/design. A monorepo gets one draft overview per app or
+// package, under a kind folder that reflects what the workspace actually is.
+// A single project gets one draft overview under the detected kind.
+//
+// Bootstrap copies the package's normative schema when the project has none,
+// creates _registry.json, and writes INDEX.md. It never overwrites an existing
+// surface and never promotes a draft.
 
-import { join, relative } from "node:path";
-import { exists, listDir, readText } from "../orchestrator/fsx.js";
+import { basename, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { exists, listDir, readJsonFile, readText, statSafe } from "../orchestrator/fsx.js";
 import { atomicWriteJson, atomicWriteText } from "./atomic.js";
 import { headCommit, renderDesignFile } from "./delta.js";
 import { writeIndex } from "./index-gen.js";
-import {
-  computeDesignChecksum,
-  surfacePath,
-  validateDesignText,
-} from "./schema.js";
+import { computeDesignChecksum, surfacePath, validateDesignText } from "./schema.js";
+import { parseYaml } from "./yaml.js";
 
-const SOURCE_ROOTS = ["src", "bin", "scripts"];
-const CODE_EXTENSIONS = new Set([
-  ".js",
-  ".mjs",
-  ".cjs",
-  ".jsx",
-  ".ts",
-  ".tsx",
-  ".vue",
-  ".svelte",
-  ".py",
-  ".go",
-  ".rs",
-  ".java",
-  ".kt",
-  ".rb",
-  ".php",
-  ".cs",
-  ".swift",
-]);
+const WORKSPACE_DIRS = ["apps", "packages", "services", "libs", "plugins"];
+const SOURCE_ROOTS = ["src", "bin", "scripts", "app", "pages", "lib"];
+const WEB_DEPS = ["react", "next", "vue", "nuxt", "svelte", "@angular/core", "solid-js"];
+const API_DEPS = ["@nestjs/core", "express", "fastify", "koa", "hapi"];
+const DATA_DEPS = ["prisma", "@prisma/client", "drizzle-orm", "typeorm", "sequelize", "mongoose"];
+const INFRA_FILES = ["Dockerfile", "docker-compose.yml", "docker-compose.yaml", "serverless.yml"];
+const INFRA_DIRS = ["terraform", "k8s", "helm", "pulumi"];
 
 function today(now) {
   if (!now) return new Date().toISOString().slice(0, 10);
@@ -43,41 +33,240 @@ function today(now) {
   return value;
 }
 
-function isCodeFile(name) {
-  const index = name.lastIndexOf(".");
-  return index !== -1 && CODE_EXTENSIONS.has(name.slice(index).toLowerCase());
+function toPosix(path) {
+  return path.split("\\").join("/");
 }
 
-async function walk(root, current, out) {
-  const entries = await listDir(current);
-  for (const entry of entries) {
-    if (entry.isSymbolicLink()) continue;
-    const path = join(current, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name === "node_modules" || entry.name === ".git") continue;
-      await walk(root, path, out);
-      continue;
-    }
-    if (entry.isFile() && isCodeFile(entry.name)) out.push(path);
+async function isDirectory(path) {
+  const stat = await statSafe(path);
+  return Boolean(stat?.isDirectory());
+}
+
+async function isFile(path) {
+  const stat = await statSafe(path);
+  return Boolean(stat?.isFile());
+}
+
+async function readPackage(dir) {
+  const parsed = await readJsonFile(join(dir, "package.json"));
+  if (!parsed.exists || parsed.error || parsed.value === null || typeof parsed.value !== "object") return null;
+  return parsed.value;
+}
+
+function packageDependencies(pkg) {
+  return {
+    ...(pkg?.dependencies ?? {}),
+    ...(pkg?.devDependencies ?? {}),
+    ...(pkg?.peerDependencies ?? {}),
+  };
+}
+
+function hasDependency(deps, names) {
+  return names.some((name) => Object.prototype.hasOwnProperty.call(deps, name));
+}
+
+async function hasAnyDir(base, names) {
+  for (const name of names) {
+    if (await isDirectory(join(base, name))) return true;
   }
+  return false;
 }
 
-function slugFor(relativePath) {
-  const withoutExtension = relativePath.replace(/\.[^.]+$/, "");
-  return withoutExtension
+async function hasAnyFile(base, names) {
+  for (const name of names) {
+    if (await isFile(join(base, name))) return true;
+  }
+  return false;
+}
+
+export async function detectKind(dir, pkg = null) {
+  const deps = packageDependencies(pkg);
+
+  if (hasDependency(deps, WEB_DEPS) || (await hasAnyDir(dir, ["app", "pages", "src/app", "src/pages"]))) {
+    return "web";
+  }
+  if (hasDependency(deps, API_DEPS) || (await hasAnyDir(dir, ["src/routes", "src/controllers", "api"]))) {
+    return "api";
+  }
+  if (hasDependency(deps, DATA_DEPS) || (await hasAnyDir(dir, ["prisma", "migrations", "db", "models"]))) {
+    return "data";
+  }
+  if ((await hasAnyFile(dir, INFRA_FILES)) || (await hasAnyDir(dir, INFRA_DIRS))) {
+    return "infra";
+  }
+  if (pkg?.bin || (await hasAnyDir(dir, ["src/cli", "bin"]))) {
+    return "cli";
+  }
+  return "other";
+}
+
+async function workspacePatterns(projectRoot) {
+  const patterns = [];
+  const rootPackage = await readPackage(projectRoot);
+  const workspaces = rootPackage?.workspaces;
+  if (Array.isArray(workspaces)) {
+    patterns.push(...workspaces.filter((value) => typeof value === "string"));
+  } else if (workspaces && Array.isArray(workspaces.packages)) {
+    patterns.push(...workspaces.packages.filter((value) => typeof value === "string"));
+  }
+
+  const pnpmText = await readText(join(projectRoot, "pnpm-workspace.yaml"));
+  if (pnpmText !== null) {
+    try {
+      const parsed = parseYaml(pnpmText, { label: "pnpm-workspace.yaml" });
+      if (Array.isArray(parsed?.packages)) {
+        patterns.push(...parsed.packages.filter((value) => typeof value === "string"));
+      }
+    } catch {
+      // A malformed workspace file is not a reason to refuse a bootstrap. The
+      // direct-directory scan below still finds conventional workspaces.
+    }
+  }
+  return patterns;
+}
+
+async function expandPattern(projectRoot, pattern) {
+  const cleaned = String(pattern).trim().replace(/^\.\//, "").replace(/\/+$/, "");
+  if (cleaned.length === 0 || cleaned.startsWith("!")) return [];
+
+  if (cleaned.endsWith("/*") && !cleaned.slice(0, -2).includes("*")) {
+    const prefix = cleaned.slice(0, -2);
+    const entries = await listDir(join(projectRoot, prefix));
+    const out = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const relativeDir = `${prefix}/${entry.name}`;
+      if (await isFile(join(projectRoot, relativeDir, "package.json"))) out.push(relativeDir);
+    }
+    return out;
+  }
+  if (cleaned.includes("*")) return [];
+  if (await isFile(join(projectRoot, cleaned, "package.json"))) return [cleaned];
+  return [];
+}
+
+export async function discoverWorkspaces(projectRoot) {
+  const dirs = new Set();
+  const patterns = await workspacePatterns(projectRoot);
+  for (const pattern of patterns) {
+    for (const dir of await expandPattern(projectRoot, pattern)) dirs.add(toPosix(dir));
+  }
+  for (const root of WORKSPACE_DIRS) {
+    const entries = await listDir(join(projectRoot, root));
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const relativeDir = `${root}/${entry.name}`;
+      if (await isFile(join(projectRoot, relativeDir, "package.json"))) dirs.add(relativeDir);
+    }
+  }
+  return [...dirs].sort((a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8")));
+}
+
+function safeAppName(dir) {
+  const raw = basename(dir)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+  return raw.length > 0 ? raw : "app";
 }
 
-function surfaceText({ surfaceId, kind, app = null, owner, codePaths, body, date, commit }) {
+async function discoverTargets(projectRoot) {
+  const workspaces = await discoverWorkspaces(projectRoot);
+  if (workspaces.length === 0) {
+    return [{ dir: ".", app: null, monorepo: false }];
+  }
+  const used = new Map();
+  return workspaces.map((dir) => {
+    const base = safeAppName(dir);
+    const count = used.get(base) ?? 0;
+    used.set(base, count + 1);
+    return {
+      dir,
+      app: count === 0 ? base : `${base}-${count + 1}`,
+      monorepo: true,
+    };
+  });
+}
+
+async function sourceRoots(projectRoot) {
+  const out = [];
+  for (const root of SOURCE_ROOTS) {
+    if (await isDirectory(join(projectRoot, root))) out.push(`${root}/**`);
+  }
+  return out.length > 0 ? out : ["src/**"];
+}
+
+function section(title, content) {
+  return `## ${title}\n\n${content}`;
+}
+
+function table(headers, separator) {
+  return `${headers}\n${separator}\n| (none yet) |${" |".repeat(headers.split("|").length - 3)}`;
+}
+
+function kindSections(kind, subject) {
+  if (kind === "web") {
+    return [
+      section("Structure", `Describe the component tree and layout for ${subject}.`),
+      section("Routes", table("| path | component | auth | notes |", "|------|-----------|------|-------|")),
+      section("State & data", table("| name | source | shape | notes |", "|------|--------|-------|-------|")),
+      section("Props & events", table("| component | props | events |", "|-----------|-------|--------|")),
+      section("Accessibility", "Record the accessibility requirements and test status."),
+    ];
+  }
+  if (kind === "api") {
+    return [
+      section("Endpoint", "- Method: `TBD`\n- Path: `TBD`\n- Auth: `TBD`\n- Rate limit: `TBD`"),
+      section("Request", table("| field | in | type | required | notes |", "|-------|----|------|----------|-------|")),
+      section("Response — 200", table("| field | type | nullable | notes |", "|-------|------|----------|-------|")),
+      section("Errors", table("| status | code | meaning |", "|--------|------|---------|")),
+      section("Examples", "```json\n{}\n```"),
+    ];
+  }
+  if (kind === "data") {
+    return [
+      section("Entities", `Describe the entities owned by ${subject}.`),
+      section("Indexes", table("| name | columns | type |", "|------|---------|------|")),
+      section("Migrations", table("| id | applied | description |", "|----|---------|-------------|")),
+    ];
+  }
+  if (kind === "infra") {
+    return [
+      section("Topology", `Describe the named resources and their relations for ${subject}.`),
+      section("Resources", table("| name | type | spec | notes |", "|------|------|------|-------|")),
+      section("Env & secrets", table("| name | kind | source |", "|------|------|--------|")),
+    ];
+  }
+  if (kind === "cli") {
+    return [
+      section("Command", "`<tool> [args]`"),
+      section("Flags", table("| flag | type | default | notes |", "|------|------|---------|-------|")),
+      section("Output", "Describe stdout/stderr format and exit codes."),
+    ];
+  }
+  return [];
+}
+
+export function overviewBody({ kind, app = null, codePaths = [], date, monorepo = false }) {
+  const subject = monorepo && app ? `the ${app} workspace` : "this project";
+  const paths = codePaths.length > 0 ? codePaths.map((path) => `\`${path}\``).join(", ") : "no source path yet";
+  return [
+    section("Intent", `Describe the ${kind} surface for ${subject}. This draft is the overview that later page, endpoint, entity, or resource surfaces will split from.`),
+    section("Current state", `Draft overview created by the design registry bootstrap for ${subject}. It covers ${paths}. No behavior has been reviewed yet.`),
+    section("Known gaps", "- Split page, endpoint, entity, or resource surfaces out of this overview as work begins.\n- Confirm the surface boundary and owner."),
+    ...kindSections(kind, subject),
+    section("Change log", `- ${date} · v0.1.0 · Created draft overview · bootstrap · library/document`),
+  ].join("\n\n");
+}
+
+function surfaceText({ surfaceId, kind, app, codePaths, body, date, commit }) {
   const frontmatter = {
     surface_id: surfaceId,
     ...(app ? { app } : {}),
     kind,
     status: "draft",
     version: "0.1.0",
-    owner,
+    owner: "library/document",
     code_paths: codePaths,
     depends_on: [],
     related_tasks: [],
@@ -88,227 +277,77 @@ function surfaceText({ surfaceId, kind, app = null, owner, codePaths, body, date
   return renderDesignFile(frontmatter, body);
 }
 
-function otherBody(path, date) {
-  return `## Intent
-
-Draft surface for \`${path}\`. Bootstrap could observe only that this file exists
-and that it is part of the source tree, so the intent is intentionally unstated.
-
-## Current state
-
-The file exists at \`${path}\`. Its behavior has not been reviewed and no
-caller or data flow is documented yet.
-
-## Known gaps
-
-- Describe the intent and current behavior of \`${path}\`.
-- Confirm this file belongs to exactly one surface and assign an owner.
-
-## Change log
-
-- ${date} · v0.1.0 · Created draft surface · bootstrap · library/document
-`;
-}
-
-function homepageBody(date) {
-  return `## Intent
-
-The homepage is the default public landing surface. It introduces the product,
-shows the primary call to action, and hands the visitor to the next useful
-surface without requiring a sign-in.
-
-## Current state
-
-Nothing is implemented yet. This file is the intended contract for the
-homepage: a component tree, one public route, the data it needs, and the
-accessibility work that must ship with it. No code path is claimed until the
-page exists.
-
-## Known gaps
-
-- Build the HomePage component tree and the public \`/\` route.
-- Decide the hero headline and the primary call to action.
-- Confirm which visitor data, if any, may be loaded on first paint.
-- Run the accessibility checks before this surface becomes active.
-
-## Structure
-
-- HomePage
-  - Header
-    - Logo
-    - Navigation
-  - Hero
-    - HeroHeadline
-    - HeroSubhead
-    - HeroCTA
-  - FeatureGrid
-    - FeatureCard ×3
-  - Footer
-
-## Routes
-
-| path | component | auth | notes |
-|------|-----------|------|-------|
-| \`/\` | HomePage | public | default landing |
-
-## State & data
-
-| name | source | shape | notes |
-|------|--------|-------|-------|
-| \`viewer\` | api/get-user | \`{id, name, email}\` | optional; only when signed in |
-
-## Props & events
-
-| component | props | events |
-|-----------|-------|--------|
-| Hero | \`{headline, subhead, cta}\` | \`onCtaClick\` |
-| FeatureGrid | \`{features}\` | none |
-
-## Accessibility
-
-The page needs one \`h1\`, keyboard-reachable navigation, and visible focus on
-the primary call to action. Automated checks and a manual keyboard pass are
-required before this surface becomes active.
-
-## Change log
-
-- ${date} · v0.1.0 · Created draft surface · bootstrap · library/document
-`;
-}
-
-function getUserBody(date) {
-  return `## Intent
-
-Read one user by id for the profile and account surfaces. The endpoint returns
-the public identity fields only; it never returns credentials or secrets.
-
-## Current state
-
-Nothing is implemented yet. This file is the intended contract for the
-endpoint: method, path, auth, request, response, errors, and one example. No
-code path is claimed until the route exists.
-
-## Known gaps
-
-- Implement \`GET /api/users/:id\` behind bearer auth and the 100/min limit.
-- Decide whether a soft-deleted user is 404 or a distinct error code.
-- Add the response contract test before this surface becomes active.
-
-## Endpoint
-
-- Method: \`GET\`
-- Path: \`/api/users/:id\`
-- Auth: \`bearer\`
-- Rate limit: \`100/min\`
-
-## Request
-
-| field | in | type | required | notes |
-|-------|----|------|----------|-------|
-| \`id\` | path | \`string(uuid)\` | yes | user id |
-| \`Authorization\` | header | \`string(bearer)\` | yes | access token |
-
-## Response — 200
-
-| field | type | nullable | notes |
-|-------|------|----------|-------|
-| \`id\` | \`string(uuid)\` | no | user id |
-| \`email\` | \`string(email)\` | no | primary email |
-| \`createdAt\` | \`string(iso8601)\` | no | account creation time |
-
-## Errors
-
-| status | code | meaning |
-|--------|------|---------|
-| 401 | \`unauthorized\` | missing or invalid token |
-| 403 | \`forbidden\` | token is valid but may not read this user |
-| 404 | \`user_not_found\` | id is valid but unknown |
-
-## Examples
-
-\`\`\`json
-{ "id": "5b0f0f0e-0000-4000-8000-000000000001", "email": "a@b.c", "createdAt": "2026-11-10T10:00:00Z" }
-\`\`\`
-
-## Change log
-
-- ${date} · v0.1.0 · Created draft surface · bootstrap · library/document
-`;
-}
-
-async function writeSurface({ designRoot, surfaceId, text, created }) {
+async function writeSurface({ designRoot, surfaceId, text, created, skipped }) {
   const file = surfacePath(designRoot, surfaceId);
-  if (await exists(file)) return false;
+  if (await exists(file)) {
+    skipped.push(surfaceId);
+    return false;
+  }
   const validated = validateDesignText(text, { file, designRoot, requireChecksum: true });
   if (!validated.ok) {
     throw new Error(`bootstrap produced an invalid ${surfaceId}: ${validated.errors.join("; ")}`);
   }
   await atomicWriteText(file, text);
-  created.push(relative(designRoot, file));
+  created.push(relative(designRoot, file).split("\\").join("/"));
   return true;
 }
 
-export async function bootstrapRegistry({ projectRoot, designRoot, now = null }) {
+async function ensureSchema(designRoot) {
+  const target = join(designRoot, "_schema.md");
+  if (await exists(target)) return false;
+  const source = fileURLToPath(new URL("../../docs/design/_schema.md", import.meta.url));
+  const text = await readText(source);
+  if (text === null) throw new Error(`package design schema not found at ${source}`);
+  await atomicWriteText(target, text);
+  return true;
+}
+
+export async function bootstrapRegistry({ projectRoot, now = null } = {}) {
+  if (typeof projectRoot !== "string" || projectRoot.length === 0) {
+    throw new Error("bootstrap needs a project root");
+  }
+  const root = resolve(projectRoot);
+  const designRoot = join(root, "docs", "design");
   const date = today(now);
-  const commit = headCommit(projectRoot);
+  const commit = headCommit(root);
   const created = [];
   const skipped = [];
+  const targets = [];
 
-  for (const root of SOURCE_ROOTS) {
-    const absolute = join(projectRoot, root);
-    if (!(await exists(absolute))) continue;
-    const files = [];
-    await walk(projectRoot, absolute, files);
-    files.sort();
-    for (const file of files) {
-      const relativePath = relative(projectRoot, file).split("\\").join("/");
-      let slug = slugFor(relativePath);
-      let surfaceId = `other/${slug}`;
-      let suffix = 2;
-      while (await exists(surfacePath(designRoot, surfaceId))) {
-        const existing = await readText(surfacePath(designRoot, surfaceId));
-        if (existing !== null) {
-          // A previous bootstrap already owns this slug. Only skip when the
-          // existing file claims this exact code path; otherwise disambiguate.
-          if (existing.includes(`"${relativePath}"`)) break;
-        }
-        slug = `${slugFor(relativePath)}-${suffix}`;
-        surfaceId = `other/${slug}`;
-        suffix += 1;
-      }
-      if (await exists(surfacePath(designRoot, surfaceId))) {
-        skipped.push(surfaceId);
-        continue;
-      }
-      const text = surfaceText({
-        surfaceId,
-        kind: "other",
-        owner: "library/document",
-        codePaths: [relativePath],
-        body: otherBody(relativePath, date),
-        date,
-        commit,
-      });
-      await writeSurface({ designRoot, surfaceId, text, created });
-    }
-  }
-
-  const canonical = [
-    { surfaceId: "web/homepage", app: "web", kind: "web", owner: "library/frontend", body: homepageBody(date) },
-    { surfaceId: "api/get-user", app: null, kind: "api", owner: "library/develop", body: getUserBody(date) },
-  ];
-  for (const entry of canonical) {
+  const schemaCopied = await ensureSchema(designRoot);
+  const discovered = await discoverTargets(root);
+  for (const target of discovered) {
+    const dir = target.dir === "." ? root : join(root, target.dir);
+    const pkg = await readPackage(dir);
+    const kind = await detectKind(dir, pkg);
+    const codePaths = target.monorepo ? [`${target.dir}/**`] : await sourceRoots(root);
+    const surfaceId = target.monorepo
+      ? `${kind}/${target.app}/overview`
+      : `${kind}/overview`;
+    const body = overviewBody({
+      kind,
+      app: target.app,
+      codePaths,
+      date,
+      monorepo: target.monorepo,
+    });
     const text = surfaceText({
-      surfaceId: entry.surfaceId,
-      kind: entry.kind,
-      app: entry.app,
-      owner: entry.owner,
-      codePaths: [],
-      body: entry.body,
+      surfaceId,
+      kind,
+      app: target.app,
+      codePaths,
+      body,
       date,
       commit,
     });
-    await writeSurface({ designRoot, surfaceId: entry.surfaceId, text, created });
+    await writeSurface({ designRoot, surfaceId, text, created, skipped });
+    targets.push({
+      dir: target.dir,
+      app: target.app,
+      kind,
+      surface_id: surfaceId,
+      code_paths: codePaths,
+    });
   }
 
   const registryPath = join(designRoot, "_registry.json");
@@ -322,7 +361,9 @@ export async function bootstrapRegistry({ projectRoot, designRoot, now = null })
   return {
     created,
     skipped,
+    schemaCopied,
     registryCreated,
+    targets,
     index: { path: index.path, generatedAt: index.generatedAt },
     date,
     commit,

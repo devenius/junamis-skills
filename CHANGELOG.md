@@ -20,6 +20,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - `SECURITY.md` as the recorded scan record for all 19 internal and 24 external skills: kind, source, license, scan status, last review month, and the pinned scanner. It is published, installed as a shared doc, and enforced by `check:security` in CI and `release:check`.
 - `status` replaces `doctor` and reports the guide, marker, per-target internal/external skill counts, library manifest validity, config validity, external coverage, and the `SECURITY.md` scan record. It exits 1 only when a detected target's manifest or config is invalid, or project JSON is malformed.
 - Added the `route-external` internal skill, owned only by the orchestrator, which writes `.junamis/adapters/<skill>.md` so external skills report through the HANDOFF contract without editing upstream content.
+- Added the design registry CLI (`scripts/design-registry.mjs`, `src/design/`) with a strict dependency-free frontmatter and delta parser, kind schemas for `web`, `api`, `data`, `infra`, `cli`, and `other`, required common and kind-specific sections, and a body-only SHA-256 `design_checksum`.
 
 ### Security
 - The shipped `opencode.json` allows the first-party state engine command without a shell prompt while every other shell command still asks and the secret denies and hard-deny policies still apply.

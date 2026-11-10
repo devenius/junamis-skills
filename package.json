@@ -25,6 +25,7 @@
     "src",
     "library",
     "scripts/orchestrator-state.mjs",
+    "scripts/design-registry.mjs",
     "skills-lock.json",
     "SECURITY.md",
     "junamis-skills.yml",

@@ -104,6 +104,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - The handoff contract now reserves `## Suggested commit` for the orchestrator. At the end of every task the orchestrator records a proposed Conventional Commits message, the exact files, a one-line rationale, and a state; specialists never propose or run commits. When the user says "commit" without a message or scope, the orchestrator uses the suggestion, refreshes it if stale, and awaits the next decision.
 
 ### Fixed
+- The release check builds the TypeScript output before running, so the release and publish workflows no longer start before `dist/` exists.
 - `init --dir <new>` no longer crashes with `ENOENT ... realpath` before planning. The managed-root check falls back to the lexical project path and `writeGuide` creates the project directory before writing, so a dry run prints the full plan without creating it and a real run installs into the new directory.
 - `status` is informational for targets that are not installed or detected, and for an absent per-project guide. It exits 1 only for a detected target with an invalid manifest/config, a malformed project marker, or malformed `opencode.json`.
 

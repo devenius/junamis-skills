@@ -65,7 +65,7 @@
     "check:pack": "pnpm build && node scripts/check-pack.mjs",
     "check:security": "node scripts/check-security.mjs",
     "check:pins": "node scripts/check-pins.mjs",
-    "release:check": "node scripts/release-check.mjs",
+    "release:check": "pnpm build && node scripts/release-check.mjs",
     "check:yaml": "node scripts/check-yaml.js"
   },
   "packageManager": "pnpm@12.15.0",

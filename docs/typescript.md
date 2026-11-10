@@ -72,10 +72,19 @@ never imports from `src/`. `test/types/consumer.ts` imports only from
 `dist/index.js` and is compiled by `tsconfig.types.json`; if the public shape
 breaks, the build fails there before a consumer sees it.
 
-The bins (`bin/junamis-skills.js` and the `scripts/*.mjs` launchers) are thin
-launchers. They still point at source modules on this branch because those
-modules are JavaScript. The integration branch switches them to `dist/` and
-then drops `src` from `files`.
+The bins (`bin/junamis-skills.js`, `scripts/orchestrator-state.mjs`,
+`scripts/design-registry.mjs`, `scripts/reconcile.mjs`) are thin launchers that
+still point at source modules because those modules are JavaScript. The
+integration branch switches them to `dist/` and then drops `src` from `files`.
+
+The dev checks (`scripts/check-*.mjs`, `scripts/check-yaml.js`,
+`scripts/release-check.mjs`) are already launchers over `dist/scripts/*.js`, so
+they need `pnpm build` (or a prior `pnpm test`) before they run. A check that
+still needs an unconverted runtime module receives that module's functions from
+its launcher — `groupLock`, `preparePinnedSource`, `getSkillTreeSha`, or the
+OpenCode skills directory. The check treats what it receives as `unknown` and
+narrows it with the guards in `src/types/`, so no second copy of the installer's
+rules lives under `src/scripts/`.
 
 ## 6. Unknown input at boundaries
 

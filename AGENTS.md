@@ -110,7 +110,7 @@ Do not hardcode agent names anywhere outside `src/targets/`.
 - When the change is ready: commit on the task branch, push the branch, open a pull request, and stop for the user's approval.
 - No self-merge. No bypass. No direct push to `main`, even for the repository owner.
 - Destructive git actions (`reset --hard`, `clean`, `rebase`, force-push, tag deletion) need the user's explicit approval and run only inside the task worktree.
-- The one exception is the initial publish of an empty repository, documented in `docs/releases/fresh-repo.md`; the user runs it once.
+- The one exception is the first push of an empty repository: a one-time user action. The user supplies and approves the instructions for that push. Every later change is a pull request.
 - CI runs on `main` and on every pull request. A pull request merges only after its checks pass and the user approves it.
 
 ## Working rules

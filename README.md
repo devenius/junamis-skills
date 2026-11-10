@@ -177,10 +177,16 @@ A GitHub personal access token with `read:packages` (and `write:packages` for pu
 
 ## Development
 
+The runtime code is TypeScript under `src/`. The built package ships `dist/` and its declarations; `src/` is not part of the published package.
+
 ```bash
-pnpm install
-pnpm test
+pnpm install    # dev dependencies only; there is no runtime dependency
+pnpm build      # tsc -> dist/ (JavaScript, declarations, source maps)
+pnpm typecheck  # source check, then the compiled consumer contract
+pnpm test       # build, typecheck, then the full Node test suite
 ```
+
+Consumers import the package root (`@devenius/junamis-skills`) or the `./types` subpath; both resolve to `dist/`. `dist/` is generated and gitignored, so contributors never commit it. See [`docs/typescript.md`](docs/typescript.md) for the build outputs, strict compiler settings, and the `unknown`-at-the-boundary rules.
 
 ## Reporting issues
 

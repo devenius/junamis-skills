@@ -37,7 +37,6 @@
   "files": [
     "bin",
     "dist",
-    "src",
     "library",
     "scripts/orchestrator-state.mjs",
     "scripts/design-registry.mjs",

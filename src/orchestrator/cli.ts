@@ -2,8 +2,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, hostname } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { isAbsolute, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import {
   checkpoint,
@@ -23,14 +22,10 @@ import { boot } from "./boot.js";
 import { driftSummary } from "./drift.js";
 import { EXIT, OrchestratorError, UsageError } from "./errors.js";
 import { expandHome } from "./fsx.js";
+import { PACKAGE_ROOT } from "../guide.js";
 import { isRecord } from "../types/guards.js";
 import type { CommandResult, OrchestratorContext, TaskSummary } from "../types/orchestrator.js";
 import type { LeaseSummary } from "../types/orchestrator.js";
-
-// The package root sits one level above both `src/` and `dist/`. The installer
-// owns the same value in src/guide.js, which is not converted on this branch,
-// so the state engine cannot import it.
-const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const HELP = `junamis-orchestrator
 

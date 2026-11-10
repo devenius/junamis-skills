@@ -1,6 +1,6 @@
 ---
-surface_id: other/overview
-kind: other
+surface_id: cli/overview
+kind: cli
 status: draft
 version: 0.1.0
 owner: library/document
@@ -11,13 +11,13 @@ code_paths:
 depends_on: []
 related_tasks: []
 last_reviewed: 2026-11-10
-design_checksum: sha256:4c3747d48bc9a7e30121b0adb827d1a8ec87b2e2b8ddfb2035f35146b6e30515
-last_reviewed_commit: a395e606faed1a485ac9fc11659ec2e8743a6654
+design_checksum: sha256:4da5587d6ba861916af30a496f6d59483d949434d5e738e90e4ddb378bee68c5
+last_reviewed_commit: a835e1fdf81d3222df566cc8c659ef8fe066616f
 ---
 
 ## Intent
 
-Describe the other surface for this project. This draft is the overview that later page, endpoint, entity, or resource surfaces will split from.
+Describe the cli surface for this project. This draft is the overview that later page, endpoint, entity, or resource surfaces will split from.
 
 ## Current state
 
@@ -27,6 +27,20 @@ Draft overview created by the design registry bootstrap for this project. It cov
 
 - Split page, endpoint, entity, or resource surfaces out of this overview as work begins.
 - Confirm the surface boundary and owner.
+
+## Command
+
+`<tool> [args]`
+
+## Flags
+
+| flag | type | default | notes |
+|------|------|---------|-------|
+| (none yet) | | | |
+
+## Output
+
+Describe stdout/stderr format and exit codes.
 
 ## Change log
 

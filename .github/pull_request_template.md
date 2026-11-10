@@ -13,7 +13,7 @@
 - [ ] `pnpm typecheck` passes.
 - [ ] `pnpm test` passes, including the T1 to T7 resume tests.
 - [ ] `pnpm run check:pack`, `pnpm run check:security`, `pnpm run check:yaml`, `pnpm run check:config`, `pnpm run check:skills-lock`, and `pnpm lint` pass.
-- [ ] Design registry: `node scripts/design-registry.mjs validate` passes and `node scripts/design-registry.mjs index --check` is byte-equal. The `other/overview` surface is updated if a code path or boundary changed.
+- [ ] Design registry: `node scripts/design-registry.mjs validate` passes and `node scripts/design-registry.mjs index --check` is byte-equal. The `cli/overview` surface is updated if a code path or boundary changed.
 - [ ] Reconciled: `docs/RECONCILE.md` and `docs/design/` still describe the change; no unclaimed code path or stale detector was introduced. `work-queue.json` is derived and not committed.
 - [ ] No `dist/`, `node_modules/`, `.orchestrator/`, `.worktrees/`, `.junamis/`, state, or worktree files are staged.
 - [ ] `CHANGELOG.md` is updated for this change.

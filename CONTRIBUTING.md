@@ -45,7 +45,7 @@ node scripts/design-registry.mjs validate
 node scripts/design-registry.mjs index --check
 ```
 
-`index --check` must be byte-equal to the committed `INDEX.md`. Run `index --write` after a surface change. The package's own registry is small on purpose: `other/overview` is the single-project overview, and `web/homepage` and `api/get-user` are the canonical examples. Never promote a draft automatically.
+`index --check` must be byte-equal to the committed `INDEX.md`. Run `index --write` after a surface change. The package's own registry is small on purpose: `cli/overview` is the single-project overview, and `web/homepage` and `api/get-user` are the canonical examples. Never promote a draft automatically.
 
 ## Reconcile
 

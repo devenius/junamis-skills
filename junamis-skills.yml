@@ -108,7 +108,7 @@ Features:
     Deltas: "replace, append, prepend, remove_line with a base_checksum guard, version bump, change log, atomic write, and design_update or design_delta_rejected journal event."
     Drift: "CODE_DRIFT, DEPENDENCY_DRIFT, and COVERAGE_GAP; coverage failure is gated by docs/design/_registry.json bootstrap_complete."
     Tests: "D-T1 schema, D-T2 INDEX determinism, D-T3 delta idempotency, D-T4 checksum guard, D-T5 code drift, D-T6 coverage, D-T7 deprecated guard, D-T8 resume drift; project/monorepo bootstrap and load --code-path tests."
-    PackageRegistry: "This repository's own registry holds 3 surfaces: other/overview (the single-project overview) plus the canonical web/homepage and api/get-user examples; D-T1 asserts those canonical surfaces."
+    PackageRegistry: "This repository's own registry holds 3 surfaces: cli/overview (the single-project bootstrap overview, detected as cli from package.json bin) plus the canonical web/homepage and api/get-user examples; D-T1 asserts those canonical surfaces."
 
   Reconcile:
     Description: >

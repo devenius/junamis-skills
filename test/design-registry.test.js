@@ -32,7 +32,7 @@ test("D-T1 every committed design surface validates against its kind schema", as
   // The package's own registry is deliberately small: one single-project
   // overview plus the two canonical examples that document the schema.
   const surfaceIds = result.surfaces.map((surface) => surface.surface_id).sort();
-  for (const canonical of ["api/get-user", "other/overview", "web/homepage"]) {
+  for (const canonical of ["api/get-user", "cli/overview", "web/homepage"]) {
     assert.ok(surfaceIds.includes(canonical), `missing canonical surface ${canonical}`);
   }
   assert.ok(result.count >= 3, `expected at least the three canonical surfaces, found ${result.count} file(s)`);

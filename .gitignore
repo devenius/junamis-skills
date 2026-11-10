@@ -10,3 +10,5 @@ node_modules/
 .orchestrator/work-queue.json
 .orchestrator/reconcile/
 .orchestrator/reconcile-report.md
+dist/
+.worktrees/

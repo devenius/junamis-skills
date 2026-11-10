@@ -182,6 +182,7 @@ export async function boot(ctx) {
     stateRoot,
     libraryRoot,
     manifestPath,
+    designRoot,
     sessionId,
     host,
     pid,
@@ -208,7 +209,7 @@ export async function boot(ctx) {
   });
   crashPoint("after_lease");
 
-  const currentFingerprint = await computeFingerprint({ libraryRoot, manifestPath, version: packageVersion });
+  const currentFingerprint = await computeFingerprint({ libraryRoot, manifestPath, designRoot, version: packageVersion });
   const leaseEvent = { type: leaseEventFor(leaseResult.action), lease: leaseResult.lease };
 
   if (isNew) {
@@ -285,6 +286,22 @@ export async function boot(ctx) {
 
   // B4 drift.
   const drift = compareFingerprints(loaded.run.env_fingerprint, currentFingerprint);
+  if (drift.design_baseline) {
+    await loaded.journal.append({
+      type: "design_baseline",
+      run_id: loaded.run.run_id,
+      session_id: sessionId,
+      design_registry: currentFingerprint.design_registry,
+      design_registry_files: currentFingerprint.design_registry_files,
+    });
+    refreshLoaded(loaded);
+    loaded.run.env_fingerprint = {
+      ...(loaded.run.env_fingerprint ?? {}),
+      design_registry: currentFingerprint.design_registry,
+      design_registry_files: currentFingerprint.design_registry_files,
+    };
+    await saveLoaded(loaded, { status: loaded.run.run_status });
+  }
   if (!drift.match) {
     await loaded.journal.append({
       type: "drift_detected",

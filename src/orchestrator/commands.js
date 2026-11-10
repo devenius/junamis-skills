@@ -98,6 +98,7 @@ async function currentFingerprint(ctx) {
   return computeFingerprint({
     libraryRoot: ctx.libraryRoot,
     manifestPath: ctx.manifestPath,
+    designRoot: ctx.designRoot,
     version: ctx.packageVersion,
   });
 }
@@ -576,6 +577,7 @@ export async function status(ctx) {
       journalHead: loaded.journal.head,
       reportPath: loaded.paths.report,
       currentFingerprint: current,
+      designRegistry: current.design_registry,
     },
   });
 }

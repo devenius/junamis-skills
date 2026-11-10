@@ -109,6 +109,13 @@ function renderDrift(diff) {
   for (const path of diff.overrides?.paths ?? []) {
     lines.push(`- changed path \`${cell(path.path)}\` (${cell(path.change)}): ${shortHash(path.old)} -> ${shortHash(path.new)}`);
   }
+  if (diff.design?.changed) {
+    lines.push(`- design_registry.index_sha256: ${shortHash(diff.design.old?.index_sha256 ?? null)} -> ${shortHash(diff.design.new?.index_sha256 ?? null)}`);
+    lines.push(`- design surfaces: ${diff.design.old?.surface_count ?? 0} -> ${diff.design.new?.surface_count ?? 0}`);
+    for (const path of diff.design?.paths ?? []) {
+      lines.push(`- changed path \`${cell(path.path)}\` (${cell(path.change)}): ${shortHash(path.old)} -> ${shortHash(path.new)}`);
+    }
+  }
   if (diff.paths) {
     for (const path of diff.paths) {
       lines.push(`- changed path \`${cell(path.path)}\` (${cell(path.change)}): ${shortHash(path.old)} -> ${shortHash(path.new)}`);
@@ -124,8 +131,15 @@ function renderEnvironment(recorded, current, diff) {
   const manifestNew = current?.skills_lock_sha256 ?? null;
   const overridesOld = recorded?.library_overrides_sha256 ?? null;
   const overridesNew = current?.library_overrides_sha256 ?? null;
+  const designOld = recorded?.design_registry?.index_sha256 ?? null;
+  const designNew = current?.design_registry?.index_sha256 ?? null;
   lines.push(`- skills-lock.json: ${shortHash(manifestNew)} (${matchLabel(manifestOld, manifestNew)})`);
   lines.push(`- library overrides: ${shortHash(overridesNew)} (${matchLabel(overridesOld, overridesNew)})`);
+  lines.push(`- design registry: ${shortHash(designNew)} (${matchLabel(designOld, designNew)})`);
+  if (current?.design_registry) {
+    const counts = current.design_registry.status_counts ?? {};
+    lines.push(`- design surfaces: ${current.design_registry.surface_count} (active ${counts.active ?? 0}, draft ${counts.draft ?? 0}, deprecated ${counts.deprecated ?? 0}, needs_review ${counts.needs_review ?? 0})`);
+  }
   if (current?.orchestrator_version) {
     const oldVersion = recorded?.orchestrator_version ?? null;
     lines.push(`- orchestrator version: ${current.orchestrator_version} (recorded ${oldVersion ?? "unknown"})`);

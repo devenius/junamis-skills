@@ -193,8 +193,10 @@ Read `ORCH_STATE_ROOT`. If absent, initialize a new run (§6a) and jump to B7.
 **B4 — Reconcile environment (drift check).**
 - Compute `skills_lock_sha256` from `skills-lock.json`.
 - Compute `library_overrides_sha256` from the resolved override map in `library/*`.
-- Compare both against `state.env_fingerprint`.
-- **On mismatch:** journal `drift_detected` with the diff, set run status to `needs_review`, write `resume-report.md` (status = `BLOCKED_DRIFT`), and **stop**. Do not dispatch any skill. Emit the exact diff so the operator (or a review skill) can decide.
+- Compute `design_registry` (`index_sha256`, `surface_count`, `status_counts`) from `docs/design/`, covering `INDEX.md` and every surface file.
+- Compare all three against `state.env_fingerprint`.
+- **On a missing recorded design fingerprint:** journal `design_baseline` and record the current value once. Do not block a run that predates the field.
+- **On mismatch:** journal `drift_detected` with the diff, set run status to `needs_review`, write `resume-report.md` (status = `BLOCKED_DRIFT`), and **stop**. Do not dispatch any skill. Emit the exact diff, including the changed design files, so the operator (or a review skill) can decide.
 
 **B5 — Reconcile in-flight work.**
 For every task with `status == "in_progress"`:

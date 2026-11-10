@@ -5,8 +5,9 @@
 
 import { createHash } from "node:crypto";
 import { join } from "node:path";
+import { computeDesignFingerprint } from "../design/fingerprint.js";
 import { listDir, readBuffer, statSafe } from "./fsx.js";
-import { sha256Hex } from "./hash.js";
+import { canonicalJson, sha256Hex } from "./hash.js";
 import { HANDOFF_SCHEMA_VERSION } from "./state.js";
 
 function sortByteOrder(paths) {
@@ -54,13 +55,16 @@ async function libraryDigest(libraryRoot) {
   return { hash: `sha256:${hash.digest("hex")}`, files: map };
 }
 
-export async function computeFingerprint({ libraryRoot = null, manifestPath = null, version = "0.0.0" }) {
+export async function computeFingerprint({ libraryRoot = null, manifestPath = null, version = "0.0.0", designRoot = null }) {
   const manifestBytes = manifestPath ? await readBuffer(manifestPath) : null;
   const library = await libraryDigest(libraryRoot);
+  const design = await computeDesignFingerprint({ designRoot });
   return {
     skills_lock_sha256: manifestBytes === null ? null : `sha256:${sha256Hex(manifestBytes)}`,
     library_overrides_sha256: library.hash,
     library_overrides_files: library.files,
+    design_registry: design.registry,
+    design_registry_files: design.files,
     orchestrator_version: version,
     handoff_schema_version: HANDOFF_SCHEMA_VERSION,
     library_root: libraryRoot ?? null,
@@ -94,6 +98,14 @@ export function compareFingerprints(recorded, current) {
       recorded_missing: true,
       manifest: { old: null, new: current.skills_lock_sha256, changed: false },
       overrides: { old: null, new: current.library_overrides_sha256, changed: false, paths: [] },
+      design: {
+        old: null,
+        new: current.design_registry ?? null,
+        changed: false,
+        baseline: true,
+        paths: [],
+      },
+      design_baseline: true,
       versionChanged: false,
       current,
     };
@@ -112,8 +124,31 @@ export function compareFingerprints(recorded, current) {
   if (overridesChanged && paths.length === 0 && !recorded.library_overrides_files) {
     overrides.paths = [{ path: "(library overrides)", old: overrides.old, new: overrides.new, change: "changed" }];
   }
+
+  const hasRecordedDesign = Object.prototype.hasOwnProperty.call(recorded, "design_registry");
+  const oldDesign = recorded.design_registry ?? null;
+  const newDesign = current.design_registry ?? null;
+  const designBaseline = !hasRecordedDesign;
+  const designChanged = !designBaseline && canonicalJson(oldDesign) !== canonicalJson(newDesign);
+  const designPaths = driftPaths(recorded.design_registry_files, current.design_registry_files);
+  if (designChanged && designPaths.length === 0 && !recorded.design_registry_files) {
+    designPaths.push({
+      path: "(design registry)",
+      old: oldDesign?.index_sha256 ?? null,
+      new: newDesign?.index_sha256 ?? null,
+      change: "changed",
+    });
+  }
+  const design = {
+    old: oldDesign,
+    new: newDesign,
+    changed: designChanged,
+    baseline: designBaseline,
+    paths: designPaths,
+  };
+
   return {
-    match: !manifestChanged && !overridesChanged,
+    match: !manifestChanged && !overridesChanged && !designChanged,
     recorded_missing: false,
     manifest: {
       old: recorded.skills_lock_sha256 ?? null,
@@ -122,6 +157,8 @@ export function compareFingerprints(recorded, current) {
       path: current.manifest_path ?? recorded.manifest_path ?? null,
     },
     overrides,
+    design,
+    design_baseline: designBaseline,
     versionChanged: (recorded.orchestrator_version ?? null) !== (current.orchestrator_version ?? null),
     recorded_version: recorded.orchestrator_version ?? null,
     current_version: current.orchestrator_version ?? null,
@@ -135,6 +172,8 @@ export function driftSummary(diff) {
     detected: !diff.match,
     manifest: diff.manifest,
     overrides: diff.overrides,
+    design: diff.design ?? null,
+    design_baseline: diff.design_baseline ?? false,
     versionChanged: diff.versionChanged,
   };
 }

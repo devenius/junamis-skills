@@ -45,6 +45,7 @@ Common options:
   --session <id>         Session id (default: ORCH_SESSION_ID, then s- plus 8 hex)
   --library-root <dir>   Directory containing skills/ and agents/
   --manifest <path>      skills-lock.json path
+  --design-root <dir>    Design registry root (default: ORCH_DESIGN_ROOT, then <project>/docs/design)
   --json                 Emit exactly one JSON object on stdout
   --quiet                Suppress human output
   --help                 Print this help
@@ -58,6 +59,7 @@ const VALUE_OPTIONS = new Set([
   "--session",
   "--library-root",
   "--manifest",
+  "--design-root",
   "--file",
   "--task",
   "--step",
@@ -82,6 +84,7 @@ function parseArgs(argv) {
     session: null,
     libraryRoot: null,
     manifest: null,
+    designRoot: null,
     file: null,
     task: null,
     step: null,
@@ -137,7 +140,9 @@ function parseArgs(argv) {
         ? "stateRoot"
         : arg === "--library-root"
           ? "libraryRoot"
-          : arg.slice(2);
+          : arg === "--design-root"
+            ? "designRoot"
+            : arg.slice(2);
       options[key] = value;
       continue;
     }
@@ -200,12 +205,15 @@ export function resolveContext(options, { env = process.env, cwd = process.cwd()
     }
   }
 
+  const designRoot = resolveConfig(options.designRoot ?? env.ORCH_DESIGN_ROOT, projectRoot) ?? join(projectRoot, "docs", "design");
+
   return {
     projectRoot,
     stateRoot,
     sessionId,
     libraryRoot,
     manifestPath,
+    designRoot,
     baseTtl: positiveInteger(env.ORCH_LEASE_TTL_SECONDS, 60),
     stepTtl: positiveInteger(env.ORCH_STEP_TTL_SECONDS, 900),
     allowTmp: env.ORCH_TEST_ALLOW_TMP === "1",

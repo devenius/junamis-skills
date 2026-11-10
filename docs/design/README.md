@@ -51,3 +51,13 @@ marks its `task_id` `needs_review`.
 `_registry.json` holds `{ "bootstrap_complete": false }` after bootstrap.
 Overlaps and unclaimed source files are always reported. They fail `drift`
 only after a human or architect flips `bootstrap_complete` to `true`.
+
+## Resume fingerprint
+
+`state.env_fingerprint.design_registry` holds `index_sha256`, `surface_count`,
+and `status_counts`. `index_sha256` binds the actual `INDEX.md` bytes plus every
+surface file, so a body edit is drift even when the table would not change.
+`design_registry_files` is the informational per-file map used to name the
+changed design file in a `BLOCKED_DRIFT` report. A missing recorded value is a
+one-time baseline: boot journals `design_baseline` and records the current
+value instead of blocking a run that predates the field.

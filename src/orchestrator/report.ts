@@ -5,27 +5,44 @@
 
 import { join } from "node:path";
 import { atomicWriteFile } from "./fsx.js";
+import type {
+  DriftDiff,
+  EnvFingerprint,
+  JournalEvent,
+  PlanSnapshot,
+  ReconciliationSummary,
+  RunStatus,
+  StateCursor,
+  StateSnapshot,
+  TaskRecord,
+} from "../types/orchestrator.js";
 
-function cell(value) {
+function cell(value: unknown): string {
   const text = value === null || value === undefined ? "" : String(value);
   return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
-function shortHash(value) {
+function shortHash(value: string | null | undefined): string {
   return value ?? "not present";
 }
 
-function matchLabel(oldValue, newValue) {
+function matchLabel(oldValue: string | null, newValue: string | null): string {
   if (oldValue === null && newValue === null) return "not present";
   if (oldValue === newValue) return "matches recorded";
   return `differs, recorded ${shortHash(oldValue)}`;
 }
 
-function planTaskFor(plan, taskId) {
+function planTaskFor(plan: PlanSnapshot | null | undefined, taskId: string) {
   return plan?.tasks?.find((entry) => entry.task_id === taskId) ?? null;
 }
 
-export function nextAction({ run, plan, tasks }) {
+export interface NextActionInput {
+  readonly run: { readonly run_status: RunStatus | null; readonly cursor: StateCursor | null } | null;
+  readonly plan: PlanSnapshot | null;
+  readonly tasks: readonly TaskRecord[] | null;
+}
+
+export function nextAction({ run, plan, tasks }: NextActionInput): string {
   const status = run?.run_status;
   if (status === "BLOCKED_DRIFT") return "stop: review drift, then boot again; dispatch nothing";
   if (status === "HALT_CORRUPT") return "stop: repair or reset the state root";
@@ -71,7 +88,7 @@ export function nextAction({ run, plan, tasks }) {
   return `start --task ${task.task_id}, then dispatch ${task.resolved_skill} to ${task.owner}`;
 }
 
-function renderTasks(tasks) {
+function renderTasks(tasks: readonly TaskRecord[] | null | undefined): string[] {
   const lines = [
     "| id | capability | status | attempts | resolved skill | source | owner |",
     "|----|-----------|--------|----------|----------------|--------|-------|",
@@ -88,7 +105,7 @@ function renderTasks(tasks) {
   return lines;
 }
 
-function renderEvents(events) {
+function renderEvents(events: readonly JournalEvent[] | null | undefined): string[] {
   const recent = (events ?? []).slice(-10);
   if (recent.length === 0) return ["- (none)"];
   return recent.map((event) => {
@@ -97,7 +114,7 @@ function renderEvents(events) {
   });
 }
 
-export function renderDrift(diff) {
+export function renderDrift(diff: Partial<DriftDiff> | null | undefined): string[] {
   if (!diff || diff.match) return [];
   const lines = ["## Drift"];
   if (diff.manifest?.changed || diff.manifest?.old !== diff.manifest?.new) {
@@ -125,7 +142,11 @@ export function renderDrift(diff) {
   return lines;
 }
 
-function renderEnvironment(recorded, current, diff) {
+function renderEnvironment(
+  recorded: EnvFingerprint | null | undefined,
+  current: EnvFingerprint | null | undefined,
+  diff: Partial<DriftDiff> | null | undefined,
+): string[] {
   const lines = ["## Environment fingerprint"];
   const manifestOld = recorded?.skills_lock_sha256 ?? null;
   const manifestNew = current?.skills_lock_sha256 ?? null;
@@ -149,7 +170,7 @@ function renderEnvironment(recorded, current, diff) {
   return lines;
 }
 
-function renderReconciliation(reconciliation = {}) {
+function renderReconciliation(reconciliation: Partial<ReconciliationSummary> = {}): string[] {
   const interrupted = reconciliation.interrupted?.length ?? 0;
   const retried = reconciliation.retried ?? [];
   const escalated = reconciliation.escalated ?? [];
@@ -159,6 +180,19 @@ function renderReconciliation(reconciliation = {}) {
   lines.push(`- Escalated to needs_review: ${escalated.length}${escalated.length ? ` (${escalated.join(", ")})` : ""}`);
   lines.push(`- Malformed handoffs: ${malformed.length}${malformed.length ? ` (${malformed.join(", ")})` : ""}`);
   return lines;
+}
+
+export interface ResumeReportInput {
+  readonly run: StateSnapshot | null;
+  readonly plan: PlanSnapshot | null;
+  readonly tasks: readonly TaskRecord[] | null;
+  readonly events: readonly JournalEvent[] | null;
+  readonly status?: RunStatus | null;
+  readonly drift?: Partial<DriftDiff> | null;
+  readonly reconciliation?: Partial<ReconciliationSummary>;
+  readonly currentFingerprint?: EnvFingerprint | null;
+  readonly sessionId?: string | null;
+  readonly generatedAt?: string | null;
 }
 
 export function renderResumeReport({
@@ -172,8 +206,8 @@ export function renderResumeReport({
   currentFingerprint = null,
   sessionId = null,
   generatedAt = null,
-}) {
-  const resolvedStatus = status ?? run?.run_status ?? "NEW_RUN";
+}: ResumeReportInput): string {
+  const resolvedStatus: RunStatus = status ?? run?.run_status ?? "NEW_RUN";
   const lines = [
     "# Resume Report",
     "",
@@ -192,7 +226,9 @@ export function renderResumeReport({
     const attempt = task?.attempt ?? cursor.attempt ?? 0;
     lines.push(`- Task: ${cursor.task_id} (${task?.capability ?? cursor.capability ?? "unknown"}) - ${task?.status ?? cursor.status ?? "unknown"}, attempt ${attempt}`);
   }
-  lines.push(`- Next action: ${nextAction({ run: { ...run, run_status: resolvedStatus }, plan, tasks, drift })}`);
+  lines.push(
+    `- Next action: ${nextAction({ run: { run_status: resolvedStatus, cursor: run?.cursor ?? null }, plan, tasks: tasks ?? [] })}`,
+  );
   lines.push("", "## Tasks", ...renderTasks(tasks));
   lines.push("", ...renderReconciliation(reconciliation));
   lines.push("", ...renderEnvironment(run?.env_fingerprint, currentFingerprint, drift));
@@ -202,13 +238,21 @@ export function renderResumeReport({
   return lines.join("\n");
 }
 
+export interface StateMdInput {
+  readonly run: StateSnapshot | null;
+  readonly tasks: readonly TaskRecord[] | null;
+  readonly events: readonly JournalEvent[] | null;
+  readonly drift?: Partial<DriftDiff> | null;
+  readonly generatedAt?: string | null;
+}
+
 export function renderStateMd({
   run,
   tasks,
   events,
   drift = null,
   generatedAt = null,
-}) {
+}: StateMdInput): string {
   const lines = [
     "# Orchestrator State",
     "",
@@ -231,16 +275,30 @@ export function renderStateMd({
   return lines.join("\n");
 }
 
-export async function writeResumeReport(root, content) {
+export async function writeResumeReport(root: string, content: string): Promise<string> {
   const path = join(root, "resume-report.md");
   await atomicWriteFile(path, content);
   return path;
 }
 
-export async function writeStateMd(root, content) {
+export async function writeStateMd(root: string, content: string): Promise<string> {
   const path = join(root, "STATE.md");
   await atomicWriteFile(path, content);
   return path;
+}
+
+export interface RunReportsInput {
+  readonly root: string;
+  readonly run: StateSnapshot | null;
+  readonly plan: PlanSnapshot | null;
+  readonly tasks: readonly TaskRecord[] | null;
+  readonly events: readonly JournalEvent[] | null;
+  readonly status?: RunStatus | null;
+  readonly drift?: Partial<DriftDiff> | null;
+  readonly reconciliation?: Partial<ReconciliationSummary>;
+  readonly currentFingerprint?: EnvFingerprint | null;
+  readonly sessionId?: string | null;
+  readonly generatedAt?: string | null;
 }
 
 export async function writeRunReports({
@@ -255,21 +313,21 @@ export async function writeRunReports({
   currentFingerprint = null,
   sessionId = null,
   generatedAt = null,
-}) {
+}: RunReportsInput): Promise<string> {
   const stamp = generatedAt ?? new Date().toISOString().slice(0, 19) + "Z";
   const report = renderResumeReport({
     run,
     plan,
     tasks,
     events,
-    status,
+    ...(status === undefined ? {} : { status }),
     drift,
     reconciliation,
     currentFingerprint,
     sessionId,
     generatedAt: stamp,
   });
-  const stateMd = renderStateMd({ run, plan, tasks, events, drift, generatedAt: stamp });
+  const stateMd = renderStateMd({ run, tasks, events, drift, generatedAt: stamp });
   const reportPath = await writeResumeReport(root, report);
   await writeStateMd(root, stateMd);
   return reportPath;

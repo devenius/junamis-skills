@@ -27,3 +27,10 @@ export interface Handoff {
   readonly decisions_owed: readonly string[];
   readonly next: string;
 }
+
+/** The result of checking that every artifact exists inside the project. */
+export interface ArtifactCheck {
+  readonly ok: boolean;
+  readonly missing: readonly string[];
+  readonly outside: readonly string[];
+}

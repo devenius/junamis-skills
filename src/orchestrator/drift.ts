@@ -9,17 +9,23 @@ import { computeDesignFingerprint } from "../design/fingerprint.js";
 import { listDir, readBuffer, statSafe } from "./fsx.js";
 import { canonicalJson, sha256Hex } from "./hash.js";
 import { HANDOFF_SCHEMA_VERSION } from "./state.js";
+import type { DriftDiff, DriftPathChange, EnvFingerprint } from "../types/orchestrator.js";
 
-function sortByteOrder(paths) {
+function sortByteOrder(paths: readonly string[]): string[] {
   return [...paths].sort((a, b) => Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8")));
 }
 
-async function libraryFiles(libraryRoot) {
+interface LibraryFile {
+  readonly relative: string;
+  readonly absolute: string;
+}
+
+async function libraryFiles(libraryRoot: string | null): Promise<LibraryFile[] | null> {
   if (!libraryRoot) return null;
   const stat = await statSafe(libraryRoot);
   if (!stat || !stat.isDirectory()) return null;
 
-  const files = [];
+  const files: LibraryFile[] = [];
   const skillEntries = await listDir(join(libraryRoot, "skills"));
   for (const entry of skillEntries) {
     if (!entry.isDirectory()) continue;
@@ -37,13 +43,19 @@ async function libraryFiles(libraryRoot) {
   return files;
 }
 
-async function libraryDigest(libraryRoot) {
+interface LibraryDigest {
+  readonly hash: string | null;
+  readonly files: Record<string, string> | null;
+}
+
+async function libraryDigest(libraryRoot: string | null): Promise<LibraryDigest> {
   const files = await libraryFiles(libraryRoot);
   if (files === null) return { hash: null, files: null };
   const hash = createHash("sha256");
-  const map = {};
+  const map: Record<string, string> = {};
   for (const file of sortByteOrder(files.map((f) => f.relative))) {
     const entry = files.find((f) => f.relative === file);
+    if (!entry) continue;
     const bytes = await readBuffer(entry.absolute);
     if (bytes === null) continue;
     map[file] = `sha256:${sha256Hex(bytes)}`;
@@ -55,7 +67,19 @@ async function libraryDigest(libraryRoot) {
   return { hash: `sha256:${hash.digest("hex")}`, files: map };
 }
 
-export async function computeFingerprint({ libraryRoot = null, manifestPath = null, version = "0.0.0", designRoot = null }) {
+export interface FingerprintInput {
+  readonly libraryRoot?: string | null;
+  readonly manifestPath?: string | null;
+  readonly version?: string;
+  readonly designRoot?: string | null;
+}
+
+export async function computeFingerprint({
+  libraryRoot = null,
+  manifestPath = null,
+  version = "0.0.0",
+  designRoot = null,
+}: FingerprintInput = {}): Promise<EnvFingerprint> {
   const manifestBytes = manifestPath ? await readBuffer(manifestPath) : null;
   const library = await libraryDigest(libraryRoot);
   const design = await computeDesignFingerprint({ designRoot });
@@ -72,11 +96,14 @@ export async function computeFingerprint({ libraryRoot = null, manifestPath = nu
   };
 }
 
-function driftPaths(recordedFiles, currentFiles) {
+function driftPaths(
+  recordedFiles: Readonly<Record<string, string>> | null | undefined,
+  currentFiles: Readonly<Record<string, string>> | null | undefined,
+): DriftPathChange[] {
   if (!recordedFiles && !currentFiles) return [];
   const oldMap = recordedFiles ?? {};
   const newMap = currentFiles ?? {};
-  const paths = [];
+  const paths: DriftPathChange[] = [];
   for (const path of sortByteOrder([...new Set([...Object.keys(oldMap), ...Object.keys(newMap)])])) {
     const oldHash = oldMap[path] ?? null;
     const newHash = newMap[path] ?? null;
@@ -91,7 +118,7 @@ function driftPaths(recordedFiles, currentFiles) {
   return paths;
 }
 
-export function compareFingerprints(recorded, current) {
+export function compareFingerprints(recorded: EnvFingerprint | null, current: EnvFingerprint): DriftDiff {
   if (!recorded) {
     return {
       match: true,
@@ -113,17 +140,17 @@ export function compareFingerprints(recorded, current) {
   const manifestChanged = (recorded.skills_lock_sha256 ?? null) !== (current.skills_lock_sha256 ?? null);
   const overridesChanged = (recorded.library_overrides_sha256 ?? null) !== (current.library_overrides_sha256 ?? null);
   const paths = driftPaths(recorded.library_overrides_files, current.library_overrides_files);
+  // If the aggregate differs but the per-file map was not recorded, still name
+  // the aggregate so the report is actionable.
+  if (overridesChanged && paths.length === 0 && !recorded.library_overrides_files) {
+    paths.push({ path: "(library overrides)", old: recorded.library_overrides_sha256 ?? null, new: current.library_overrides_sha256 ?? null, change: "changed" });
+  }
   const overrides = {
     old: recorded.library_overrides_sha256 ?? null,
     new: current.library_overrides_sha256 ?? null,
     changed: overridesChanged,
     paths,
   };
-  // If the aggregate differs but the per-file map was not recorded, still name
-  // the aggregate so the report is actionable.
-  if (overridesChanged && paths.length === 0 && !recorded.library_overrides_files) {
-    overrides.paths = [{ path: "(library overrides)", old: overrides.old, new: overrides.new, change: "changed" }];
-  }
 
   const hasRecordedDesign = Object.prototype.hasOwnProperty.call(recorded, "design_registry");
   const oldDesign = recorded.design_registry ?? null;
@@ -166,7 +193,7 @@ export function compareFingerprints(recorded, current) {
   };
 }
 
-export function driftSummary(diff) {
+export function driftSummary(diff: Partial<DriftDiff> | null | undefined): Record<string, unknown> {
   if (!diff) return { detected: false };
   return {
     detected: !diff.match,

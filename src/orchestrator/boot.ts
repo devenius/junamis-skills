@@ -32,24 +32,67 @@ import { writeResumeReport, writeStateMd, writeRunReports } from "./report.js";
 import { runReconcile } from "../reconcile/queue.js";
 import { crashPoint } from "./test-hooks.js";
 import { nowIso } from "./time.js";
+import { errorMessage } from "../types/guards.js";
+import type {
+  BootResult,
+  DriftDiff,
+  EnvFingerprint,
+  JournalInfo,
+  LoadedRun,
+  OrchestratorContext,
+  ReconciliationSummary,
+  RunState,
+  RunStatus,
+  StatePaths,
+} from "../types/orchestrator.js";
+import type { ReconcileResult } from "../types/reconcile.js";
 
-function leaseEventFor(action) {
+interface MutableReconciliation {
+  interrupted: string[];
+  retried: string[];
+  escalated: string[];
+  malformedHandoffs: string[];
+}
+
+function leaseEventFor(action: string): string {
   if (action === "taken_over") return "lease_taken_over";
   if (action === "reacquired") return "lease_reacquired";
   return "lease_acquired";
 }
 
-function makeRunId(iso) {
+function makeRunId(iso: string): string {
   const date = iso.slice(0, 10).replaceAll("-", "");
   return `run-${date}-${randomBytes(3).toString("hex")}`;
 }
 
-async function writeReports({ loaded, status, drift, reconciliation, currentFingerprint, sessionId }) {
+function requireRun(loaded: LoadedRun): RunState {
+  if (!loaded.run) throw new CorruptStateError("no run exists in the state root");
+  return loaded.run;
+}
+
+interface ReportsInput {
+  readonly loaded: LoadedRun;
+  readonly status: RunStatus;
+  readonly drift: Partial<DriftDiff> | null;
+  readonly reconciliation: Partial<ReconciliationSummary>;
+  readonly currentFingerprint: EnvFingerprint | null;
+  readonly sessionId: string;
+}
+
+async function writeReports({
+  loaded,
+  status,
+  drift,
+  reconciliation,
+  currentFingerprint,
+  sessionId,
+}: ReportsInput): Promise<string> {
   const generatedAt = nowIso();
-  loaded.run.journal_head = loaded.journal.head;
+  const run = requireRun(loaded);
+  run.journal_head = loaded.journal.head;
   return writeRunReports({
     root: loaded.paths.root,
-    run: loaded.run,
+    run,
     plan: loaded.plan,
     tasks: loaded.tasks,
     events: loaded.journal.events,
@@ -62,11 +105,15 @@ async function writeReports({ loaded, status, drift, reconciliation, currentFing
   });
 }
 
-async function releaseAfterHalt(loaded, { sessionId, status }) {
+async function releaseAfterHalt(
+  loaded: LoadedRun,
+  { sessionId, status }: { readonly sessionId: string; readonly status: RunStatus },
+): Promise<void> {
   try {
+    const run = requireRun(loaded);
     await loaded.journal.append({
       type: "lease_released",
-      run_id: loaded.run.run_id,
+      run_id: run.run_id,
       session_id: sessionId,
     });
     refreshLoaded(loaded);
@@ -87,14 +134,38 @@ async function releaseAfterHalt(loaded, { sessionId, status }) {
   }
 }
 
-async function haltCorrupt({ paths, sessionId, stateRoot, error, currentFingerprint, projectRoot, designRoot, libraryRoot, manifestPath, packageVersion }) {
+interface HaltCorruptInput {
+  readonly paths: StatePaths;
+  readonly sessionId: string;
+  readonly stateRoot: string;
+  readonly error: unknown;
+  readonly currentFingerprint: EnvFingerprint | null;
+  readonly projectRoot: string;
+  readonly designRoot: string;
+  readonly libraryRoot: string | null;
+  readonly manifestPath: string | null;
+  readonly packageVersion: string;
+}
+
+async function haltCorrupt({
+  paths,
+  sessionId,
+  stateRoot,
+  error,
+  currentFingerprint,
+  projectRoot,
+  designRoot,
+  libraryRoot,
+  manifestPath,
+  packageVersion,
+}: HaltCorruptInput): Promise<BootResult> {
   try {
     await removeFile(leasePath(stateRoot, sessionId));
   } catch {
     // best effort
   }
   const generatedAt = nowIso();
-  const details = error instanceof Error ? error.message : String(error);
+  const details = errorMessage(error);
   const report = [
     "# Resume Report",
     "",
@@ -152,7 +223,7 @@ async function haltCorrupt({ paths, sessionId, stateRoot, error, currentFingerpr
   } catch {
     // best effort
   }
-  let reconcile = null;
+  let reconcile: ReconcileResult | null = null;
   try {
     reconcile = await runReconcile({
       stateRoot,
@@ -192,7 +263,7 @@ async function haltCorrupt({ paths, sessionId, stateRoot, error, currentFingerpr
   };
 }
 
-function finalStatus(loaded) {
+function finalStatus(loaded: LoadedRun): RunStatus {
   if (loaded.run?.completed_at) return "COMPLETE";
   if (!loaded.plan || loaded.plan.tasks.length === 0) return "NEW_RUN";
   const byId = new Map(loaded.tasks.map((task) => [task.task_id, task]));
@@ -200,7 +271,7 @@ function finalStatus(loaded) {
   return done ? "COMPLETE" : "RESUMING";
 }
 
-export async function boot(ctx) {
+export async function boot(ctx: OrchestratorContext): Promise<BootResult> {
   const {
     stateRoot,
     projectRoot,
@@ -249,7 +320,7 @@ export async function boot(ctx) {
     });
     crashPoint("after_plan_journal");
     await saveLoaded(loaded, { status: "NEW_RUN" });
-    const drift = compareFingerprints(loaded.run.env_fingerprint, currentFingerprint);
+    const drift = compareFingerprints(requireRun(loaded).env_fingerprint, currentFingerprint);
     await maybeAutoCheckpoint(loaded, { sessionId });
     const reportPath = await writeReports({
       loaded,
@@ -269,20 +340,20 @@ export async function boot(ctx) {
       packageVersion,
       trigger: "boot",
       loaded,
-      currentFingerprint,
       sessionId,
     });
+    const createdRun = requireRun(loaded);
     return {
       status: "NEW_RUN",
       exitCode: 0,
       halt: null,
       reportPath,
-      run: loaded.run,
+      run: createdRun,
       plan: loaded.plan,
       tasks: loaded.tasks,
       runId,
-      cursor: loaded.run.cursor,
-      tasksSummary: loaded.run.tasks_summary,
+      cursor: createdRun.cursor,
+      tasksSummary: createdRun.tasks_summary,
       drift,
       lease: leaseResult.lease,
       leaseAction: leaseResult.action,
@@ -295,14 +366,14 @@ export async function boot(ctx) {
     };
   }
 
-  let journalInfo = await readJournal(paths.journal);
+  let journalInfo: JournalInfo = await readJournal(paths.journal);
   let truncatedBytes = 0;
   if (journalInfo.truncated) {
     truncatedBytes = await truncatePartialTail(paths.journal, journalInfo);
     journalInfo = await readJournal(paths.journal);
   }
 
-  let loaded;
+  let loaded: LoadedRun;
   try {
     loaded = await loadFromPaths({ paths, journalInfo });
     await validateSnapshots(loaded);
@@ -323,9 +394,10 @@ export async function boot(ctx) {
   }
 
   if (truncatedBytes > 0) {
+    const run = requireRun(loaded);
     await loaded.journal.append({
       type: "journal_truncated",
-      run_id: loaded.run.run_id,
+      run_id: run.run_id,
       session_id: sessionId,
       bytes_removed: truncatedBytes,
       last_valid_seq: loaded.journal.head.seq,
@@ -333,37 +405,41 @@ export async function boot(ctx) {
     refreshLoaded(loaded);
   }
 
-  await loaded.journal.append({ type: "run_resume", run_id: loaded.run.run_id, session_id: sessionId });
-  await loaded.journal.append({ type: leaseEventFor(leaseResult.action), run_id: loaded.run.run_id, session_id: sessionId, lease: leaseResult.lease });
+  const resumeRun = requireRun(loaded);
+  await loaded.journal.append({ type: "run_resume", run_id: resumeRun.run_id, session_id: sessionId });
+  await loaded.journal.append({ type: leaseEventFor(leaseResult.action), run_id: resumeRun.run_id, session_id: sessionId, lease: leaseResult.lease });
   refreshLoaded(loaded);
 
   // B4 drift.
-  const drift = compareFingerprints(loaded.run.env_fingerprint, currentFingerprint);
+  const drift = compareFingerprints(requireRun(loaded).env_fingerprint, currentFingerprint);
   if (drift.design_baseline) {
+    const baselineRun = requireRun(loaded);
     await loaded.journal.append({
       type: "design_baseline",
-      run_id: loaded.run.run_id,
+      run_id: baselineRun.run_id,
       session_id: sessionId,
       design_registry: currentFingerprint.design_registry,
       design_registry_files: currentFingerprint.design_registry_files,
     });
     refreshLoaded(loaded);
-    loaded.run.env_fingerprint = {
-      ...(loaded.run.env_fingerprint ?? {}),
+    const refreshed = requireRun(loaded);
+    refreshed.env_fingerprint = {
+      ...(refreshed.env_fingerprint ?? currentFingerprint),
       design_registry: currentFingerprint.design_registry,
       design_registry_files: currentFingerprint.design_registry_files,
     };
-    await saveLoaded(loaded, { status: loaded.run.run_status });
+    await saveLoaded(loaded, { status: refreshed.run_status });
   }
   if (!drift.match) {
+    const driftRun = requireRun(loaded);
     await loaded.journal.append({
       type: "drift_detected",
-      run_id: loaded.run.run_id,
+      run_id: driftRun.run_id,
       session_id: sessionId,
       diff: drift,
     });
     refreshLoaded(loaded);
-    loaded.run.run_status = "BLOCKED_DRIFT";
+    requireRun(loaded).run_status = "BLOCKED_DRIFT";
     await releaseAfterHalt(loaded, { sessionId, status: "BLOCKED_DRIFT" });
     const reportPath = await writeReports({
       loaded,
@@ -384,7 +460,6 @@ export async function boot(ctx) {
       status: "BLOCKED_DRIFT",
       drift,
       loaded,
-      currentFingerprint,
       sessionId,
     });
     return {
@@ -395,9 +470,9 @@ export async function boot(ctx) {
       run: loaded.run,
       plan: loaded.plan,
       tasks: loaded.tasks,
-      runId: loaded.run.run_id,
-      cursor: loaded.run.cursor,
-      tasksSummary: loaded.run.tasks_summary,
+      runId: loaded.run?.run_id ?? null,
+      cursor: loaded.run?.cursor ?? null,
+      tasksSummary: loaded.run?.tasks_summary ?? null,
       drift,
       lease: leaseResult.lease,
       leaseAction: leaseResult.action,
@@ -412,17 +487,23 @@ export async function boot(ctx) {
 
   // A previous boot may have left the run blocked on drift. A matching
   // fingerprint now clears it; the journal records the recovery.
-  if (loaded.run.run_status === "BLOCKED_DRIFT" || loaded.run.drift) {
+  const cleared = requireRun(loaded);
+  if (cleared.run_status === "BLOCKED_DRIFT" || cleared.drift) {
     await loaded.journal.append({
       type: "drift_cleared",
-      run_id: loaded.run.run_id,
+      run_id: cleared.run_id,
       session_id: sessionId,
     });
     refreshLoaded(loaded);
   }
 
   // B5 reconcile in-flight work.
-  const reconciliation = { interrupted: [], retried: [], escalated: [], malformedHandoffs: [] };
+  const reconciliation: MutableReconciliation = {
+    interrupted: [],
+    retried: [],
+    escalated: [],
+    malformedHandoffs: [],
+  };
   const planById = new Map((loaded.plan?.tasks ?? []).map((task) => [task.task_id, task]));
   for (const task of loaded.tasks) {
     if (task.status !== "in_progress") continue;
@@ -431,7 +512,7 @@ export async function boot(ctx) {
     if (idempotent === true) {
       await loaded.journal.append({
         type: "task_status",
-        run_id: loaded.run.run_id,
+        run_id: requireRun(loaded).run_id,
         session_id: sessionId,
         task_id: task.task_id,
         status: "pending",
@@ -441,7 +522,7 @@ export async function boot(ctx) {
     } else {
       await loaded.journal.append({
         type: "escalation",
-        run_id: loaded.run.run_id,
+        run_id: requireRun(loaded).run_id,
         session_id: sessionId,
         task_id: task.task_id,
         reason: "interrupted_non_idempotent",
@@ -465,12 +546,12 @@ export async function boot(ctx) {
         if (task.status !== "needs_review") {
           await loaded.journal.append({
             type: "escalation",
-            run_id: loaded.run.run_id,
+            run_id: requireRun(loaded).run_id,
             session_id: sessionId,
             task_id: task.task_id,
             reason: "invalid_handoff",
             path: relative,
-            message: error.message,
+            message: errorMessage(error),
           });
           task.status = "needs_review";
         }
@@ -501,21 +582,21 @@ export async function boot(ctx) {
     packageVersion,
     trigger: "boot",
     loaded,
-    currentFingerprint,
     sessionId,
   });
 
+  const finalRun = requireRun(loaded);
   return {
     status,
     exitCode: 0,
     halt: null,
     reportPath,
-    run: loaded.run,
+    run: finalRun,
     plan: loaded.plan,
     tasks: loaded.tasks,
-    runId: loaded.run.run_id,
-    cursor: loaded.run.cursor,
-    tasksSummary: loaded.run.tasks_summary,
+    runId: finalRun.run_id,
+    cursor: finalRun.cursor,
+    tasksSummary: finalRun.tasks_summary,
     drift,
     lease: leaseResult.lease,
     leaseAction: leaseResult.action,

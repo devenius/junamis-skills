@@ -2,9 +2,9 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, hostname } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
-import { PACKAGE_ROOT } from "../guide.js";
 import {
   checkpoint,
   end,
@@ -23,6 +23,14 @@ import { boot } from "./boot.js";
 import { driftSummary } from "./drift.js";
 import { EXIT, OrchestratorError, UsageError } from "./errors.js";
 import { expandHome } from "./fsx.js";
+import { isRecord } from "../types/guards.js";
+import type { CommandResult, OrchestratorContext, TaskSummary } from "../types/orchestrator.js";
+import type { LeaseSummary } from "../types/orchestrator.js";
+
+// The package root sits one level above both `src/` and `dist/`. The installer
+// owns the same value in src/guide.js, which is not converted on this branch,
+// so the state engine cannot import it.
+const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const HELP = `junamis-orchestrator
 
@@ -71,11 +79,34 @@ const VALUE_OPTIONS = new Set([
 
 const FLAG_OPTIONS = new Set(["--json", "--quiet", "--help", "--replace"]);
 
-function parseArgs(argv) {
+export interface ParsedOptions {
+  json: boolean;
+  quiet: boolean;
+  replace: boolean;
+  project: string | null;
+  stateRoot: string | null;
+  session: string | null;
+  libraryRoot: string | null;
+  manifest: string | null;
+  designRoot: string | null;
+  file: string | null;
+  task: string | null;
+  step: string | null;
+  handoff: string | null;
+  status: string | null;
+  reason: string | null;
+  decision: string | null;
+}
+
+export type ParsedArgs =
+  | { readonly help: true }
+  | { readonly help: false; readonly command: string; readonly options: ParsedOptions };
+
+function parseArgs(argv: readonly string[]): ParsedArgs {
   if (argv.includes("--help") || argv[0] === "help" || argv.length === 0) {
     return { help: true };
   }
-  const options = {
+  const options: ParsedOptions = {
     json: false,
     quiet: false,
     replace: false,
@@ -95,7 +126,7 @@ function parseArgs(argv) {
   };
 
   const first = argv[0];
-  let command = first;
+  let command: string | undefined = first;
   let index = 1;
   if (first === "plan") {
     if (!argv[1]) throw new UsageError("plan needs set or show");
@@ -121,10 +152,10 @@ function parseArgs(argv) {
     "lease status",
     "finish",
   ]);
-  if (!known.has(command)) throw new UsageError(`unknown command ${JSON.stringify(command)}`);
+  if (command === undefined || !known.has(command)) throw new UsageError(`unknown command ${JSON.stringify(command)}`);
 
   for (let i = index; i < argv.length; i++) {
-    const arg = argv[i];
+    const arg = argv[i] as string;
     if (FLAG_OPTIONS.has(arg)) {
       if (arg === "--json") options.json = true;
       else if (arg === "--quiet") options.quiet = true;
@@ -136,52 +167,67 @@ function parseArgs(argv) {
       const value = argv[i + 1];
       if (value === undefined || value.startsWith("--")) throw new UsageError(`${arg} needs a value`);
       i += 1;
-      const key = arg === "--state-root"
-        ? "stateRoot"
-        : arg === "--library-root"
-          ? "libraryRoot"
-          : arg === "--design-root"
-            ? "designRoot"
-            : arg.slice(2);
-      options[key] = value;
+      switch (arg) {
+        case "--project": options.project = value; break;
+        case "--state-root": options.stateRoot = value; break;
+        case "--session": options.session = value; break;
+        case "--library-root": options.libraryRoot = value; break;
+        case "--manifest": options.manifest = value; break;
+        case "--design-root": options.designRoot = value; break;
+        case "--file": options.file = value; break;
+        case "--task": options.task = value; break;
+        case "--step": options.step = value; break;
+        case "--handoff": options.handoff = value; break;
+        case "--status": options.status = value; break;
+        case "--reason": options.reason = value; break;
+        case "--decision": options.decision = value; break;
+        default: break;
+      }
       continue;
     }
     throw new UsageError(`unexpected argument ${JSON.stringify(arg)}`);
   }
-  return { command, options };
+  return { help: false, command, options };
 }
 
-function positiveInteger(value, fallback) {
+function positiveInteger(value: string | undefined, fallback: number): number {
   const n = Number.parseInt(value ?? "", 10);
   return Number.isInteger(n) && n > 0 ? n : fallback;
 }
 
-function packageVersion() {
+function packageVersion(): string {
   try {
-    return JSON.parse(readFileSync(join(PACKAGE_ROOT, "package.json"), "utf8")).version;
+    const parsed: unknown = JSON.parse(readFileSync(join(PACKAGE_ROOT, "package.json"), "utf8"));
+    return isRecord(parsed) && typeof parsed["version"] === "string" ? parsed["version"] : "0.0.0";
   } catch {
     return "0.0.0";
   }
 }
 
-function resolveConfig(raw, base) {
+function resolveConfig(raw: string | null | undefined, base: string): string | null {
   if (!raw) return null;
   const expanded = expandHome(raw);
+  if (expanded === undefined) return null;
   return isAbsolute(expanded) ? resolve(expanded) : resolve(base, expanded);
 }
 
-export function resolveContext(options, { env = process.env, cwd = process.cwd() } = {}) {
-  const projectRoot = resolveConfig(options.project ?? env.ORCH_PROJECT_ROOT, cwd) ?? cwd;
+export interface ContextOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly cwd?: string;
+}
+
+export function resolveContext(options: ParsedOptions, { env = process.env, cwd = process.cwd() }: ContextOptions = {}): OrchestratorContext {
+  const projectRoot = resolveConfig(options.project ?? env["ORCH_PROJECT_ROOT"], cwd) ?? cwd;
   const stateRoot =
-    resolveConfig(options.stateRoot ?? env.ORCH_STATE_ROOT, projectRoot) ??
+    resolveConfig(options.stateRoot ?? env["ORCH_STATE_ROOT"], projectRoot) ??
     join(projectRoot, ".orchestrator");
 
-  const sessionId = options.session ?? env.ORCH_SESSION_ID ?? `s-${randomBytes(4).toString("hex")}`;
+  const sessionId = options.session ?? env["ORCH_SESSION_ID"] ?? `s-${randomBytes(4).toString("hex")}`;
   if (!/^s-[A-Za-z0-9._-]+$/.test(sessionId)) {
     throw new UsageError(`invalid session id ${JSON.stringify(sessionId)}; expected s- followed by letters, digits, dot, underscore, or dash`);
   }
 
-  let libraryRoot = resolveConfig(options.libraryRoot ?? env.ORCH_LIBRARY_ROOT, projectRoot);
+  let libraryRoot = resolveConfig(options.libraryRoot ?? env["ORCH_LIBRARY_ROOT"], projectRoot);
   if (!libraryRoot) {
     const projectLibrary = join(projectRoot, "library");
     if (existsSync(projectLibrary)) {
@@ -194,7 +240,7 @@ export function resolveContext(options, { env = process.env, cwd = process.cwd()
     }
   }
 
-  let manifestPath = resolveConfig(options.manifest ?? env.ORCH_MANIFEST, projectRoot);
+  let manifestPath = resolveConfig(options.manifest ?? env["ORCH_MANIFEST"], projectRoot);
   if (!manifestPath) {
     const projectManifest = join(projectRoot, "skills-lock.json");
     if (existsSync(projectManifest)) {
@@ -205,7 +251,7 @@ export function resolveContext(options, { env = process.env, cwd = process.cwd()
     }
   }
 
-  const designRoot = resolveConfig(options.designRoot ?? env.ORCH_DESIGN_ROOT, projectRoot) ?? join(projectRoot, "docs", "design");
+  const designRoot = resolveConfig(options.designRoot ?? env["ORCH_DESIGN_ROOT"], projectRoot) ?? join(projectRoot, "docs", "design");
 
   return {
     projectRoot,
@@ -214,9 +260,9 @@ export function resolveContext(options, { env = process.env, cwd = process.cwd()
     libraryRoot,
     manifestPath,
     designRoot,
-    baseTtl: positiveInteger(env.ORCH_LEASE_TTL_SECONDS, 60),
-    stepTtl: positiveInteger(env.ORCH_STEP_TTL_SECONDS, 900),
-    allowTmp: env.ORCH_TEST_ALLOW_TMP === "1",
+    baseTtl: positiveInteger(env["ORCH_LEASE_TTL_SECONDS"], 60),
+    stepTtl: positiveInteger(env["ORCH_STEP_TTL_SECONDS"], 900),
+    allowTmp: env["ORCH_TEST_ALLOW_TMP"] === "1",
     packageVersion: packageVersion(),
     host: hostname(),
     pid: process.pid,
@@ -225,7 +271,7 @@ export function resolveContext(options, { env = process.env, cwd = process.cwd()
   };
 }
 
-async function dispatch(command, options, ctx) {
+async function dispatch(command: string, options: ParsedOptions, ctx: OrchestratorContext): Promise<CommandResult> {
   switch (command) {
     case "boot":
       return boot(ctx);
@@ -311,21 +357,27 @@ async function dispatch(command, options, ctx) {
   }
 }
 
-function summaryLine(summary) {
+/** One field of a lease-shaped result, whether it is one lease or a list. */
+function leaseProp(lease: unknown, key: string): unknown {
+  if (Array.isArray(lease) || !isRecord(lease)) return undefined;
+  return lease[key];
+}
+
+function summaryLine(summary: TaskSummary | null | undefined): string {
   if (!summary) return "none";
   return Object.entries(summary)
     .map(([key, value]) => `${key}=${value}`)
     .join(" ");
 }
 
-function emitHuman(command, res, ctx) {
-  const lines = [];
+function emitHuman(command: string, res: CommandResult, ctx: OrchestratorContext): void {
+  const lines: string[] = [];
   switch (command) {
     case "boot":
       lines.push(`run: ${res.runId ?? "unknown"}`);
       lines.push(`session: ${ctx.sessionId}`);
       lines.push(`cursor: ${res.cursor?.task_id ?? "none"}`);
-      lines.push(`lease: ${res.leaseAction ?? res.lease?.action ?? "held"}`);
+      lines.push(`lease: ${res.leaseAction ?? "held"}`);
       if (res.drift && !res.drift.match) lines.push("drift: detected");
       lines.push(`status: ${res.status}`);
       lines.push(`queue: ${res.reconcileStatus ?? "none"}${res.queueHead ? ` (${res.queueHead.candidate_id})` : ""}`);
@@ -333,7 +385,7 @@ function emitHuman(command, res, ctx) {
       break;
     case "plan set":
       lines.push(`plan: ${res.checksum}`);
-      lines.push(`tasks: ${res.plan.tasks.length}`);
+      lines.push(`tasks: ${res.plan?.tasks.length ?? 0}`);
       lines.push(`status: ${res.status}`);
       break;
     case "plan show":
@@ -367,7 +419,7 @@ function emitHuman(command, res, ctx) {
       lines.push(`status: ${res.status}`);
       lines.push(`cursor: ${res.cursor?.task_id ?? "none"}`);
       lines.push(`tasks: ${summaryLine(res.tasksSummary)}`);
-      lines.push(`lease: ${(res.leases ?? []).map((lease) => `${lease.session_id ?? "invalid"}:${lease.live ? "live" : "stale"}`).join(",") || "none"}`);
+      lines.push(`lease: ${(res.leases ?? []).map((lease: LeaseSummary) => `${lease.session_id ?? "invalid"}:${lease.live ? "live" : "stale"}`).join(",") || "none"}`);
       lines.push(`drift: ${res.drift && !res.drift.match ? "detected" : "none"}`);
       lines.push(`checkpoint: ${res.checkpoint ?? "none"}`);
       lines.push(`journal: seq=${res.journalHead?.seq ?? 0}`);
@@ -382,12 +434,12 @@ function emitHuman(command, res, ctx) {
     case "lease acquire":
       lines.push(`lease: ${res.action}`);
       lines.push(`session: ${ctx.sessionId}`);
-      lines.push(`ttl: ${res.lease?.ttl_seconds ?? "unknown"}`);
+      lines.push(`ttl: ${leaseProp(res.lease, "ttl_seconds") ?? "unknown"}`);
       break;
     case "lease heartbeat":
       lines.push("lease: renewed");
       lines.push(`session: ${ctx.sessionId}`);
-      lines.push(`heartbeat: ${res.lease?.heartbeat_at ?? "unknown"}`);
+      lines.push(`heartbeat: ${leaseProp(res.lease, "heartbeat_at") ?? "unknown"}`);
       break;
     case "lease release":
       lines.push("lease: released");
@@ -414,10 +466,27 @@ function emitHuman(command, res, ctx) {
   if (!ctx.quiet && lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
 }
 
-function jsonResult(command, res, ctx, error) {
-  const resolved = res ?? {};
+const JSON_EXTRA_KEYS = [
+  "task",
+  "step",
+  "attempt",
+  "idempotent",
+  "handoff",
+  "next",
+  "checksum",
+  "plan",
+  "leases",
+  "checkpoint",
+  "journalHead",
+  "path",
+  "seq",
+  "action",
+] as const;
+
+function jsonResult(command: string | null, res: CommandResult | null, ctx: OrchestratorContext | null, error: OrchestratorError | null): Record<string, unknown> {
+  const resolved: CommandResult = res ?? { status: "", exitCode: 0 };
   const drift = resolved.drift ? driftSummary(resolved.drift) : null;
-  const out = {
+  const out: Record<string, unknown> = {
     ok: !error && (resolved.exitCode ?? 0) === 0,
     command,
     status: resolved.status ?? null,
@@ -444,14 +513,19 @@ function jsonResult(command, res, ctx, error) {
         }
       : null,
   };
-  for (const key of ["task", "step", "attempt", "idempotent", "handoff", "next", "checksum", "plan", "leases", "checkpoint", "journalHead", "path", "seq", "action"]) {
+  for (const key of JSON_EXTRA_KEYS) {
     if (resolved[key] !== undefined) out[key] = resolved[key];
   }
   return out;
 }
 
-export async function run(argv, { env = process.env, cwd = process.cwd() } = {}) {
-  let parsed;
+export interface RunOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly cwd?: string;
+}
+
+export async function run(argv: readonly string[], { env = process.env, cwd = process.cwd() }: RunOptions = {}): Promise<number> {
+  let parsed: ParsedArgs;
   try {
     parsed = parseArgs(argv);
   } catch (error) {
@@ -463,7 +537,7 @@ export async function run(argv, { env = process.env, cwd = process.cwd() } = {})
     return EXIT.OK;
   }
 
-  let ctx;
+  let ctx: OrchestratorContext;
   try {
     ctx = resolveContext(parsed.options, { env, cwd });
   } catch (error) {
@@ -493,17 +567,24 @@ export async function run(argv, { env = process.env, cwd = process.cwd() } = {})
   }
 }
 
-function finishWithError(error, json, ctx, command) {
+function finishWithError(
+  error: unknown,
+  json: boolean,
+  ctx: OrchestratorContext | null,
+  command: string | null,
+): number {
   const typed = error instanceof OrchestratorError
     ? error
-    : new OrchestratorError(error?.message ?? String(error), { code: "unexpected", exitCode: EXIT.ERROR });
+    : new OrchestratorError(error instanceof Error ? error.message : String(error), { code: "unexpected", exitCode: EXIT.ERROR });
   const exitCode = typed.exitCode ?? EXIT.ERROR;
   if (json) {
     process.stdout.write(`${JSON.stringify(jsonResult(command, null, ctx, typed))}\n`);
   } else {
     if (typed.halt) {
       process.stderr.write(`halt: ${typed.halt}\n`);
-      if (typed.detail?.owner) process.stderr.write(`owner: ${typed.detail.owner}\n`);
+      if (isRecord(typed.detail) && typeof typed.detail["owner"] === "string") {
+        process.stderr.write(`owner: ${typed.detail["owner"]}\n`);
+      }
     } else {
       process.stderr.write(`error: ${typed.code ?? "error"}: ${typed.message}\n`);
     }

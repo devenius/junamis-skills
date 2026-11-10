@@ -12,8 +12,23 @@ export const EXIT = Object.freeze({
   TRANSITION: 5,
 });
 
+export interface OrchestratorErrorOptions {
+  readonly code?: string;
+  readonly exitCode?: number;
+  readonly detail?: unknown;
+  readonly halt?: string | null;
+}
+
 export class OrchestratorError extends Error {
-  constructor(message, { code = "error", exitCode = EXIT.ERROR, detail = null, halt = null } = {}) {
+  declare readonly code: string;
+  declare readonly exitCode: number;
+  declare readonly detail: unknown;
+  declare readonly halt: string | null;
+
+  constructor(
+    message: string,
+    { code = "error", exitCode = EXIT.ERROR, detail = null, halt = null }: OrchestratorErrorOptions = {},
+  ) {
     super(message);
     this.name = new.target.name;
     this.code = code;
@@ -24,19 +39,21 @@ export class OrchestratorError extends Error {
 }
 
 export class UsageError extends OrchestratorError {
-  constructor(message, options = {}) {
+  constructor(message: string, options: OrchestratorErrorOptions = {}) {
     super(message, { code: "usage", exitCode: EXIT.ERROR, ...options });
   }
 }
 
 export class IoError extends OrchestratorError {
-  constructor(message, options = {}) {
+  constructor(message: string, options: OrchestratorErrorOptions = {}) {
     super(message, { code: "io_error", exitCode: EXIT.ERROR, ...options });
   }
 }
 
 export class LeaseHeldError extends OrchestratorError {
-  constructor(owner, options = {}) {
+  declare readonly owner: string;
+
+  constructor(owner: string, options: OrchestratorErrorOptions = {}) {
     super(`live lease held by ${owner}`, {
       code: "lease_held",
       exitCode: EXIT.LEASE,
@@ -49,7 +66,7 @@ export class LeaseHeldError extends OrchestratorError {
 }
 
 export class LeaseLostError extends OrchestratorError {
-  constructor(sessionId, options = {}) {
+  constructor(sessionId: string, options: OrchestratorErrorOptions = {}) {
     super(`lease for ${sessionId} is missing or owned by another session`, {
       code: "lease_lost",
       exitCode: EXIT.LEASE,
@@ -61,7 +78,9 @@ export class LeaseLostError extends OrchestratorError {
 }
 
 export class DriftError extends OrchestratorError {
-  constructor(diff, options = {}) {
+  declare readonly diff: unknown;
+
+  constructor(diff: unknown, options: OrchestratorErrorOptions = {}) {
     super("environment drift detected", {
       code: "drift",
       exitCode: EXIT.DRIFT,
@@ -74,7 +93,7 @@ export class DriftError extends OrchestratorError {
 }
 
 export class CorruptStateError extends OrchestratorError {
-  constructor(message, options = {}) {
+  constructor(message: string, options: OrchestratorErrorOptions = {}) {
     super(message, {
       code: "corrupt_state",
       exitCode: EXIT.CORRUPT,
@@ -85,23 +104,23 @@ export class CorruptStateError extends OrchestratorError {
 }
 
 export class TransitionError extends OrchestratorError {
-  constructor(message, options = {}) {
+  constructor(message: string, options: OrchestratorErrorOptions = {}) {
     super(message, { code: "invalid_transition", exitCode: EXIT.TRANSITION, ...options });
   }
 }
 
 export class IdentityChangeError extends OrchestratorError {
-  constructor(message, options = {}) {
+  constructor(message: string, options: OrchestratorErrorOptions = {}) {
     super(message, { code: "identity_change", exitCode: EXIT.TRANSITION, ...options });
   }
 }
 
 export class HandoffError extends OrchestratorError {
-  constructor(message, options = {}) {
+  constructor(message: string, options: OrchestratorErrorOptions = {}) {
     super(message, { code: "invalid_handoff", exitCode: EXIT.TRANSITION, ...options });
   }
 }
 
-export function isOrchestratorError(error) {
+export function isOrchestratorError(error: unknown): error is OrchestratorError {
   return error instanceof OrchestratorError;
 }

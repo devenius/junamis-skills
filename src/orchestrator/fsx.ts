@@ -5,6 +5,8 @@
 // complete line through an append-only handle, fsynced before returning.
 
 import { promises as fsp } from "node:fs";
+import type { Dirent, Stats } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -15,18 +17,29 @@ export const DIR_MODE = 0o700;
 
 const DIRECTORY_FSYNC_CODES = new Set(["EPERM", "EINVAL"]);
 
-function randomSuffix() {
+function errorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+function errorMessageOf(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+function randomSuffix(): string {
   return `${process.pid}-${randomBytes(6).toString("hex")}`;
 }
 
-export function expandHome(path) {
+export function expandHome(path: string | undefined): string | undefined {
   if (typeof path !== "string" || path.length === 0) return path;
   if (path === "~") return homedir();
   if (path.startsWith("~/") || path.startsWith("~\\")) return join(homedir(), path.slice(2));
   return path;
 }
 
-export async function exists(path) {
+export async function exists(path: string): Promise<boolean> {
   try {
     await fsp.access(path);
     return true;
@@ -35,7 +48,7 @@ export async function exists(path) {
   }
 }
 
-export async function statSafe(path) {
+export async function statSafe(path: string): Promise<Stats | null> {
   try {
     return await fsp.stat(path);
   } catch {
@@ -43,7 +56,7 @@ export async function statSafe(path) {
   }
 }
 
-export async function ensureDir(path) {
+export async function ensureDir(path: string): Promise<void> {
   await fsp.mkdir(path, { recursive: true, mode: DIR_MODE });
   try {
     await fsp.chmod(path, DIR_MODE);
@@ -52,7 +65,7 @@ export async function ensureDir(path) {
   }
 }
 
-export async function ensureTree(root, { taskIds = [] } = {}) {
+export async function ensureTree(root: string, { taskIds = [] }: { taskIds?: readonly string[] } = {}): Promise<void> {
   await ensureDir(root);
   for (const name of ["checkpoints", "tasks", "locks"]) {
     await ensureDir(join(root, name));
@@ -64,35 +77,45 @@ export async function ensureTree(root, { taskIds = [] } = {}) {
   }
 }
 
-export async function ensureTaskTree(root, taskId) {
+export async function ensureTaskTree(root: string, taskId: string): Promise<void> {
   await ensureDir(join(root, "tasks", taskId));
   await ensureDir(join(root, "tasks", taskId, "handoffs"));
   await ensureDir(join(root, "tasks", taskId, "artifacts"));
 }
 
-async function fsyncDir(dir) {
-  let handle;
+async function fsyncDir(dir: string): Promise<void> {
+  let handle: FileHandle;
   try {
     handle = await fsp.open(dir, "r");
   } catch (error) {
-    if (error && DIRECTORY_FSYNC_CODES.has(error.code)) return;
+    const code = errorCode(error);
+    if (code !== undefined && DIRECTORY_FSYNC_CODES.has(code)) return;
     throw error;
   }
   try {
     await handle.sync();
   } catch (error) {
-    if (!error || !DIRECTORY_FSYNC_CODES.has(error.code)) throw error;
+    const code = errorCode(error);
+    if (code === undefined || !DIRECTORY_FSYNC_CODES.has(code)) throw error;
   } finally {
     await handle.close();
   }
 }
 
-export async function atomicWriteFile(path, data, { mode = FILE_MODE } = {}) {
+export interface WriteOptions {
+  readonly mode?: number;
+}
+
+export async function atomicWriteFile(
+  path: string,
+  data: string | Buffer,
+  { mode = FILE_MODE }: WriteOptions = {},
+): Promise<void> {
   const dir = dirname(path);
   await fsp.mkdir(dir, { recursive: true, mode: DIR_MODE });
   const temp = join(dir, `.${basename(path)}.tmp-${randomSuffix()}`);
   const buffer = Buffer.isBuffer(data) ? data : Buffer.from(String(data), "utf8");
-  let handle;
+  let handle: FileHandle | null = null;
   try {
     handle = await fsp.open(temp, "wx", mode);
     await handle.writeFile(buffer);
@@ -123,16 +146,20 @@ export async function atomicWriteFile(path, data, { mode = FILE_MODE } = {}) {
   }
 }
 
-export async function writeIfMissing(path, data, options = {}) {
+export async function writeIfMissing(
+  path: string,
+  data: string | Buffer,
+  options: WriteOptions = {},
+): Promise<boolean> {
   if (await exists(path)) return false;
   await atomicWriteFile(path, data, options);
   return true;
 }
 
-export async function appendLine(path, line) {
+export async function appendLine(path: string, line: string): Promise<void> {
   const text = String(line);
   const complete = text.endsWith("\n") ? text : `${text}\n`;
-  let handle;
+  let handle: FileHandle | null = null;
   try {
     handle = await fsp.open(path, "a", FILE_MODE);
     await handle.writeFile(complete, "utf8");
@@ -142,63 +169,71 @@ export async function appendLine(path, line) {
   }
 }
 
-export async function readText(path) {
+export async function readText(path: string): Promise<string | null> {
   try {
     return await fsp.readFile(path, "utf8");
   } catch (error) {
-    if (error && error.code === "ENOENT") return null;
+    if (errorCode(error) === "ENOENT") return null;
     throw error;
   }
 }
 
-export async function readBuffer(path) {
+export async function readBuffer(path: string): Promise<Buffer | null> {
   try {
     return await fsp.readFile(path);
   } catch (error) {
-    if (error && error.code === "ENOENT") return null;
+    if (errorCode(error) === "ENOENT") return null;
     throw error;
   }
 }
 
-export async function readJsonFile(path) {
+/** A JSON read that never throws: `exists`, `value`, `raw`, and `error`. */
+export interface JsonFileRead {
+  readonly exists: boolean;
+  readonly value: unknown;
+  readonly raw: string | null;
+  readonly error: { readonly message: string } | null;
+}
+
+export async function readJsonFile(path: string): Promise<JsonFileRead> {
   const raw = await readText(path);
   if (raw === null) return { exists: false, value: null, raw: null, error: null };
   try {
-    return { exists: true, value: JSON.parse(raw), raw, error: null };
+    return { exists: true, value: JSON.parse(raw) as unknown, raw, error: null };
   } catch (error) {
-    return { exists: true, value: null, raw, error };
+    return { exists: true, value: null, raw, error: { message: errorMessageOf(error) } };
   }
 }
 
-export async function readJson(path) {
+export async function readJson(path: string): Promise<unknown> {
   const result = await readJsonFile(path);
   if (!result.exists) return null;
   if (result.error) throw new CorruptStateError(`invalid JSON in ${path}`, { detail: result.error.message });
   return result.value;
 }
 
-export async function removeFile(path) {
+export async function removeFile(path: string): Promise<boolean> {
   try {
     await fsp.unlink(path);
     return true;
   } catch (error) {
-    if (error && error.code === "ENOENT") return false;
+    if (errorCode(error) === "ENOENT") return false;
     throw error;
   }
 }
 
-export async function listDir(path, { withFileTypes = true } = {}) {
+export async function listDir(path: string): Promise<Dirent[]> {
   try {
-    return await fsp.readdir(path, { withFileTypes });
+    return await fsp.readdir(path, { withFileTypes: true });
   } catch (error) {
-    if (error && error.code === "ENOENT") return [];
+    if (errorCode(error) === "ENOENT") return [];
     throw error;
   }
 }
 
-export async function listFiles(path, suffix = null) {
+export async function listFiles(path: string, suffix: string | null = null): Promise<string[]> {
   const entries = await listDir(path);
-  const out = [];
+  const out: string[] = [];
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     if (suffix && !entry.name.endsWith(suffix)) continue;
@@ -211,15 +246,15 @@ export async function listFiles(path, suffix = null) {
 // Resolve a path to a real location without requiring the leaf to exist.
 // The deepest existing ancestor is realpathed, then the missing tail is
 // appended. This makes the temp-directory guard resistant to symlinks.
-export async function realpathDeep(path) {
+export async function realpathDeep(path: string): Promise<string> {
   let current = resolve(path);
-  const tail = [];
+  const tail: string[] = [];
   for (;;) {
     try {
       const real = await fsp.realpath(current);
       return tail.length === 0 ? real : join(real, ...tail.reverse());
     } catch (error) {
-      if (!error || error.code !== "ENOENT") throw error;
+      if (errorCode(error) !== "ENOENT") throw error;
       const parent = dirname(current);
       if (parent === current) return resolve(path);
       tail.push(basename(current));
@@ -228,12 +263,16 @@ export async function realpathDeep(path) {
   }
 }
 
-export function isInside(parent, child) {
+export function isInside(parent: string, child: string): boolean {
   const rel = relative(parent, child);
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-export async function assertPathInside(root, path, { label = "path" } = {}) {
+export async function assertPathInside(
+  root: string,
+  path: string,
+  { label = "path" }: { label?: string } = {},
+): Promise<string> {
   const realRoot = await realpathDeep(root);
   const realPath = await realpathDeep(path);
   if (!isInside(realRoot, realPath)) {
@@ -242,7 +281,10 @@ export async function assertPathInside(root, path, { label = "path" } = {}) {
   return realPath;
 }
 
-export async function assertStateRootSafe(root, { allowTmp = false } = {}) {
+export async function assertStateRootSafe(
+  root: string,
+  { allowTmp = false }: { allowTmp?: boolean } = {},
+): Promise<string> {
   const resolved = resolve(root);
   const real = await realpathDeep(resolved);
   const fsRoot = resolve("/");
@@ -260,15 +302,15 @@ export async function assertStateRootSafe(root, { allowTmp = false } = {}) {
   return resolved;
 }
 
-export function toPosixPath(path) {
+export function toPosixPath(path: string): string {
   return path.split(sep).join("/");
 }
 
-export function relativePosix(root, path) {
+export function relativePosix(root: string, path: string): string {
   return toPosixPath(relative(root, path));
 }
 
-export async function directorySize(path) {
+export async function directorySize(path: string): Promise<number> {
   const stat = await statSafe(path);
   return stat ? stat.size : 0;
 }

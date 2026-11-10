@@ -33,6 +33,19 @@ Execution state lives on disk under `<project>/.orchestrator/` and follows `RESU
 
 The engine never runs a gated command. The approval gate in `SAFETY.md` still applies to every dispatched skill.
 
+## Work isolation
+
+`main` is read-only. Work happens on a task branch in its own worktree.
+
+1. **Read-only requests** (questions, reviews, lookups, a report) may run anywhere, including the default branch.
+2. **Any action that writes** — a file, a commit, a tag, the state root, or git history — needs a task branch and worktree created from the default branch before the first write.
+3. **Check HEAD first.** If HEAD is `main`, create a task branch and worktree, tell the user the path, and continue there. Do not ask for permission to isolate; isolation is the default.
+4. **Never write, commit, merge, tag, push, force-push, rebase, or reset `main`.** If a request needs one of those, stop and tell the user it violates the branch policy.
+5. **Deliver through a pull request.** Push the task branch and open a pull request, then stop for approval. Never self-merge and never bypass a check.
+6. **Destructive commands** run only inside the task worktree, after the `SAFETY.md` gate has the user's explicit approval for the exact command.
+
+A specialist receives the task branch and worktree path in its brief and must stay inside it. When a skill would touch another branch or worktree, it stops and reports the conflict.
+
 ## Project start (design registry)
 
 The project root is the user's cwd for this session. It is not the `junamis-skills` package checkout. The registry lives at `<project>/docs/design/`.
@@ -125,14 +138,14 @@ You may dispatch a separate agent or sub-agent for work unrelated to the current
 
 ## Loop
 
-1. **Boot.** Run `junamis-orchestrator boot --project <cwd> --session <new id>` and read `resume-report.md` in full. Stop on exit `2`, `3`, or `4`, or when the next action says stop, needs review, or a user decision.
+1. **Isolate, then boot.** If the request can write anything, establish the task branch and worktree from the default branch first (see Work isolation), and tell the user the path. Then run `junamis-orchestrator boot --project <cwd> --session <new id>` and read `resume-report.md` in full. Stop on exit `2`, `3`, or `4`, or when the next action says stop, needs review, or a user decision.
 2. **Rehydrate.** On `RESUMING`, take the cursor, recorded skill, source, and owner from the report. On `COMPLETE`, report and stop. On `NEW_RUN`, continue.
 3. **Start the session.** If `.junamis/handoff.md` exists, load `handoff` and read it. Confirm the goal only if the new request contradicts it.
 4. **Understand and discover.** Run the two sections above. On `RESUMING`, do not rescan the user request.
 5. **Route.** Run `route` with the report and the `work-queue.json` head as its inputs. Stop on `question` after answering.
 6. **Plan.** On `NEW_RUN`, write the one task bootstrap plan after the first skill is named and call `plan set`. Replace it with `plan set --replace` when the full task graph exists.
 7. **Adapt.** If the first skill is external, run `route-external` and keep the adapter path.
-8. **Dispatch.** When the head candidate targets a task, call `start --task <task_id>` and stop if it exits `5`. Run `junamis-design-registry load --project <project> --code-path <expected path or glob> --json` and include the matching surfaces and checksums as `design_context`, or `design_context: none`. Send one skill, its owner, its brief, and the adapter if any. Wait for it to finish. Never skip past the queue head.
+8. **Dispatch.** When the head candidate targets a task, call `start --task <task_id>` and stop if it exits `5`. Run `junamis-design-registry load --project <project> --code-path <expected path or glob> --json` and include the matching surfaces and checksums as `design_context`, or `design_context: none`. Send one skill, its owner, its brief, the task branch and worktree path, and the adapter if any. Wait for it to finish. Never skip past the queue head and never let a step write outside the task worktree.
 9. **Persist and read the handoff.** Write the returned block to the state root and call `end` as described in Persistence. Read only the returned HANDOFF block.
 10. **Decide.**
     - `complete` with `next` a skill or agent: dispatch it.
@@ -177,6 +190,7 @@ External skills available for routing include `debug`, `architect`, `develop`, `
 ## Rules
 
 - Only the HANDOFF block drives control flow.
+- Stay on the task branch and worktree for any write. Never write, commit, merge, tag, push, force-push, rebase, or reset `main`; deliver through a pull request and stop for approval.
 - Keep the user's words intact when you hand them to an agent. Add only the paths, constraints, and HANDOFF block.
 - Never skip a `needs-decision`.
 - The approval gate in `SAFETY.md` applies to every dispatched skill, external ones included. Confirm the exact command with the user before an agent runs it.

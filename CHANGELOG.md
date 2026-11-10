@@ -23,6 +23,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Added the design registry CLI (`scripts/design-registry.mjs`, `src/design/`) with a strict dependency-free frontmatter and delta parser, kind schemas for `web`, `api`, `data`, `infra`, `cli`, and `other`, required common and kind-specific sections, and a body-only SHA-256 `design_checksum`.
 - Design registry writes use the state engine's atomic protocol through `src/design/atomic.js`: temp file, fsync, rename, and parent-directory fsync.
 - Design deltas are applied mechanically by `applyDelta`: `replace`, `append`, `prepend`, and `remove_line` only, with a base-checksum concurrency guard, automatic version bump, review metadata updates, an append-only change log, full re-validation, an atomic write, and `design_update` / `design_delta_rejected` journal events. A rejected delta also marks its task `needs_review`.
+- `INDEX.md` is generated from frontmatter only: sorted by `surface_id`, gap counts from `## Known gaps`, status counts, and a `Generated` timestamp derived from the newest `last_reviewed` date (or `--generated-at`) so identical input is byte-identical output.
 
 ### Security
 - The shipped `opencode.json` allows the first-party state engine command without a shell prompt while every other shell command still asks and the secret denies and hard-deny policies still apply.

@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { isInside, readText, realpathDeep } from "../orchestrator/fsx.js";
 import { applyDelta } from "./delta.js";
 import { DeltaError, UsageError, ValidationError } from "./errors.js";
+import { generateIndex, writeIndex } from "./index-gen.js";
 import { readSurface, validateDesignText, validateRegistry } from "./schema.js";
 
 const HELP = `junamis-design-registry
@@ -157,6 +158,19 @@ async function loadCommand(ctx) {
   };
 }
 
+async function indexCommand(ctx) {
+  const result = ctx.write
+    ? await writeIndex({ designRoot: ctx.designRoot, generatedAt: ctx.generatedAt })
+    : await generateIndex({ designRoot: ctx.designRoot, generatedAt: ctx.generatedAt });
+  return {
+    path: result.path ?? null,
+    generatedAt: result.generatedAt,
+    surfaceCount: result.surfaceCount,
+    statusCounts: result.statusCounts,
+    content: result.content,
+  };
+}
+
 function emit(command, ctx, result) {
   if (ctx.json) {
     process.stdout.write(`${JSON.stringify({ ok: true, command, ...result })}\n`);
@@ -175,6 +189,11 @@ function emit(command, ctx, result) {
   }
   if (command === "load") {
     process.stdout.write(`${result.body ?? ""}`);
+    return;
+  }
+  if (command === "index") {
+    if (result.path) process.stdout.write(`index: ${result.path}\n`);
+    process.stdout.write(result.content ?? "");
     return;
   }
   process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -203,6 +222,9 @@ export async function run(argv, { env = process.env, cwd = process.cwd() } = {})
         break;
       case "load":
         result = await loadCommand(ctx);
+        break;
+      case "index":
+        result = await indexCommand(ctx);
         break;
       default:
         throw new UsageError(`unknown command ${JSON.stringify(parsed.command)}`);

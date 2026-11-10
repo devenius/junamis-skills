@@ -12,6 +12,7 @@ import { exists, readText } from "../orchestrator/fsx.js";
 import { atomicWriteText } from "./atomic.js";
 import { appendDesignEvent } from "./events.js";
 import { DeltaError, ValidationError } from "./errors.js";
+import { writeIndex } from "./index-gen.js";
 import {
   canonicalSectionOrder,
   computeDesignChecksum,
@@ -507,7 +508,12 @@ export async function applyDelta({
   });
 
   let index = null;
-  if (onWritten) index = await onWritten({ designRoot, surfaceId: delta.surface_id });
+  if (onWritten) {
+    index = await onWritten({ designRoot, surfaceId: delta.surface_id });
+  } else {
+    const generated = await writeIndex({ designRoot });
+    index = { path: generated.path, generatedAt: generated.generatedAt };
+  }
   return {
     ok: true,
     unchanged: false,

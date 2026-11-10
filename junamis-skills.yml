@@ -5,7 +5,7 @@
 # and SECURITY.md.
 Name: junamis-skills
 CLI: junamis-skills
-Bins: [junamis-skills, junamis-orchestrator]
+Bins: [junamis-skills, junamis-orchestrator, junamis-design-registry, junamis-reconcile]
 License: MIT
 Status: 1.0.x (Node 26+; ESM; external installs also need the system git CLI)
 
@@ -94,7 +94,7 @@ Features:
     Reports: "resume-report.md is regenerated on every boot; STATE.md is a generated view regenerated on boot and checkpoint and never read as input."
     Reconcile: "B7.5 runs the MVP reconcile pass and writes work-queue.json plus reconcile-report.md before B8 hands the queue to route."
     CrashSafety: "Interrupted idempotent tasks retry; interrupted non-idempotent tasks escalate to needs_review."
-    Tests: "T1 crash, T2 replay, T3 manifest drift, T4 override drift, T5 lease safety, T6 escalation, and T7 torn-write recovery; D-T1 to D-T8 cover the design registry contract."
+    Tests: "T1 crash, T2 replay, T3 manifest drift, T4 override drift, T5 lease safety, T6 escalation, T7 torn-write recovery, and SIM-T1/SIM-T2 end-to-end simulation of the built CLIs from design bootstrap to no_work; D-T1 to D-T8 cover the design registry contract."
 
   DesignRegistry:
     Description: >
@@ -108,6 +108,7 @@ Features:
     Deltas: "replace, append, prepend, remove_line with a base_checksum guard, version bump, change log, atomic write, and design_update or design_delta_rejected journal event."
     Drift: "CODE_DRIFT, DEPENDENCY_DRIFT, and COVERAGE_GAP; coverage failure is gated by docs/design/_registry.json bootstrap_complete."
     Tests: "D-T1 schema, D-T2 INDEX determinism, D-T3 delta idempotency, D-T4 checksum guard, D-T5 code drift, D-T6 coverage, D-T7 deprecated guard, D-T8 resume drift; project/monorepo bootstrap and load --code-path tests."
+    PackageRegistry: "This repository's own registry holds 3 surfaces: other/overview (the single-project overview) plus the canonical web/homepage and api/get-user examples; D-T1 asserts those canonical surfaces."
 
   Reconcile:
     Description: >
@@ -254,6 +255,7 @@ Utilities:
   - "src/targets/ : one adapter per agent"
   - "scripts/check-*.mjs : config, lock, security, pack, and YAML checks, each a launcher over dist/scripts/*.js"
   - "scripts/release-check.mjs : release gate, a launcher over dist/scripts/release-check.js"
+  - "test/orchestrator-simulation.test.js : end-to-end simulation of design bootstrap, boot, plan set, reconcile, start, end, and no_work"
 
 Decisions:
   - "0001: External skills are auto-installed by init and are never vendored."
@@ -286,7 +288,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (264 tests)"
+  - "pnpm test (266 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

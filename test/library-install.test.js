@@ -6,14 +6,14 @@ import { homedir, tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { getTarget } from "../src/targets/index.js";
+import { getTarget } from "../dist/targets/index.js";
 import {
   planLibraryInstall,
   applyLibraryInstall,
   manifestPath,
   SHARED_DOCS,
   SHARED_DATA,
-} from "../src/library-install.js";
+} from "../dist/library-install.js";
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = join(PACKAGE_ROOT, "bin", "junamis-skills.js");

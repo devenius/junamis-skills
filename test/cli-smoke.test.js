@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
-import { runInit } from "../src/cli.js";
+import { runInit } from "../dist/cli.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, "..", "bin", "junamis-skills.js");

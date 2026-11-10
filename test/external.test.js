@@ -17,7 +17,7 @@ import {
   validateAgent,
   validateInstaller,
   verifyScannerIntegrity,
-} from "../src/external.js";
+} from "../dist/external.js";
 
 test("external installer rejects targets it does not support", () => {
   assert.equal(validateAgent("opencode"), "opencode");

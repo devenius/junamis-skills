@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
-import { planLibraryInstall, applyLibraryInstall } from "../src/library-install.js";
+import { planLibraryInstall, applyLibraryInstall } from "../dist/library-install.js";
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 

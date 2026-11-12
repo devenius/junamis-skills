@@ -32,8 +32,9 @@ export { manifestPath, sharedDocsDir };
 // update our files and never overwrite files the user changed by hand.
 
 // Shared docs are read from library/, except SECURITY.md, which lives at the
-// package root because it is also the repository's public scan record.
-export const SHARED_DOCS = ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md", "SECURITY.md", "RESUME.md"];
+// package root because it is also the repository's public scan record, and
+// RECONCILE.md, which lives under docs/ because it ships with the design docs.
+export const SHARED_DOCS = ["HANDOFF.md", "SAFETY.md", "EXTERNAL.md", "SECURITY.md", "RESUME.md", "RECONCILE.md"];
 // Shared data is read from the package root. The installed engine fingerprints
 // skills-lock.json, so the manifest must sit next to the installed docs.
 export const SHARED_DATA = ["skills-lock.json"];
@@ -148,7 +149,11 @@ export async function planLibraryInstall({
   }
 
   for (const doc of SHARED_DOCS) {
-    const source = doc === "SECURITY.md" ? join(packageRoot, "SECURITY.md") : join(libDir, doc);
+    const source = doc === "SECURITY.md"
+      ? join(packageRoot, "SECURITY.md")
+      : doc === "RECONCILE.md"
+        ? join(packageRoot, "docs", "RECONCILE.md")
+        : join(libDir, doc);
     files.push({ path: join(sharedDocsDir(scope, projectDir), doc), content: await readFile(source) });
   }
   for (const data of SHARED_DATA) {

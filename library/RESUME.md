@@ -424,5 +424,6 @@ This section names the reference implementation. It is not part of the normative
 - Installed command: `junamis-orchestrator`.
 - Default state root: `<project>/.orchestrator/`; `ORCH_STATE_ROOT` overrides it.
 - Commands: `boot`, `plan set`, `plan show`, `start`, `end`, `resolve`, `status`, `checkpoint`, `lease acquire|heartbeat|release|status`, and `finish`.
+- If `junamis-orchestrator` is not on `PATH`, run it through the package fallback: `npx --yes --package github:devenius/junamis-skills#main junamis-orchestrator ...`. The package's `prepare` script builds `dist/`, so the bin runs from built source.
 - Exit codes: `0` success, `1` usage or I/O, `2` lease held or lost, `3` drift, `4` corrupt state, and `5` invalid transition or handoff.
 

@@ -123,11 +123,22 @@ Because the worktree is inside the project, the original git keeps it: `git work
 ### Pull requests
 
 - Every change goes on a task branch in its own worktree. Never edit or commit on `main`.
-- When the change is ready: commit on the task branch, push it with `git push -u origin task/<task-slug>`, open a pull request, and stop for the user's approval. After the pull request merges, the task is done.
+- When the change is ready: commit on the task branch, push it with `git push -u origin task/<task-slug>`, open the pull request with `gh pr create`, report the URL, and stop. The agent's authority ends at `gh pr create`.
+- The agent never merges, never uses `--admin`, never pushes `main`, never force-pushes, never tags, and never rebases or resets `main`. The user reviews and merges; `gh pr merge`, `--admin`, and `main` pushes are denied in `opencode.json`.
 - No self-merge. No bypass. No direct push to `main`, even for the repository owner. `git push origin main`, force pushes, and `--no-verify` commits stay denied.
 - Destructive git actions (`reset --hard`, `clean`, `rebase`, force-push, tag deletion) need the user's explicit approval and run only inside the task worktree.
 - The one exception is the first push of an empty repository: a one-time user action. The user supplies and approves the instructions for that push. Every later change is a pull request.
 - CI runs on `main` and on every pull request. A pull request merges only after its checks pass and the user approves it.
+
+### Approvals are single-use
+
+Every approval covers exactly one command, in exactly one prompt, exactly once. It ends when that command finishes or fails.
+
+- It does not cover a retry, a second command, a later step, another task, another pull request, or another session.
+- A general "go ahead", "continue", "yes", or an approval of the plan is not approval for a gated command. Name the exact command and show what it changes and what cannot be undone.
+- Never ask for or rely on a persistent or always-allow. Never reuse a previous approval, including one from an earlier merge, push, install, admin override, or destructive command. Ask again every time.
+- Commands already allowed by `opencode.json` (read-only git, build, test, task-branch pushes, `gh pr create`, and `gh pr view|list|checks|edit`) are not gated. Everything in `SAFETY.md`, everything that touches `main`, and everything destructive is gated.
+- After a gated command runs once, the approval is spent. If the user wants it again, the user must repeat permission in a new prompt.
 
 ## Working rules
 
@@ -144,7 +155,7 @@ Because the worktree is inside the project, the original git keeps it: `git work
 - When a commit is a versioning release (i.e. it bumps the package version and updates the changelog for release), the commit must also be tagged with the release tag (for example `git tag v1.0.1`) in the same step. A release commit without its tag is incomplete.
 - Do not add dependencies without asking.
 - Do not run `npm publish` or `pnpm publish` without an explicit request.
-- Do not run `git commit`, `git push`, or `git tag` without an explicit request. Stage changes only when asked. Tagging a release commit still requires the user's explicit request to commit/push/tag.
+- Do not run `git commit`, `git push`, or `git tag` without an explicit request, and treat each request as single-use: it covers that one command in this prompt and is not standing permission (see "Approvals are single-use"). Stage changes only when asked. Tagging a release commit still requires the user's explicit request to commit/push/tag.
 
 ## Precedence
 

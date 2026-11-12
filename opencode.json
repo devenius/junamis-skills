@@ -2917,6 +2917,46 @@
     },
     {
       "action": "shell",
+      "resource": "git fetch *",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "git switch -c task/*",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "git checkout -b task/*",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "git merge --no-ff task/*",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "git merge task/*",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "git merge --abort",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "git worktree add .worktrees/*",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "git branch -d task/*",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
       "resource": "*.env*",
       "effect": "deny"
     },
@@ -5755,6 +5795,26 @@
     {
       "action": "tool.use",
       "resource": "shell:git push origin HEAD:main",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:git switch main",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:git checkout main",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:git branch -d main",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "shell:git branch -D main",
       "effect": "deny"
     },
     {

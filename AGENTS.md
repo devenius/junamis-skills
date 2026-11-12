@@ -102,29 +102,50 @@ To add a new agent or model:
 
 Do not hardcode agent names anywhere outside `src/targets/`.
 
-## Branch and pull request policy
+## Branch, worktrees, and pull requests
 
 `main` is protected and read-only. It is the published history, not a working tree.
 
-### Worktrees
+### Branch per prompt
 
-Every task that writes starts in its own worktree inside the project: `<project-root>/.worktrees/<task-slug>` on branch `task/<task-slug>`, created from the default branch.
+- At the start of every prompt the orchestrator runs `git branch --show-current` in the project checkout. This comes before Environment setup, `boot`, `route`, or any dispatch.
+- On `main` or a detached HEAD (the command prints `main`, or prints nothing), it runs `git fetch origin`, then `git switch -c task/<task-slug> origin/main`. When the project has no remote, it runs `git switch -c task/<task-slug> main` instead. It tells the user the branch and continues. Never work on `main` and never commit there.
+- On a task branch it continues on that branch. It does not create a second branch for the same prompt and does not switch branches mid-prompt.
+- On another task's or a sub-agent's branch it stops and asks the user which branch to use.
+- The orchestrator works in the project checkout on `task/<task-slug>` and commits there. The state root (`<project>/.orchestrator/`) and the design registry (`<project>/docs/design/`) live in that checkout.
+- Read-only work (questions, reviews, lookups) may run in the main checkout.
+
+### Delegation worktrees
+
+Every delegated task runs in its own worktree inside the project: `<project>/.worktrees/<task-slug>-<subtask>` on branch `task/<task-slug>-<subtask>`, cut from the task branch.
 
 ```bash
-git worktree add .worktrees/<task-slug> -b task/<task-slug> <default-branch>
+git worktree add .worktrees/<task-slug>-<subtask> -b task/<task-slug>-<subtask> task/<task-slug>
 ```
 
-Because the worktree is inside the project, the original git keeps it: `git worktree list` shows it. The worktree is the project root for the task: Environment setup, the state root (`<worktree>/.orchestrator/`), the design registry (`.worktrees/<task-slug>/docs/design/`), and routing all resolve there. All writes, tests, commits, and destructive commands run inside it.
+- The brief names the worktree's absolute path, the branch, and an explicit allowed-file list. The sub-agent edits only those files and reads only what the brief allows. If it needs another file, it asks the orchestrator; it never checks out or edits outside its allocation.
+- The Delegation plan records one owner per file, so two active tasks never edit the same file.
+- Specialists work only in the worktree path the orchestrator gives them. They do not ask whether to use a worktree, do not leave it, and never touch `main`.
+- **Limit: 8 worktrees.** Before creating a new one, count the `git worktree list` entries under `<project-root>/.worktrees/`. At 8 or more, prune only a worktree whose branch is merged into the task branch and whose tracked and untracked working tree is clean (`git status --porcelain` empty). Use `git worktree remove <path>`; never `rm -rf`. If no merged and clean worktree can be pruned, stop and ask the user which one to remove. Never remove an unmerged or dirty worktree.
 
-- **Limit: 8 worktrees.** Before creating a new one, count the `git worktree list` entries under `<project-root>/.worktrees/`. At 8 or more, prune only a worktree whose branch is merged into the default branch and whose tracked and untracked working tree is clean (`git status --porcelain` empty). Use `git worktree remove <path>`; never `rm -rf`. If no merged and clean worktree can be pruned, stop and ask the user which one to remove. Never remove an unmerged or dirty worktree.
-- **Specialists** work only in the worktree path the orchestrator gives them. They do not ask whether to use a worktree, do not leave it, and never touch `main`.
-- **Read-only work** (questions, reviews, lookups) may run in the main checkout.
+### Merge back
+
+When a sub-agent finishes:
+
+1. `git -C <worktree> status --porcelain` is empty, or the sub-agent committed its allocated files on its sub-branch.
+2. `git diff --name-only task/<task-slug>...task/<task-slug>-<subtask>` is a subset of the allowed files. A diff outside the allocation is a finding; do not merge.
+3. Run the task checks in the worktree.
+4. On the task branch, merge with `git merge --no-ff task/<task-slug>-<subtask>`.
+5. On conflict, run `git merge --abort`, stop, and ask the user. Never hand-edit a conflict and never force a merge.
+6. Then `git worktree remove <worktree>` and `git branch -d task/<task-slug>-<subtask>`.
+
+Sub-agents never create a pull request and never merge.
 
 ### Pull requests
 
-- Every change goes on a task branch in its own worktree. Never edit or commit on `main`.
-- When the change is ready: commit on the task branch, push it with `git push -u origin task/<task-slug>`, open the pull request with `gh pr create`, report the URL, and stop. The agent's authority ends at `gh pr create`.
-- The agent never merges, never uses `--admin`, never pushes `main`, never force-pushes, never tags, and never rebases or resets `main`. The user reviews and merges; `gh pr merge`, `--admin`, and `main` pushes are denied in `opencode.json`.
+- One pull request per approved batch. After every task is merged into `task/<task-slug>` and the full gate passes, the orchestrator summarizes the work and asks the user to approve opening the pull request.
+- On approval: commit any remaining orchestrator changes on the task branch, `git push -u origin task/<task-slug>`, open one pull request with `gh pr create`, report the URL, and stop. The agent's authority ends at `gh pr create`.
+- The orchestrator never merges, never uses `--admin`, never pushes `main`, never force-pushes, never tags, and never rebases or resets `main`. The user reviews and merges; the orchestrator never does. `gh pr merge`, `--admin`, and `main` pushes are denied in `opencode.json`.
 - No self-merge. No bypass. No direct push to `main`, even for the repository owner. `git push origin main`, force pushes, and `--no-verify` commits stay denied.
 - Destructive git actions (`reset --hard`, `clean`, `rebase`, force-push, tag deletion) need the user's explicit approval and run only inside the task worktree.
 - The one exception is the first push of an empty repository: a one-time user action. The user supplies and approves the instructions for that push. Every later change is a pull request.
@@ -155,7 +176,7 @@ Every approval covers exactly one command, in exactly one prompt, exactly once. 
 - When a commit is a versioning release (i.e. it bumps the package version and updates the changelog for release), the commit must also be tagged with the release tag (for example `git tag v1.0.1`) in the same step. A release commit without its tag is incomplete.
 - Do not add dependencies without asking.
 - Do not run `npm publish` or `pnpm publish` without an explicit request.
-- Do not run `git commit`, `git push`, or `git tag` without an explicit request, and treat each request as single-use: it covers that one command in this prompt and is not standing permission (see "Approvals are single-use"). Stage changes only when asked. Tagging a release commit still requires the user's explicit request to commit/push/tag.
+- Do not create a commit, push, or tag without an explicit request, and treat each request as single-use: it covers that one command in this prompt and is not standing permission (see "Approvals are single-use"). Stage changes only when asked. The orchestrator commits on `task/<task-slug>`. A sub-agent may commit only its allocated files on its assigned sub-branch when the delegation brief says so; it never commits to the task branch or `main`, never merges, and never opens a pull request. Tagging a release commit still requires the user's explicit request to commit/push/tag.
 
 ## Precedence
 

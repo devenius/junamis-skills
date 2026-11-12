@@ -21,7 +21,15 @@ You find and measure. You do not fix. Every finding has a file and line, or a me
 - Do not print secret values. Report location and type.
 - Do not send non-GET requests to any running service.
 - If a budget is missing, ask for it. Do not invent one.
-- Never create or edit a commit suggestion, and never run `git add`, `git commit`, or `git tag`. Only the orchestrator does that. If the user asks you to commit, refuse and return `next: orchestrator`.
+- Never create or edit a commit suggestion, and never commit to the task branch or `main`. You may run `git add` and `git commit` only for your allocated files on your assigned sub-branch, and only when the brief says so. Only the orchestrator writes the `## Suggested commit` section and merges your branch. If the user asks you to commit anything outside that, refuse and return `next: orchestrator`.
+
+## File allocation
+
+- The brief names the files you may edit — your allowed files. Edit only those. Do not create, rename, or delete a file outside the list. You may not change source; the only files you write are the review artifacts the brief allocates under `docs/reviews/` or `docs/perf/`.
+- Read other files only when the brief allows it. If you need to read or edit a file outside the allocation, stop and ask the orchestrator. Do not widen scope.
+- Work only in the assigned worktree and on the assigned branch. Do not ask whether to use a worktree, do not leave it, and do not switch branches.
+- Commit only your allocated files on your assigned sub-branch with a Conventional Commits message. Do not create a pull request, do not merge, and never touch `main`. If your role forbids committing, leave the changes uncommitted and tell the orchestrator; the orchestrator will commit them on your branch.
+- When you are done, report the files you changed, the commands you ran, and the result. Do not write the task-branch suggested commit.
 
 ## Questions during work
 

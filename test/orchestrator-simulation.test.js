@@ -84,7 +84,7 @@ test("SIM-T1 the built CLIs drive one request from bootstrap to no_work", async 
   const bootstrapped = succeeded(cli(context, DESIGN, ["bootstrap", "--json"]), "design bootstrap");
   const bootstrapResult = JSON.parse(bootstrapped.stdout);
   assert.equal(bootstrapResult.ok, true);
-  assert.deepEqual(bootstrapResult.created, ["other/overview.md"]);
+  assert.deepEqual(bootstrapResult.created.sort(), ["other/overview.md", "other/project.md"].sort());
   succeeded(cli(context, DESIGN, ["validate"]), "design validate");
   succeeded(cli(context, DESIGN, ["index", "--check"]), "design index --check");
 

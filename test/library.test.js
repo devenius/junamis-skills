@@ -263,11 +263,13 @@ test("orchestrator owns the suggested commit", () => {
   assert.match(text, /Never let a specialist/i, "orchestrator must forbid specialist commits");
 });
 
-test("specialist agents never commit", () => {
+test("specialist agents commit only their allocated files on their sub-branch", () => {
   for (const name of agentNames.filter((n) => n !== "orchestrator")) {
     const text = readFileSync(join(AGENTS_DIR, `${name}.md`), "utf8");
-    assert.match(text, /Never create or edit a commit suggestion/i, `${name}: missing commit prohibition`);
-    assert.match(text, /Only the orchestrator/i, `${name}: must defer commits to the orchestrator`);
+    assert.ok(text.includes("## File allocation"), `${name}: missing File allocation section`);
+    assert.match(text, /Commit only your allocated files on your assigned sub-branch/i, `${name}: must limit commits to its sub-branch`);
+    assert.match(text, /Do not create a pull request/i, `${name}: must forbid creating a pull request`);
+    assert.match(text, /never commit to the task branch or `main`/i, `${name}: must forbid committing to the task branch or main`);
   }
 });
 

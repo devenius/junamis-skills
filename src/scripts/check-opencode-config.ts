@@ -32,6 +32,10 @@ export const HARD_DENY_POLICIES: readonly string[] = [
   "shell:git push origin main",
   "shell:git push origin main *",
   "shell:git push origin HEAD:main",
+  "shell:git switch main",
+  "shell:git checkout main",
+  "shell:git branch -d main",
+  "shell:git branch -D main",
   "shell:git push --force *",
   "shell:git push -f *",
   "shell:git push --force-with-lease *",
@@ -152,8 +156,15 @@ export function validateConfig(config: unknown): unknown {
   expect("shell", "node scripts/orchestrator-state.mjs boot", "allow");
   expect("shell", "git status", "allow");
   expect("shell", "pnpm test", "allow");
+  expect("shell", "git fetch origin", "allow");
+  expect("shell", "git branch --show-current", "allow");
+  expect("shell", "git switch -c task/foo", "allow");
+  expect("shell", "git checkout -b task/foo", "allow");
+  expect("shell", "git merge task/foo", "allow");
+  expect("shell", "git merge --no-ff task/foo", "allow");
+  expect("shell", "git merge --abort", "allow");
   expect("shell", "git push origin task/foo", "allow");
-  expect("shell", "git worktree add .worktrees/foo -b task/foo main", "allow");
+  expect("shell", "git worktree add .worktrees/foo -b task/foo task/bar", "allow");
   expect("shell", "gh pr create --base main", "allow");
   expect("shell", "gh pr checks", "allow");
   expect("shell", "cat .env", "deny");

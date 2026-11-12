@@ -35,7 +35,8 @@ Architecture:
     - "Every task that writes runs in <project-root>/.worktrees/<task-slug> on branch task/<task-slug>, created from the default branch with git worktree add .worktrees/<task-slug> -b task/<task-slug> <default-branch>."
     - "The worktree is the project root for Environment setup, Persistence (state root <worktree>/.orchestrator/), the design registry (<worktree>/docs/design/), and route; all writes, tests, commits, and destructive commands run inside it."
     - "Worktree limit is 8: before creating one, count git worktree list entries under .worktrees/ and prune only a merged and clean worktree with git worktree remove, never rm -rf; ask the user when none qualifies."
-    - "On success the orchestrator commits on task/<task-slug>, pushes it, opens a pull request, and stops for approval; main pushes, force pushes, and --no-verify commits stay denied."
+    - "On success the orchestrator commits on task/<task-slug>, pushes it with git push -u origin task/<task-slug>, opens the pull request with gh pr create, reports the URL, and stops. Creating the pull request is the end of its authority: it never merges, never uses --admin, never pushes main, never force-pushes, never tags, and never rebases or resets main. The user reviews and merges, and the orchestrator does not poll or continue past the pull request."
+    - "Approvals are single-use: an approval covers one command in one prompt exactly once, ends when that command finishes or fails, and never carries to a retry, a second command, a later step, another task, another pull request, or another session; a general go-ahead is not approval and every gated command must be asked for again. Commands allowed by opencode.json (read-only git, build, test, task-branch pushes, gh pr create, and gh pr reads) are not gated."
   Persistence:
     - "State root: <project>/.orchestrator/ by default; ORCH_STATE_ROOT overrides it."
     - "journal.ndjson is the append-only source of truth with a hash chain; state.json, plan.json, and tasks/<task_id>/task.json are derived snapshots."
@@ -281,6 +282,7 @@ Decisions:
   - "0015: No automatic migration; status reports legacy flat files and never deletes them."
   - "0016: The orchestrator is resumable through a journal-first state engine under src/orchestrator/; boot runs before route, skills declare idempotent, and the state root is <project>/.orchestrator/ with no new runtime dependency."
   - "0017: Every writing task runs in <project-root>/.worktrees/<task-slug> on task/<task-slug>, that worktree is the project root for setup, state, design, and routing, the limit is 8 worktrees pruned only when merged and clean, and opencode.json allows /tmp, /var/tmp, and .worktrees while keeping main, force, and --no-verify pushes denied."
+  - "0018: The orchestrator's authority ends at gh pr create; it never merges, uses --admin, pushes main, force-pushes, tags, or rebases/resets main, and the user reviews and merges. Every approval is single-use: one command in one prompt, consumed when that command runs or fails, never standing, never reused. gh pr merge, main pushes, HEAD:main, and --force-with-lease are hard-denied in opencode.json and mirrored in HARD_DENY_POLICIES."
 
 Limitations:
   - "No third-party skill content is shipped; init needs network access to fetch and scan external skills."
@@ -295,7 +297,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (268 tests)"
+  - "pnpm test (274 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

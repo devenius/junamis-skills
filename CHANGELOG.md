@@ -4,6 +4,16 @@ All notable changes to this project are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+### Added
+- The design registry bootstrap now always writes the project-wide map at `docs/design/other/project.md` (`surface_id: other/project`, kind `other`, `code_paths: []`, draft, owner `library/document`). It names the project, lists every discovered target as workspace, kind, surface_id, and code_paths, and is included in the bootstrap result and the regenerated `INDEX.md`. An existing map is never rewritten.
+- `## Environment setup` in the orchestrator prompt. Before `boot`, `route`, or any dispatch the orchestrator resolves the project root as the user's cwd, checks the four installed library files, ensures the state CLI, checks the four required design registry files (`_schema.md`, `INDEX.md`, `_registry.json`, `other/project.md`), and bootstraps a missing registry only after asking once. A declined bootstrap continues with `design_context: none` and records the missing registry.
+- `docs/RECONCILE.md` is installed as a shared doc next to `RESUME.md` and is published in the package file set.
+
+### Changed
+- The orchestrator never skips a state or design step because a bin is missing. It prefers `junamis-orchestrator` and `junamis-design-registry` on `PATH` and falls back to `npx --yes --package github:devenius/junamis-skills#main ...`; the package `prepare` script builds `dist/` for that fallback.
+- The orchestrator must call `start` before every dispatch, `end` after it, and close every session with `checkpoint` plus `finish` or `lease release`. A task with no `start`/`end` is not a completed run.
+- `RESUME.md` reference implementation documents the `npx --package` fallback for the state CLI; the normative contract is unchanged.
+
 ### Fixed
 - Git installs (`npx github:...`) now build `dist/` through the `prepare` script, so the bin can load the CLI.
 

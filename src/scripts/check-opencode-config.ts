@@ -29,7 +29,11 @@ const V1_ONLY_KEYS: readonly string[] = [
 const EFFECTS = new Set(["allow", "ask", "deny"]);
 
 export const HARD_DENY_POLICIES: readonly string[] = [
-  "shell:git push *",
+  "shell:git push origin main",
+  "shell:git push --force *",
+  "shell:git push -f *",
+  "shell:git commit --no-verify *",
+  "shell:gh pr merge *",
   "shell:git reset --hard *",
   "shell:git clean *",
   "shell:sudo *",
@@ -136,10 +140,18 @@ export function validateConfig(config: unknown): unknown {
   expect("grep", ".env", "deny");
 
   expect("external_directory", "/etc/passwd", "deny");
+  expect("external_directory", "/tmp/opencode/work", "allow");
+  expect("external_directory", ".worktrees/task/file", "allow");
 
   expect("shell", "echo hi", "ask");
   expect("shell", "junamis-orchestrator boot", "allow");
   expect("shell", "node scripts/orchestrator-state.mjs boot", "allow");
+  expect("shell", "git status", "allow");
+  expect("shell", "pnpm test", "allow");
+  expect("shell", "git push origin task/foo", "allow");
+  expect("shell", "git worktree add .worktrees/foo -b task/foo main", "allow");
+  expect("shell", "gh pr create --base main", "allow");
+  expect("shell", "gh pr checks", "allow");
   expect("shell", "cat .env", "deny");
 
   expect("webfetch", "https://example.com", "ask");

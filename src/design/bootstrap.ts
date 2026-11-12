@@ -280,6 +280,40 @@ export function overviewBody({ kind, app = null, codePaths = [], date, monorepo 
   ].join("\n\n");
 }
 
+export interface ProjectMapBodyInput {
+  readonly projectName: string;
+  readonly targets: readonly BootstrapTarget[];
+  readonly date: string;
+}
+
+// The project-wide map is the entry point to the registry: it names every
+// discovered target and links the reader to the per-surface docs. It is always
+// a draft and never claims a code path of its own.
+export function projectMapBody({ projectName, targets, date }: ProjectMapBodyInput): string {
+  const rows = targets.map((target) => {
+    const paths = target.code_paths.length > 0
+      ? target.code_paths.map((path) => `\`${path}\``).join(", ")
+      : "(none)";
+    return `| \`${target.dir}\` | ${target.kind} | \`${target.surface_id}\` | ${paths} |`;
+  });
+  const state = [
+    `Project: \`${projectName}\`. Bootstrap discovered ${targets.length} target${targets.length === 1 ? "" : "s"}.`,
+    "",
+    "| workspace | kind | surface_id | code_paths |",
+    "|-----------|------|------------|------------|",
+    ...(rows.length > 0 ? rows : ["| `(root)` | other | - | (none) |"]),
+  ].join("\n");
+  return [
+    section("Intent", "This is the project-wide design map. Read it with `_schema.md`, `INDEX.md`, and the per-surface docs."),
+    section("Current state", state),
+    section(
+      "Known gaps",
+      "- Confirm each target boundary and owner.\n- Split page, endpoint, entity, or resource surfaces out of the target overviews as work begins.\n- Fill in cross-target contracts.",
+    ),
+    section("Change log", `- ${date} · v0.1.0 · Created the project-wide design map · bootstrap · library/document`),
+  ].join("\n\n");
+}
+
 interface SurfaceTextInput {
   readonly surfaceId: string;
   readonly kind: DesignKind;
@@ -359,6 +393,10 @@ export async function bootstrapRegistry({ projectRoot, now = null }: BootstrapOp
   const targets: BootstrapTarget[] = [];
 
   const schemaCopied = await ensureSchema(designRoot);
+  const rootPackage = await readPackage(root);
+  const projectName = typeof rootPackage?.["name"] === "string" && rootPackage["name"].length > 0
+    ? rootPackage["name"]
+    : basename(root);
   const discovered = await discoverTargets(root);
   for (const target of discovered) {
     const dir = target.dir === "." ? root : join(root, target.dir);
@@ -400,6 +438,27 @@ export async function bootstrapRegistry({ projectRoot, now = null }: BootstrapOp
     await atomicWriteJson(registryPath, { bootstrap_complete: false });
     registryCreated = true;
   }
+
+  // Every registry gets one project-wide map. It is written after the target
+  // overviews so its table can list them, and it is never rewritten when it
+  // already exists.
+  const projectMapSurfaceId = "other/project";
+  const projectMapText = surfaceText({
+    surfaceId: projectMapSurfaceId,
+    kind: "other",
+    app: null,
+    codePaths: [],
+    body: projectMapBody({ projectName, targets, date }),
+    date,
+    commit,
+  });
+  await writeSurface({
+    designRoot,
+    surfaceId: projectMapSurfaceId,
+    text: projectMapText,
+    created,
+    skipped,
+  });
 
   const index = await writeIndex({ designRoot });
   return {

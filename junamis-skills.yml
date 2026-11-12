@@ -28,6 +28,7 @@ Architecture:
     - "src/targets/ is the only place that knows agent-specific paths and agent-definition formats."
     - "library/ holds owned skills, agents, and shared docs; it is published with the package."
     - "library/RESUME.md is the normative persistence and resume contract."
+    - "docs/RECONCILE.md is the work-queue contract and installs as a shared doc next to RESUME.md."
     - "skills-lock.json is the single source of truth for external skills."
     - "SECURITY.md is the scan record for every internal and external skill."
   Persistence:
@@ -102,13 +103,13 @@ Features:
       orchestrator fingerprints, loads by code path before dispatch, and skills
       update only through design deltas.
     Commands: "junamis-design-registry validate, load --surface|--code-path, apply, index, drift, bootstrap, fingerprint"
-    Bootstrap: "One draft overview per project, or per app/package in a monorepo; copies the package schema, creates _registry.json with bootstrap_complete false, and never promotes a draft."
+    Bootstrap: "Always writes the project-wide map docs/design/other/project.md, plus one draft overview per project, or per app/package in a monorepo; copies the package schema, creates _registry.json with bootstrap_complete false, regenerates INDEX.md, and never promotes a draft."
     Schemas: "web, api, data, infra, cli, and other; common Intent, Current state, Known gaps, and Change log sections plus kind sections."
     Checksum: "sha256 over the canonicalized body in fixed section order; frontmatter excluded."
     Deltas: "replace, append, prepend, remove_line with a base_checksum guard, version bump, change log, atomic write, and design_update or design_delta_rejected journal event."
     Drift: "CODE_DRIFT, DEPENDENCY_DRIFT, and COVERAGE_GAP; coverage failure is gated by docs/design/_registry.json bootstrap_complete."
     Tests: "D-T1 schema, D-T2 INDEX determinism, D-T3 delta idempotency, D-T4 checksum guard, D-T5 code drift, D-T6 coverage, D-T7 deprecated guard, D-T8 resume drift; project/monorepo bootstrap and load --code-path tests."
-    PackageRegistry: "This repository's own registry holds 3 surfaces: cli/overview (the single-project bootstrap overview, detected as cli from package.json bin) plus the canonical web/homepage and api/get-user examples; D-T1 asserts those canonical surfaces."
+    PackageRegistry: "This repository's own registry holds 4 surfaces: cli/overview (the single-project bootstrap overview, detected as cli from package.json bin), other/project (the project-wide map), plus the canonical web/homepage and api/get-user examples; D-T1 asserts those canonical surfaces."
 
   Reconcile:
     Description: >
@@ -127,7 +128,7 @@ Features:
   Library:
     OwnedSkills: 20
     OwnedAgents: 9
-    SharedDocs: [HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md, RESUME.md]
+    SharedDocs: [HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md, RESUME.md, RECONCILE.md]
     CanonicalAgents: "Written once to <configRoot>/agents; linked into the target agents directory."
     LinkRules: "A correct link is unchanged; a missing link is created; an identical regular file is adopted; a differing file or wrong link is a conflict unless --force; a failed symlink falls back to a copy with a warning."
     ConflictRule: "Never overwrite a file the user edited unless --force."
@@ -223,7 +224,7 @@ CLIOptions:
 InstalledPaths:
   "~/.config/junamis/skills/skills": "internal (library) skills, OpenCode"
   "~/.config/junamis/skills/agents": "canonical agent definitions"
-  "~/.config/junamis/skills/*.md": "shared docs: HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md, RESUME.md"
+  "~/.config/junamis/skills/*.md": "shared docs: HANDOFF.md, SAFETY.md, EXTERNAL.md, SECURITY.md, RESUME.md, RECONCILE.md"
   "~/.config/junamis/skills/skills-lock.json": "installed external-skill manifest used by the state engine fingerprint"
   "~/.config/junamis/skills/installed/library-<agent>.json": "library install manifest"
   "~/.config/opencode/agents": "OpenCode agent links to the canonical files"
@@ -288,7 +289,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (266 tests)"
+  - "pnpm test (267 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

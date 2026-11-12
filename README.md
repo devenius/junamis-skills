@@ -79,7 +79,7 @@ Other agents are added on request, one target file each under `src/targets/`.
 - Internal (library) skills: `<internal skills directory>/<name>/SKILL.md`
 - Canonical agents: `~/.config/junamis/skills/agents/<name>.md`
 - Agent links: `<target agents directory>/<name>.md` → the canonical file
-- Shared rules the agents read: `~/.config/junamis/skills/` (`HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`, `SECURITY.md`, `RESUME.md`)
+- Shared rules the agents read: `~/.config/junamis/skills/` (`HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`, `SECURITY.md`, `RESUME.md`, `RECONCILE.md`)
 - Installed manifest for the state engine: `~/.config/junamis/skills/skills-lock.json`
 - Install record: `~/.config/junamis/skills/installed/library-<agent>.json`
 - Project scope: `<project>/.config/junamis/skills/{skills,agents,*.md,installed}` mirrors the internal side. External skills stay at the target's project skills directory, and project agent links stay at its project agents directory.
@@ -104,7 +104,7 @@ The `junamis-orchestrator` bin also exposes `plan set`, `plan show`, `start`, `e
 - **Single writer.** A lease under `locks/` prevents two sessions from writing one state root. A stale lease is taken over; a live lease halts the second session.
 - **Drift gate.** `skills-lock.json` and the library override map are fingerprinted at plan time. A manifest or `library/` change makes boot report `BLOCKED_DRIFT` and refuse to dispatch.
 - **Idempotent or escalate.** Every library skill declares `idempotent: true | false` in its frontmatter. An interrupted `true` step is retried; an interrupted `false` step becomes `needs_review` and waits for a user decision. An external skill records the value in its adapter and defaults to `false` when upstream does not declare one.
-- **Contract.** `RESUME.md` is installed with `HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`, and `SECURITY.md` at the config root and is the normative persistence contract.
+- **Contract.** `RESUME.md` is installed with `HANDOFF.md`, `SAFETY.md`, `EXTERNAL.md`, `SECURITY.md`, and `RECONCILE.md` at the config root and is the normative persistence contract. `RECONCILE.md` is the work-queue contract that decides what runs next.
 
 The state engine lives under `src/orchestrator/`, uses only Node 26 built-in modules, and adds no runtime dependency.
 

@@ -7,11 +7,12 @@ one.
 ## The package's own registry
 
 This repository keeps a deliberately small registry: `cli/overview` is the
-single-project overview, and `web/homepage` plus `api/get-user` are the
-canonical examples the schema documents. Before 1.0.0 the registry also held
-one draft per source file (`src-*`, `scripts-*`, `bin-*`, 55 surfaces in all).
-That per-file scan described files, not surfaces, so it was removed in favor of
-one overview that later surfaces can split from.
+single-project overview, `other/project` is the project-wide map, and
+`web/homepage` plus `api/get-user` are the canonical examples the schema
+documents. Before 1.0.0 the registry also held one draft per source file
+(`src-*`, `scripts-*`, `bin-*`, 55 surfaces in all). That per-file scan
+described files, not surfaces, so it was removed in favor of one overview that
+later surfaces can split from.
 
 `cli/overview` is the real bootstrap output: `package.json` has `bin`, so kind
 detection resolves `cli`. It claims `src/**`, `bin/**`, and `scripts/**` and
@@ -53,13 +54,22 @@ Workspaces are discovered from root `package.json` `workspaces` (array or
   `code_paths: ["<app-dir>/**"]`.
 - A single project gets `docs/design/<kind>/overview.md` with no `app` and
   code paths from its detected source roots.
+- Every project, monorepo or single, also gets the project-wide map at
+  `docs/design/other/project.md` (`surface_id: other/project`, `code_paths: []`).
+  It names the project, lists every discovered target as workspace, kind,
+  surface_id, and code_paths, and is the entry point a reader starts from
+  alongside `_schema.md`, `INDEX.md`, and the per-surface docs.
 
 The kind is detected from dependencies, `bin`, and conventional directories:
 `web`, `api`, `data`, `infra`, `cli`, then `other`. Bootstrap creates drafts
 only. `web/homepage.md` and `api/get-user.md` are examples in this package, not
 a template every project receives.
 
-The orchestrator must ask before bootstrapping a missing registry. Before a
+The orchestrator's Environment setup section checks the four required registry
+files (`_schema.md`, `INDEX.md`, `_registry.json`, and `other/project.md`),
+asks once before bootstrapping a missing registry, and resolves
+`junamis-design-registry` through `npx --package
+github:devenius/junamis-skills#main` when the bin is not on `PATH`. Before a
 dispatch it runs `load --code-path <path or glob>` and passes the matching
 surfaces and checksums as `design_context`; an unmatched path is
 `design_context: none` and the skill must say whether it should have matched.

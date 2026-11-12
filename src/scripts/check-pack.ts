@@ -24,6 +24,7 @@ const REQUIRED_FILES: readonly string[] = [
   "scripts/design-registry.mjs",
   "scripts/reconcile.mjs",
   "docs/design/_schema.md",
+  "docs/RECONCILE.md",
   "library/agents/orchestrator.md",
   "library/skills/route/SKILL.md",
   "library/RESUME.md",

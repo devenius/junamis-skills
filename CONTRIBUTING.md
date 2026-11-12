@@ -74,11 +74,21 @@ node scripts/design-registry.mjs index --check
 
 ## 4. Open the pull request and stop
 
-Commit on `task/<task-slug>`, push that branch (`git push -u origin task/<task-slug>`), open the pull request, and fill in `.github/pull_request_template.md`. Stop for the user's approval. After the pull request merges, the task is done.
+Commit on `task/<task-slug>`, push that branch (`git push -u origin task/<task-slug>`), open the pull request with `gh pr create`, fill in `.github/pull_request_template.md`, report the URL, and stop. The agent's authority ends at `gh pr create`: it never merges, never uses `--admin`, never pushes `main`, never force-pushes, never tags, and never rebases or resets `main`. The user reviews and merges.
 
 ```bash
 git push -u origin task/<task-slug>
 gh pr create --base main --head task/<task-slug> --fill
 ```
 
-No self-merge. No bypassing a check. Never push `main`, force-push, or commit with `--no-verify`; those stay denied. A destructive git action (`reset --hard`, `clean`, `rebase`, force-push) needs the user's explicit approval and runs only inside the task worktree.
+No self-merge. No bypassing a check. Never push `main`, force-push, or commit with `--no-verify`; those stay denied, and `gh pr merge`, `--admin`, and `main` pushes are hard-denied in `opencode.json`. A destructive git action (`reset --hard`, `clean`, `rebase`, force-push) needs the user's explicit approval and runs only inside the task worktree.
+
+## 5. Approvals are single-use
+
+Every approval covers exactly one command, in exactly one prompt, exactly once. It ends when that command finishes or fails.
+
+- It does not cover a retry, a second command, a later step, another task, another pull request, or another session.
+- A general "go ahead", "continue", "yes", or an approval of the plan is not approval for a gated command. Name the exact command and show what it changes and what cannot be undone.
+- Never ask for or rely on a persistent or always-allow. Never reuse a previous approval, including one from an earlier merge, push, install, admin override, or destructive command. Ask again every time.
+- Commands already allowed by `opencode.json` (read-only git, build, test, task-branch pushes, and `gh pr` reads) are not gated. Everything in `SAFETY.md`, everything that touches `main`, and everything destructive is gated.
+- After a gated command runs once, the approval is spent. If the user wants it again, the user must repeat permission in a new prompt.

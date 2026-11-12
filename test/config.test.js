@@ -88,9 +88,13 @@ test("opencode.json ships no MCP servers or plugins and keeps updates and format
 test("opencode.json carries the hard-deny policies", () => {
   assert.deepEqual(config.policies, [
     { action: "tool.use", resource: "shell:git push origin main", effect: "deny" },
+    { action: "tool.use", resource: "shell:git push origin main *", effect: "deny" },
+    { action: "tool.use", resource: "shell:git push origin HEAD:main", effect: "deny" },
     { action: "tool.use", resource: "shell:git push --force *", effect: "deny" },
     { action: "tool.use", resource: "shell:git push -f *", effect: "deny" },
+    { action: "tool.use", resource: "shell:git push --force-with-lease *", effect: "deny" },
     { action: "tool.use", resource: "shell:git commit --no-verify *", effect: "deny" },
+    { action: "tool.use", resource: "shell:gh pr merge", effect: "deny" },
     { action: "tool.use", resource: "shell:gh pr merge *", effect: "deny" },
     { action: "tool.use", resource: "shell:git reset --hard *", effect: "deny" },
     { action: "tool.use", resource: "shell:git clean *", effect: "deny" },
@@ -106,7 +110,7 @@ test("opencode.json carries the hard-deny policies", () => {
   ]);
 });
 
-test("worktree branch pushes are allowed while main, force, and no-verify stay denied", () => {
+test("worktree branch pushes and pull request creation are allowed while main, merge, force, no-verify, and admin stay denied", () => {
   const policyEffect = (command) =>
     effectFor(
       config.policies
@@ -117,12 +121,21 @@ test("worktree branch pushes are allowed while main, force, and no-verify stay d
     );
 
   assert.equal(effect("shell", "git push origin task/foo"), "allow");
+  assert.equal(effect("shell", "git push -u origin task/foo"), "allow");
+  assert.equal(effect("shell", "gh pr create --base main"), "allow");
   assert.equal(policyEffect("git push origin task/foo"), null);
+  assert.equal(policyEffect("gh pr create --base main"), null);
+
   assert.equal(policyEffect("git push origin main"), "deny");
+  assert.equal(policyEffect("git push origin main --tags"), "deny");
+  assert.equal(policyEffect("git push origin HEAD:main"), "deny");
   assert.equal(policyEffect("git push --force origin task/foo"), "deny");
   assert.equal(policyEffect("git push -f origin task/foo"), "deny");
+  assert.equal(policyEffect("git push --force-with-lease origin task/foo"), "deny");
   assert.equal(policyEffect("git commit --no-verify -m done"), "deny");
+  assert.equal(policyEffect("gh pr merge"), "deny");
   assert.equal(policyEffect("gh pr merge 1"), "deny");
+  assert.equal(policyEffect("gh pr merge 1 --admin"), "deny");
 });
 
 test("opencode.json registers both internal and external skill roots", () => {
@@ -225,6 +238,27 @@ test("validateConfig rejects V1 and weakened V2 configurations", () => {
       "formatter enabled",
       (copy) => { copy.formatter = true; },
       /formatter must be false/,
+    ],
+    [
+      "removed bare gh pr merge deny",
+      (copy) => {
+        copy.policies = copy.policies.filter((rule) => rule.resource !== "shell:gh pr merge");
+      },
+      /policies must hard-deny shell:gh pr merge/,
+    ],
+    [
+      "removed main push deny",
+      (copy) => {
+        copy.policies = copy.policies.filter((rule) => rule.resource !== "shell:git push origin HEAD:main");
+      },
+      /policies must hard-deny shell:git push origin HEAD:main/,
+    ],
+    [
+      "removed force-with-lease deny",
+      (copy) => {
+        copy.policies = copy.policies.filter((rule) => rule.resource !== "shell:git push --force-with-lease *");
+      },
+      /policies must hard-deny shell:git push --force-with-lease \*/,
     ],
   ];
 

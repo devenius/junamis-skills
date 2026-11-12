@@ -30,9 +30,13 @@ const EFFECTS = new Set(["allow", "ask", "deny"]);
 
 export const HARD_DENY_POLICIES: readonly string[] = [
   "shell:git push origin main",
+  "shell:git push origin main *",
+  "shell:git push origin HEAD:main",
   "shell:git push --force *",
   "shell:git push -f *",
+  "shell:git push --force-with-lease *",
   "shell:git commit --no-verify *",
+  "shell:gh pr merge",
   "shell:gh pr merge *",
   "shell:git reset --hard *",
   "shell:git clean *",

@@ -20,6 +20,8 @@
 - [ ] No `dist/`, `node_modules/`, `.orchestrator/`, `.worktrees/`, `.junamis/`, state, or worktree files are staged.
 - [ ] `CHANGELOG.md` is updated for this change.
 - [ ] The pull request is ready for the user's review. It is not self-merged and no check is bypassed.
+- [ ] This PR was created by the agent and not merged by it; `main` was not pushed, and no `--admin` merge or force push was attempted.
+- [ ] Every approval used in this task was single-use and no approval was reused: one command, one prompt, once, asked again each time.
 
 ## Risk and rollback
 

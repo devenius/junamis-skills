@@ -32,10 +32,13 @@ Architecture:
     - "skills-lock.json is the single source of truth for external skills."
     - "SECURITY.md is the scan record for every internal and external skill."
   WorkIsolation:
-    - "Every task that writes runs in <project-root>/.worktrees/<task-slug> on branch task/<task-slug>, created from the default branch with git worktree add .worktrees/<task-slug> -b task/<task-slug> <default-branch>."
-    - "The worktree is the project root for Environment setup, Persistence (state root <worktree>/.orchestrator/), the design registry (<worktree>/docs/design/), and route; all writes, tests, commits, and destructive commands run inside it."
-    - "Worktree limit is 8: before creating one, count git worktree list entries under .worktrees/ and prune only a merged and clean worktree with git worktree remove, never rm -rf; ask the user when none qualifies."
-    - "On success the orchestrator commits on task/<task-slug>, pushes it with git push -u origin task/<task-slug>, opens the pull request with gh pr create, reports the URL, and stops. Creating the pull request is the end of its authority: it never merges, never uses --admin, never pushes main, never force-pushes, never tags, and never rebases or resets main. The user reviews and merges, and the orchestrator does not poll or continue past the pull request."
+    - "Every orchestrator prompt starts with git branch --show-current. On main or a detached HEAD it runs git fetch origin and git switch -c task/<task-slug> origin/main (or git switch -c task/<task-slug> main with no remote) and continues on that branch; on a task branch it continues; it never works on main."
+    - "The orchestrator works in the project checkout on task/<task-slug> and commits there; the state root (<project>/.orchestrator/) and the design registry (<project>/docs/design/) live in that checkout."
+    - "The Delegation plan in <state-root>/delegation.md assigns every file to exactly one task and records owner, depends on, worktree, branch, allowed files, and done proof; dependency order decides dispatch."
+    - "Each delegated task runs in <project>/.worktrees/<task-slug>-<subtask> on task/<task-slug>-<subtask>, cut from the task branch, and may edit only the allowed files; any other file asks the orchestrator, and the sub-agent never creates a pull request."
+    - "When a sub-agent finishes, the orchestrator verifies the diff is a subset of the allowed files, runs the task checks, merges with git merge --no-ff, removes the worktree with git worktree remove, and deletes the merged sub-branch with git branch -d; on conflict it runs git merge --abort, stops, and asks the user."
+    - "Worktree limit is 8: before creating one, count git worktree list entries under .worktrees/ and prune only a worktree merged into the task branch and clean with git worktree remove, never rm -rf; ask the user when none qualifies."
+    - "After every task is merged and the full gate passes, the orchestrator asks the user for approval, pushes task/<task-slug> with git push -u origin task/<task-slug>, opens one pull request with gh pr create, reports the URL, and stops. Creating the pull request is the end of its authority: it never merges, never uses --admin, never pushes main, never force-pushes, never tags, and never rebases or resets main. The user reviews and merges."
     - "Approvals are single-use: an approval covers one command in one prompt exactly once, ends when that command finishes or fails, and never carries to a retry, a second command, a later step, another task, another pull request, or another session; a general go-ahead is not approval and every gated command must be asked for again. Commands allowed by opencode.json (read-only git, build, test, task-branch pushes, gh pr create, and gh pr reads) are not gated."
   Persistence:
     - "State root: <project>/.orchestrator/ by default; ORCH_STATE_ROOT overrides it."
@@ -281,8 +284,9 @@ Decisions:
   - "0014: Agent definitions are written once to the canonical agents directory and symlinked into each target; a failed symlink falls back to a copy with a warning."
   - "0015: No automatic migration; status reports legacy flat files and never deletes them."
   - "0016: The orchestrator is resumable through a journal-first state engine under src/orchestrator/; boot runs before route, skills declare idempotent, and the state root is <project>/.orchestrator/ with no new runtime dependency."
-  - "0017: Every writing task runs in <project-root>/.worktrees/<task-slug> on task/<task-slug>, that worktree is the project root for setup, state, design, and routing, the limit is 8 worktrees pruned only when merged and clean, and opencode.json allows /tmp, /var/tmp, and .worktrees while keeping main, force, and --no-verify pushes denied."
+  - "0017: Every writing task runs in <project-root>/.worktrees/<task-slug> on task/<task-slug>, that worktree is the project root for setup, state, design, and routing, the limit is 8 worktrees pruned only when merged and clean, and opencode.json allows /tmp, /var/tmp, and .worktrees while keeping main, force, and --no-verify pushes denied. Superseded by 0019 for the branch-per-prompt and per-subtask worktree model; the 8-worktree limit and path allows still apply."
   - "0018: The orchestrator's authority ends at gh pr create; it never merges, uses --admin, pushes main, force-pushes, tags, or rebases/resets main, and the user reviews and merges. Every approval is single-use: one command in one prompt, consumed when that command runs or fails, never standing, never reused. gh pr merge, main pushes, HEAD:main, and --force-with-lease are hard-denied in opencode.json and mirrored in HARD_DENY_POLICIES."
+  - "0019: The orchestrator checks git branch --show-current at the start of every prompt and creates task/<task-slug> from the latest default branch when on main or a detached HEAD. It works and commits in the project checkout on that branch, plans the delegation with one owner per file, gives each delegated task its own .worktrees/<task-slug>-<subtask> worktree and allowed-file list, merges each sub-branch back with git merge --no-ff, removes the worktree, and opens one pull request per approved batch. Sub-agents commit only their allocated files on their sub-branch, never merge, and never create a pull request. git switch/checkout main and git branch -d/-D main are hard-denied."
 
 Limitations:
   - "No third-party skill content is shipped; init needs network access to fetch and scan external skills."
@@ -297,7 +301,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (274 tests)"
+  - "pnpm test (277 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

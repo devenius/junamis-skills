@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -70,4 +70,38 @@ test("the pull request template records that the agent created but did not merge
   assert.match(TEMPLATE, /`main` was not pushed/i);
   assert.match(TEMPLATE, /Every approval used in this task was single-use/i);
   assert.match(TEMPLATE, /no approval was reused/i);
+});
+
+test("the orchestrator checks the branch and designs the delegation", () => {
+  assert.match(ORCHESTRATOR, /## Branch and worktree isolation/);
+  assert.match(ORCHESTRATOR, /git branch --show-current/);
+  assert.match(ORCHESTRATOR, /git switch -c task\/<task-slug>/);
+  assert.match(ORCHESTRATOR, /## Delegation plan/);
+  assert.match(ORCHESTRATOR, /allowed files/i);
+  assert.match(ORCHESTRATOR, /git merge --no-ff/);
+  assert.match(ORCHESTRATOR, /one pull request/i);
+  assert.match(ORCHESTRATOR, /the user merges/i);
+});
+
+test("AGENTS.md and CONTRIBUTING.md record the branch-per-prompt and worktree merge-back flow", () => {
+  for (const text of [AGENTS, CONTRIBUTING]) {
+    assert.match(text, /git branch --show-current/);
+    assert.match(text, /git switch -c task\/<task-slug>/);
+    assert.match(text, /allowed files/i);
+    assert.match(text, /git merge --no-ff/);
+    assert.match(text, /one pull request/i);
+    assert.match(text, /The user reviews and merges; the orchestrator never does\./);
+  }
+});
+
+test("every specialist agent has a file allocation and never opens a pull request", () => {
+  const agents = readdirSync(join(ROOT, "library", "agents"))
+    .filter((name) => name.endsWith(".md") && name !== "orchestrator.md");
+  assert.ok(agents.length > 0, "no specialist agents found");
+  for (const file of agents) {
+    const text = read(join("library", "agents", file));
+    assert.match(text, /## File allocation/, `${file} must have a File allocation section`);
+    assert.match(text, /Do not create a pull request/i, `${file} must forbid creating a pull request`);
+  }
+  assert.match(ORCHESTRATOR, /Sub-agents never create a pull request/i);
 });

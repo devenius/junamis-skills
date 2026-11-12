@@ -61,7 +61,13 @@ test("opencode.json expresses the reviewed read, edit, shell, and network postur
   assert.equal(effect("shell", "git status"), "allow");
   assert.equal(effect("shell", "pnpm test"), "allow");
   assert.equal(effect("shell", "git push origin task/foo"), "allow");
-  assert.equal(effect("shell", "git worktree add .worktrees/foo -b task/foo main"), "allow");
+  assert.equal(effect("shell", "git fetch origin"), "allow");
+  assert.equal(effect("shell", "git switch -c task/foo"), "allow");
+  assert.equal(effect("shell", "git checkout -b task/foo"), "allow");
+  assert.equal(effect("shell", "git merge task/foo"), "allow");
+  assert.equal(effect("shell", "git merge --no-ff task/foo"), "allow");
+  assert.equal(effect("shell", "git merge --abort"), "allow");
+  assert.equal(effect("shell", "git worktree add .worktrees/foo -b task/foo task/bar"), "allow");
   assert.equal(effect("shell", "gh pr create --base main"), "allow");
   assert.equal(effect("shell", "gh pr checks"), "allow");
   assert.equal(effect("shell", "cat .env"), "deny");
@@ -90,6 +96,10 @@ test("opencode.json carries the hard-deny policies", () => {
     { action: "tool.use", resource: "shell:git push origin main", effect: "deny" },
     { action: "tool.use", resource: "shell:git push origin main *", effect: "deny" },
     { action: "tool.use", resource: "shell:git push origin HEAD:main", effect: "deny" },
+    { action: "tool.use", resource: "shell:git switch main", effect: "deny" },
+    { action: "tool.use", resource: "shell:git checkout main", effect: "deny" },
+    { action: "tool.use", resource: "shell:git branch -d main", effect: "deny" },
+    { action: "tool.use", resource: "shell:git branch -D main", effect: "deny" },
     { action: "tool.use", resource: "shell:git push --force *", effect: "deny" },
     { action: "tool.use", resource: "shell:git push -f *", effect: "deny" },
     { action: "tool.use", resource: "shell:git push --force-with-lease *", effect: "deny" },
@@ -110,7 +120,7 @@ test("opencode.json carries the hard-deny policies", () => {
   ]);
 });
 
-test("worktree branch pushes and pull request creation are allowed while main, merge, force, no-verify, and admin stay denied", () => {
+test("task-branch work is allowed while main, merge, force, no-verify, and admin stay denied", () => {
   const policyEffect = (command) =>
     effectFor(
       config.policies
@@ -122,10 +132,18 @@ test("worktree branch pushes and pull request creation are allowed while main, m
 
   assert.equal(effect("shell", "git push origin task/foo"), "allow");
   assert.equal(effect("shell", "git push -u origin task/foo"), "allow");
+  assert.equal(effect("shell", "git switch -c task/foo"), "allow");
+  assert.equal(effect("shell", "git checkout -b task/foo"), "allow");
+  assert.equal(effect("shell", "git merge --no-ff task/foo"), "allow");
+  assert.equal(effect("shell", "git merge --abort"), "allow");
   assert.equal(effect("shell", "gh pr create --base main"), "allow");
   assert.equal(policyEffect("git push origin task/foo"), null);
   assert.equal(policyEffect("gh pr create --base main"), null);
 
+  assert.equal(policyEffect("git switch main"), "deny");
+  assert.equal(policyEffect("git checkout main"), "deny");
+  assert.equal(policyEffect("git branch -d main"), "deny");
+  assert.equal(policyEffect("git branch -D main"), "deny");
   assert.equal(policyEffect("git push origin main"), "deny");
   assert.equal(policyEffect("git push origin main --tags"), "deny");
   assert.equal(policyEffect("git push origin HEAD:main"), "deny");
@@ -252,6 +270,34 @@ test("validateConfig rejects V1 and weakened V2 configurations", () => {
         copy.policies = copy.policies.filter((rule) => rule.resource !== "shell:git push origin HEAD:main");
       },
       /policies must hard-deny shell:git push origin HEAD:main/,
+    ],
+    [
+      "removed main switch deny",
+      (copy) => {
+        copy.policies = copy.policies.filter((rule) => rule.resource !== "shell:git switch main");
+      },
+      /policies must hard-deny shell:git switch main/,
+    ],
+    [
+      "removed main checkout deny",
+      (copy) => {
+        copy.policies = copy.policies.filter((rule) => rule.resource !== "shell:git checkout main");
+      },
+      /policies must hard-deny shell:git checkout main/,
+    ],
+    [
+      "removed forced main branch delete deny",
+      (copy) => {
+        copy.policies = copy.policies.filter((rule) => rule.resource !== "shell:git branch -D main");
+      },
+      /policies must hard-deny shell:git branch -D main/,
+    ],
+    [
+      "removed main branch delete deny",
+      (copy) => {
+        copy.policies = copy.policies.filter((rule) => rule.resource !== "shell:git branch -d main");
+      },
+      /policies must hard-deny shell:git branch -d main/,
     ],
     [
       "removed force-with-lease deny",

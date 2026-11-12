@@ -157,7 +157,8 @@ test("SIM-T1 the built CLIs drive one request from bootstrap to no_work", async 
 
 test("SIM-T2 the orchestrator prompt isolates work and routes from the queue head", () => {
   const prompt = readFileSync(join(ROOT, "library", "agents", "orchestrator.md"), "utf8");
-  assert.match(prompt, /## Work isolation/);
+  assert.match(prompt, /## Branch and worktree isolation/);
+  assert.match(prompt, /## Delegation plan/);
   assert.match(prompt, /pull request/);
   assert.match(prompt, /work-queue\.json/);
   assert.match(prompt, /never skip past the queue head/i);

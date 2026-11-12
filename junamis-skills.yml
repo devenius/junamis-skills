@@ -31,6 +31,11 @@ Architecture:
     - "docs/RECONCILE.md is the work-queue contract and installs as a shared doc next to RESUME.md."
     - "skills-lock.json is the single source of truth for external skills."
     - "SECURITY.md is the scan record for every internal and external skill."
+  WorkIsolation:
+    - "Every task that writes runs in <project-root>/.worktrees/<task-slug> on branch task/<task-slug>, created from the default branch with git worktree add .worktrees/<task-slug> -b task/<task-slug> <default-branch>."
+    - "The worktree is the project root for Environment setup, Persistence (state root <worktree>/.orchestrator/), the design registry (<worktree>/docs/design/), and route; all writes, tests, commits, and destructive commands run inside it."
+    - "Worktree limit is 8: before creating one, count git worktree list entries under .worktrees/ and prune only a merged and clean worktree with git worktree remove, never rm -rf; ask the user when none qualifies."
+    - "On success the orchestrator commits on task/<task-slug>, pushes it, opens a pull request, and stops for approval; main pushes, force pushes, and --no-verify commits stay denied."
   Persistence:
     - "State root: <project>/.orchestrator/ by default; ORCH_STATE_ROOT overrides it."
     - "journal.ndjson is the append-only source of truth with a hash chain; state.json, plan.json, and tasks/<task_id>/task.json are derived snapshots."
@@ -275,6 +280,7 @@ Decisions:
   - "0014: Agent definitions are written once to the canonical agents directory and symlinked into each target; a failed symlink falls back to a copy with a warning."
   - "0015: No automatic migration; status reports legacy flat files and never deletes them."
   - "0016: The orchestrator is resumable through a journal-first state engine under src/orchestrator/; boot runs before route, skills declare idempotent, and the state root is <project>/.orchestrator/ with no new runtime dependency."
+  - "0017: Every writing task runs in <project-root>/.worktrees/<task-slug> on task/<task-slug>, that worktree is the project root for setup, state, design, and routing, the limit is 8 worktrees pruned only when merged and clean, and opencode.json allows /tmp, /var/tmp, and .worktrees while keeping main, force, and --no-verify pushes denied."
 
 Limitations:
   - "No third-party skill content is shipped; init needs network access to fetch and scan external skills."
@@ -289,7 +295,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (267 tests)"
+  - "pnpm test (268 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

@@ -52,10 +52,18 @@ test("opencode.json expresses the reviewed read, edit, shell, and network postur
   assert.equal(effect("grep", ".env"), "deny");
 
   assert.equal(effect("external_directory", "/etc/passwd"), "deny");
+  assert.equal(effect("external_directory", "/tmp/opencode/work"), "allow");
+  assert.equal(effect("external_directory", ".worktrees/task/file"), "allow");
 
   assert.equal(effect("shell", "echo hi"), "ask");
   assert.equal(effect("shell", "junamis-orchestrator boot"), "allow");
   assert.equal(effect("shell", "node scripts/orchestrator-state.mjs boot"), "allow");
+  assert.equal(effect("shell", "git status"), "allow");
+  assert.equal(effect("shell", "pnpm test"), "allow");
+  assert.equal(effect("shell", "git push origin task/foo"), "allow");
+  assert.equal(effect("shell", "git worktree add .worktrees/foo -b task/foo main"), "allow");
+  assert.equal(effect("shell", "gh pr create --base main"), "allow");
+  assert.equal(effect("shell", "gh pr checks"), "allow");
   assert.equal(effect("shell", "cat .env"), "deny");
 
   assert.equal(effect("webfetch", "https://example.com"), "ask");
@@ -79,7 +87,11 @@ test("opencode.json ships no MCP servers or plugins and keeps updates and format
 
 test("opencode.json carries the hard-deny policies", () => {
   assert.deepEqual(config.policies, [
-    { action: "tool.use", resource: "shell:git push *", effect: "deny" },
+    { action: "tool.use", resource: "shell:git push origin main", effect: "deny" },
+    { action: "tool.use", resource: "shell:git push --force *", effect: "deny" },
+    { action: "tool.use", resource: "shell:git push -f *", effect: "deny" },
+    { action: "tool.use", resource: "shell:git commit --no-verify *", effect: "deny" },
+    { action: "tool.use", resource: "shell:gh pr merge *", effect: "deny" },
     { action: "tool.use", resource: "shell:git reset --hard *", effect: "deny" },
     { action: "tool.use", resource: "shell:git clean *", effect: "deny" },
     { action: "tool.use", resource: "shell:sudo *", effect: "deny" },
@@ -92,6 +104,25 @@ test("opencode.json carries the hard-deny policies", () => {
     { action: "tool.use", resource: "shell:terraform destroy *", effect: "deny" },
     { action: "tool.use", resource: "edit:*.env", effect: "deny" },
   ]);
+});
+
+test("worktree branch pushes are allowed while main, force, and no-verify stay denied", () => {
+  const policyEffect = (command) =>
+    effectFor(
+      config.policies
+        .filter((rule) => rule.resource.startsWith("shell:"))
+        .map((rule) => ({ action: "*", resource: rule.resource.slice("shell:".length), effect: rule.effect })),
+      "*",
+      command,
+    );
+
+  assert.equal(effect("shell", "git push origin task/foo"), "allow");
+  assert.equal(policyEffect("git push origin task/foo"), null);
+  assert.equal(policyEffect("git push origin main"), "deny");
+  assert.equal(policyEffect("git push --force origin task/foo"), "deny");
+  assert.equal(policyEffect("git push -f origin task/foo"), "deny");
+  assert.equal(policyEffect("git commit --no-verify -m done"), "deny");
+  assert.equal(policyEffect("gh pr merge 1"), "deny");
 });
 
 test("opencode.json registers both internal and external skill roots", () => {
@@ -137,6 +168,33 @@ test("validateConfig rejects V1 and weakened V2 configurations", () => {
       "allowed external_directory",
       (copy) => { copy.permissions.push({ action: "external_directory", resource: "*", effect: "allow" }); },
       /external_directory \/etc\/passwd must be deny/,
+    ],
+    [
+      "removed worktree external_directory allow",
+      (copy) => {
+        copy.permissions = copy.permissions.filter(
+          (rule) => !(rule.action === "external_directory" && rule.resource === ".worktrees/**"),
+        );
+      },
+      /external_directory \.worktrees\/task\/file must be allow/,
+    ],
+    [
+      "removed task-branch push allow",
+      (copy) => {
+        copy.permissions = copy.permissions.filter(
+          (rule) => !(rule.action === "shell" && rule.resource === "git push origin task/*"),
+        );
+      },
+      /shell git push origin task\/foo must be allow/,
+    ],
+    [
+      "removed gh pr allow",
+      (copy) => {
+        copy.permissions = copy.permissions.filter(
+          (rule) => !(rule.action === "shell" && rule.resource === "gh pr create *"),
+        );
+      },
+      /shell gh pr create --base main must be allow/,
     ],
     [
       "allow-by-default webfetch",

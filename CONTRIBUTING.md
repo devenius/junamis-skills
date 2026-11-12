@@ -4,14 +4,26 @@
 
 ## 1. Work on a task branch in its own worktree
 
+Every task that writes starts in its own worktree inside the project:
+
 ```bash
 git fetch origin
-git worktree add ../junamis-skills-<task> -b <task> origin/main
-cd ../junamis-skills-<task>
+git worktree add .worktrees/<task-slug> -b task/<task-slug> origin/main
+cd .worktrees/<task-slug>
 pnpm install
 ```
 
-Do not edit, commit, tag, or push on `main`. If you are already on `main`, create the worktree before the first write.
+The worktree stays under `<project-root>/.worktrees/<task-slug>` on branch `task/<task-slug>`, so the original git keeps it (`git worktree list`). It is the project root for the task: the state root, the design registry, every write, test, commit, and destructive command run there.
+
+**Worktree limit: 8.** Before creating a new worktree, count the `git worktree list` entries under `.worktrees/`. At 8 or more, prune only a worktree whose branch is merged into the default branch and whose tracked and untracked working tree is clean (`git status --porcelain` empty):
+
+```bash
+git worktree remove .worktrees/<task-slug>
+```
+
+Use `git worktree remove`; never `rm -rf`. If no merged and clean worktree can be pruned, stop and ask the user which one to remove. Never remove an unmerged or dirty worktree.
+
+Do not edit, commit, tag, or push on `main`. If you are already on `main`, create the worktree before the first write. Read-only work (questions, reviews, lookups) may stay in the main checkout.
 
 ## 2. Make the change
 
@@ -62,11 +74,11 @@ node scripts/design-registry.mjs index --check
 
 ## 4. Open the pull request and stop
 
-Push the task branch, open the pull request, and fill in `.github/pull_request_template.md`. Stop for the user's approval.
+Commit on `task/<task-slug>`, push that branch (`git push -u origin task/<task-slug>`), open the pull request, and fill in `.github/pull_request_template.md`. Stop for the user's approval. After the pull request merges, the task is done.
 
 ```bash
-git push -u origin <task>
-gh pr create --base main --head <task> --fill
+git push -u origin task/<task-slug>
+gh pr create --base main --head task/<task-slug> --fill
 ```
 
-No self-merge. No bypassing a check. A destructive git action (`reset --hard`, `clean`, `rebase`, force-push) needs the user's explicit approval and runs only inside the task worktree.
+No self-merge. No bypassing a check. Never push `main`, force-push, or commit with `--no-verify`; those stay denied. A destructive git action (`reset --hard`, `clean`, `rebase`, force-push) needs the user's explicit approval and runs only inside the task worktree.

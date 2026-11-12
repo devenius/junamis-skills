@@ -8,7 +8,9 @@
 
 ## Checks
 
-- [ ] Branch: this pull request comes from a task branch/worktree, never from `main`.
+- [ ] Branch: this pull request comes from `task/<task-slug>` in `<project-root>/.worktrees/<task-slug>`, never from `main`.
+- [ ] Worktree limit: fewer than 8 worktrees existed under `.worktrees/` when this one was created, or a merged and clean one was pruned with `git worktree remove` (never `rm -rf`). No unmerged or dirty worktree was removed.
+- [ ] The `task/<task-slug>` branch is pushed and the pull request targets `main`. No direct push to `main`, no force push, and no `--no-verify` commit.
 - [ ] `pnpm build` passes and `dist/` is rebuilt, not committed.
 - [ ] `pnpm typecheck` passes.
 - [ ] `pnpm test` passes, including the T1 to T7 resume tests.

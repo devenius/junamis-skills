@@ -106,9 +106,25 @@ Do not hardcode agent names anywhere outside `src/targets/`.
 
 `main` is protected and read-only. It is the published history, not a working tree.
 
+### Worktrees
+
+Every task that writes starts in its own worktree inside the project: `<project-root>/.worktrees/<task-slug>` on branch `task/<task-slug>`, created from the default branch.
+
+```bash
+git worktree add .worktrees/<task-slug> -b task/<task-slug> <default-branch>
+```
+
+Because the worktree is inside the project, the original git keeps it: `git worktree list` shows it. The worktree is the project root for the task: Environment setup, the state root (`<worktree>/.orchestrator/`), the design registry (`.worktrees/<task-slug>/docs/design/`), and routing all resolve there. All writes, tests, commits, and destructive commands run inside it.
+
+- **Limit: 8 worktrees.** Before creating a new one, count the `git worktree list` entries under `<project-root>/.worktrees/`. At 8 or more, prune only a worktree whose branch is merged into the default branch and whose tracked and untracked working tree is clean (`git status --porcelain` empty). Use `git worktree remove <path>`; never `rm -rf`. If no merged and clean worktree can be pruned, stop and ask the user which one to remove. Never remove an unmerged or dirty worktree.
+- **Specialists** work only in the worktree path the orchestrator gives them. They do not ask whether to use a worktree, do not leave it, and never touch `main`.
+- **Read-only work** (questions, reviews, lookups) may run in the main checkout.
+
+### Pull requests
+
 - Every change goes on a task branch in its own worktree. Never edit or commit on `main`.
-- When the change is ready: commit on the task branch, push the branch, open a pull request, and stop for the user's approval.
-- No self-merge. No bypass. No direct push to `main`, even for the repository owner.
+- When the change is ready: commit on the task branch, push it with `git push -u origin task/<task-slug>`, open a pull request, and stop for the user's approval. After the pull request merges, the task is done.
+- No self-merge. No bypass. No direct push to `main`, even for the repository owner. `git push origin main`, force pushes, and `--no-verify` commits stay denied.
 - Destructive git actions (`reset --hard`, `clean`, `rebase`, force-push, tag deletion) need the user's explicit approval and run only inside the task worktree.
 - The one exception is the first push of an empty repository: a one-time user action. The user supplies and approves the instructions for that push. Every later change is a pull request.
 - CI runs on `main` and on every pull request. A pull request merges only after its checks pass and the user approves it.

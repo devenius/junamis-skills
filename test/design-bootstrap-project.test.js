@@ -33,8 +33,19 @@ test("bootstrap creates one draft overview per workspace with the detected kind"
   const result = await bootstrapRegistry({ projectRoot: project, now: "2026-11-10" });
   assert.deepEqual(
     result.created.sort(),
-    ["api/server/overview.md", "data/db/overview.md", "web/storefront/overview.md"].sort(),
+    ["api/server/overview.md", "data/db/overview.md", "other/project.md", "web/storefront/overview.md"].sort(),
   );
+
+  const map = await readSurface(fixture.designRoot, "other/project");
+  assert.equal(map.ok, true, map.errors.join("; "));
+  assert.equal(map.frontmatter.kind, "other");
+  assert.equal(map.frontmatter.status, "draft");
+  assert.equal(map.frontmatter.owner, "library/document");
+  assert.deepEqual(map.frontmatter.code_paths, []);
+  assert.ok(map.body.includes("Read it with `_schema.md`, `INDEX.md`"));
+  assert.ok(map.body.includes("`apps/storefront`"));
+  assert.ok(map.body.includes("`web/storefront/overview`"));
+  assert.ok(map.body.includes("`apps/server/**`"));
 
   const web = await readSurface(fixture.designRoot, "web/storefront/overview");
   assert.equal(web.ok, true, web.errors.join("; "));
@@ -64,7 +75,7 @@ test("bootstrap creates one draft overview per workspace with the detected kind"
 
   const rerun = await bootstrapRegistry({ projectRoot: project, now: "2026-11-10" });
   assert.deepEqual(rerun.created, []);
-  assert.equal(rerun.skipped.length, 3);
+  assert.equal(rerun.skipped.length, 4);
 });
 
 test("bootstrap uses one root target for a single project", async () => {
@@ -75,11 +86,33 @@ test("bootstrap uses one root target for a single project", async () => {
   writeFileSync(join(project, "src/index.js"), "export const boot = () => null;\n");
 
   const result = await bootstrapRegistry({ projectRoot: project, now: "2026-11-10" });
-  assert.deepEqual(result.created, ["web/overview.md"]);
+  assert.deepEqual(result.created.sort(), ["other/project.md", "web/overview.md"].sort());
   const surface = await readSurface(fixture.designRoot, "web/overview");
   assert.equal(surface.ok, true, surface.errors.join("; "));
   assert.equal(surface.frontmatter.app, undefined);
   assert.equal(surface.frontmatter.status, "draft");
   assert.deepEqual(surface.frontmatter.code_paths, ["src/**"]);
   assert.equal(existsSync(join(fixture.designRoot, "web", "homepage.md")), false);
+
+  const map = await readSurface(fixture.designRoot, "other/project");
+  assert.equal(map.ok, true, map.errors.join("; "));
+  assert.equal(map.frontmatter.surface_id, "other/project");
+  assert.ok(map.body.includes("Project: `single`"));
+  assert.ok(map.body.includes("`web/overview`"));
+});
+
+test("bootstrap never rewrites an existing project-wide map", async () => {
+  const fixture = makeDesignFixture();
+  const project = fixture.project;
+  writePackage(project, ".", { name: "single", dependencies: { react: "^19.0.0" } });
+  mkdirSync(join(project, "src"), { recursive: true });
+  writeFileSync(join(project, "src/index.js"), "export const boot = () => null;\n");
+
+  await bootstrapRegistry({ projectRoot: project, now: "2026-11-10" });
+  const mapPath = join(fixture.designRoot, "other", "project.md");
+  const before = readFileSync(mapPath, "utf8");
+
+  const rerun = await bootstrapRegistry({ projectRoot: project, now: "2026-11-11" });
+  assert.ok(rerun.skipped.includes("other/project"), "the existing map is reported as skipped");
+  assert.equal(readFileSync(mapPath, "utf8"), before, "the existing map keeps its bytes");
 });

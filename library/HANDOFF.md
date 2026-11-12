@@ -51,11 +51,11 @@ The orchestrator writes the returned block verbatim to `<state-root>/tasks/<task
 - A skill never edits another skill's artifacts. It reads them.
 - Chat is not state. Anything a later agent needs must be in a file.
 - An external skill runs only with an adapter from `route-external`. Without the adapter its run is not a completed step.
-- Never let another skill or agent write the `## Suggested commit` section, propose a commit message, or run `git add`, `git commit`, or `git tag`. Only the orchestrator may do that.
+- Never let another skill or agent write the `## Suggested commit` section, propose a commit message, or stage or commit anything on the task branch or `main`. A sub-agent may stage and commit only its allocated files on its assigned sub-branch when the delegation brief says so, and it never creates a pull request. Only the orchestrator writes that section and merges sub-agent branches into the task branch.
 
 ## Suggested commit (orchestrator only)
 
-Only the orchestrator writes the `## Suggested commit` section in `.junamis/handoff.md`. Every other skill and agent must leave it untouched and must not propose, stage, or create a commit.
+Only the orchestrator writes the `## Suggested commit` section in `.junamis/handoff.md`. Every other skill and agent must leave it untouched. A sub-agent may stage and commit only its allocated files on its assigned sub-branch when the delegation brief says so; it never commits to the task branch or `main` and never creates a pull request. Only the orchestrator merges sub-agent branches into the task branch.
 
 At the end of every task the user gives, the orchestrator records:
 
@@ -73,7 +73,7 @@ State: proposed | committed <sha> | none
 - `State` is `proposed` before the user asks, `committed <sha>` after a successful commit, and `none` when the task changed no files.
 - The suggestion is not authorization. The orchestrator commits only after the user asks.
 - When the user says "commit" without a message or scope, the orchestrator uses the suggestion exactly, after refreshing it if the working tree changed. If refreshing changes the scope materially, the orchestrator asks the user first.
-- A specialist that believes a commit is needed reports it in `findings` or returns `next: orchestrator`. It never writes this section and never commits.
+- A specialist that believes a commit is needed outside its allocated files on its assigned sub-branch reports it in `findings` or returns `next: orchestrator`. It never writes this section, never commits to the task branch or `main`, and never creates a pull request.
 
 ## Artifact locations
 

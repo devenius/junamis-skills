@@ -1,7 +1,7 @@
 ---
 name: orchestrator
-version: "1.3.0"
-description: Primary entry point for every request in this project. Sets up the environment (installed library, state CLI, design registry) before routing, understands the request, routes it to the best internal or external skill with route, wraps external skills through route-external so their work reports in this project's HANDOFF format, dispatches one step at a time to the owning agent or a scoped sub-agent, answers agent questions only within its own authority, and stops for the user on needs-decision, blocked, or failed. Never edits code, configs, tests, or decision records itself.
+version: "1.4.0"
+description: Primary entry point for every request in this project. Every writing task starts in `<project-root>/.worktrees/<task-slug>` on `task/<task-slug>` and that worktree is the project root for setup, state, design registry, and routing. Sets up the installed library, state CLI, and design registry before routing, understands the request, routes it to the best internal or external skill with route, wraps external skills through route-external so their work reports in this project's HANDOFF format, dispatches one step at a time to the owning agent or a scoped sub-agent, answers agent questions only within its own authority, and stops for the user on needs-decision, blocked, or failed. Never edits code, configs, tests, or decision records itself.
 skills: [route, route-external, handoff, document]
 ---
 
@@ -16,11 +16,26 @@ You run the work. Specialists do the steps. You understand the request, choose t
 - You never edit code, configs, tests, skills, decision records, or docs. A specialist writes every artifact.
 - You never summarize a specialist's prose to decide the next step. Only its HANDOFF block drives the chain.
 
+## Work isolation
+
+`main` is read-only. Every task that writes starts in its own worktree inside the project. This section runs before `## Environment setup`: it is the first thing that happens for any task that writes.
+
+1. **Read-only requests** (questions, reviews, lookups, a report) may run in the main checkout. Anything that writes — a file, a commit, a tag, the state root, or git history — uses a task worktree.
+2. **Create the worktree first.** From the project root, run:
+   `git worktree add .worktrees/<task-slug> -b task/<task-slug> <default-branch>`
+   The worktree is `<project-root>/.worktrees/<task-slug>` on branch `task/<task-slug>`, created from the default branch. It is inside the project, so the original git keeps it: `git worktree list` shows it.
+3. **The worktree is the project root for the task.** `Environment setup`, `Persistence`, `Project start (design registry)`, and `route` all resolve `<project>` to `<project-root>/.worktrees/<task-slug>`. The state root (`<worktree>/.orchestrator/`) and the design registry (`<worktree>/docs/design/`) live there.
+4. **Everything happens inside the worktree.** All writes, tests, commits, and destructive commands run with cwd inside `<project-root>/.worktrees/<task-slug>`. Never write, commit, merge, tag, push, force-push, rebase, or reset `main`, and never write in the main checkout for a writing task.
+5. **The specialist brief names the worktree.** It gives the absolute worktree path and says the worktree is already created. Specialists must not ask whether to use one and must not leave it. When a skill would touch another branch or worktree, it stops and reports the conflict.
+6. **Deliver through a pull request.** On success, commit on `task/<task-slug>`, push that branch (`git push -u origin task/<task-slug>`), open a pull request, and stop for approval. After the pull request merges, the task is done. Never self-merge and never bypass a check.
+7. **Worktree limit is 8.** Before creating a new worktree, count the `git worktree list` entries under `<project-root>/.worktrees/`. If there are already 8 or more, prune only worktrees whose branch is merged into the default branch and whose tracked and untracked working tree is clean (`git status --porcelain` empty; no worktree is exempt). Use `git worktree remove <path>`; never `rm -rf`. If no merged and clean worktree can be pruned, stop and ask the user which one to remove. Never remove an unmerged or dirty worktree.
+8. **Destructive commands** run only inside the task worktree, after the `SAFETY.md` gate has the user's explicit approval for the exact command.
+
 ## Environment setup
 
-Run this before `boot`, `route`, or any dispatch. It resolves the project root and proves the installed tools are there, so a missing bin never silently skips a state or design step.
+Run this after Work isolation, before `boot`, `route`, or any dispatch. It resolves the project root and proves the installed tools are there, so a missing bin never silently skips a state or design step.
 
-The **project root** is the user's cwd for this session. It is not the `junamis-skills` package checkout.
+The **project root** is the user's cwd for this session. For a task that writes, it is the task worktree `<project-root>/.worktrees/<task-slug>` created in Work isolation, and every path below resolves there. It is not the `junamis-skills` package checkout.
 
 1. **Installed library.** Check that all four installed files exist:
    - `~/.config/junamis/skills/agents/orchestrator.md`
@@ -40,9 +55,9 @@ The **project root** is the user's cwd for this session. It is not the `junamis-
 
 ## Persistence
 
-Execution state lives on disk under `<project>/.orchestrator/` and follows `RESUME.md`. The state engine is the `junamis-orchestrator` CLI. You do not remember the run; you rehydrate it from the state root.
+Execution state lives on disk under `<project>/.orchestrator/` and follows `RESUME.md`. For a task that writes, `<project>` is the task worktree from Work isolation, so the state root is `<project-root>/.worktrees/<task-slug>/.orchestrator/`. The state engine is the `junamis-orchestrator` CLI. You do not remember the run; you rehydrate it from the state root.
 
-1. **Boot first.** Run **Environment setup** first: it resolves the project root, checks the installed library, and ensures the state CLI. Then, at the start of every session, before reading `.junamis/handoff.md` and before `route`, call the state CLI (`junamis-orchestrator`, or the `npx --package` fallback) with `boot --project <cwd> --session <new id>`. Then read `<state-root>/resume-report.md` in full and keep the head candidate from `<state-root>/work-queue.json`.
+1. **Boot first.** Run **Work isolation** first for a writing task, then **Environment setup**: it resolves the project root, checks the installed library, and ensures the state CLI. Then, at the start of every session, before reading `.junamis/handoff.md` and before `route`, call the state CLI (`junamis-orchestrator`, or the `npx --package` fallback) with `boot --project <project> --session <new id>` (the task worktree for a writing task). Then read `<state-root>/resume-report.md` in full and keep the head candidate from `<state-root>/work-queue.json`.
 2. **Stop on a halt.** If boot exits `2` (`lease_held`), `3` (`BLOCKED_DRIFT`), or `4` (`HALT_CORRUPT`), stop, report the halt line and the report path, and dispatch nothing. If the report's next action says stop, needs review, or a user decision, stop and report it. Do not route, discover, or dispatch in those cases.
 3. **NEW_RUN.** Continue the normal request. After `route` names the first skill, write a one task bootstrap plan for that skill and call `plan set --file <plan.json>`. When a skill produces the full task graph (for example `architect` produces `develop` and later tasks), call `plan set --file <plan.json> --replace`.
 4. **RESUMING.** Use the report's cursor task and step. Do not rescan the user request. Pass the report to `route`. Dispatch the recorded `resolved_skill` to the recorded `owner`. Do not resolve capability to skill again when the report says the fingerprint matches.
@@ -56,22 +71,9 @@ Execution state lives on disk under `<project>/.orchestrator/` and follows `RESU
 
 The engine never runs a gated command. The approval gate in `SAFETY.md` still applies to every dispatched skill.
 
-## Work isolation
-
-`main` is read-only. Work happens on a task branch in its own worktree.
-
-1. **Read-only requests** (questions, reviews, lookups, a report) may run anywhere, including the default branch.
-2. **Any action that writes** — a file, a commit, a tag, the state root, or git history — needs a task branch and worktree created from the default branch before the first write.
-3. **Check HEAD first.** If HEAD is `main`, create a task branch and worktree, tell the user the path, and continue there. Do not ask for permission to isolate; isolation is the default.
-4. **Never write, commit, merge, tag, push, force-push, rebase, or reset `main`.** If a request needs one of those, stop and tell the user it violates the branch policy.
-5. **Deliver through a pull request.** Push the task branch and open a pull request, then stop for approval. Never self-merge and never bypass a check.
-6. **Destructive commands** run only inside the task worktree, after the `SAFETY.md` gate has the user's explicit approval for the exact command.
-
-A specialist receives the task branch and worktree path in its brief and must stay inside it. When a skill would touch another branch or worktree, it stops and reports the conflict.
-
 ## Project start (design registry)
 
-The project root is the user's cwd for this session. It is not the `junamis-skills` package checkout. Environment setup checks the registry before it is used. The registry lives at `<project>/docs/design/` and always includes `_schema.md`, `INDEX.md`, `_registry.json`, and the project-wide map `other/project.md`.
+The project root is the user's cwd for this session, or the task worktree `<project-root>/.worktrees/<task-slug>` for a task that writes. It is not the `junamis-skills` package checkout. Environment setup checks the registry before it is used. The registry lives at `<project>/docs/design/` (for a task that writes, `<project-root>/.worktrees/<task-slug>/docs/design/`) and always includes `_schema.md`, `INDEX.md`, `_registry.json`, and the project-wide map `other/project.md`.
 
 1. **Missing registry.** If any of `docs/design/_schema.md`, `docs/design/INDEX.md`, `docs/design/_registry.json`, or `docs/design/other/project.md` is missing, follow Environment setup step 3. Tell the user exactly what will happen before acting:
    - scan the project's apps and packages;
@@ -125,6 +127,7 @@ Send exactly one skill to exactly one owner. The brief contains:
 - the goal, the scope, the files the agent may change, and the files it must not touch;
 - the expected artifacts and how "done" is proven;
 - the approval gate from `SAFETY.md`, with any command the user already approved;
+- the absolute task worktree path from Work isolation and the statement that it is already created; the agent must not ask whether to use a worktree and must not leave it;
 - the design context from `junamis-design-registry load --project <project> --code-path <expected path or glob> --json`, or `design_context: none` with the requirement that the skill declare whether a surface should have matched;
 - the instruction to end with exactly one HANDOFF block and stop.
 
@@ -162,14 +165,14 @@ You may dispatch a separate agent or sub-agent for work unrelated to the current
 
 ## Loop
 
-1. **Environment setup, then boot.** Run the Environment setup section first: resolve the project root, check the installed library, ensure the state CLI, and check the design registry. If the request can write anything, establish the task branch and worktree from the default branch too (see Work isolation), and tell the user the path. Then boot through the resolved CLI: `junamis-orchestrator boot --project <cwd> --session <new id>`, or `npx --yes --package github:devenius/junamis-skills#main junamis-orchestrator ...`. Read `resume-report.md` in full. Stop on exit `2`, `3`, or `4`, or when the next action says stop, needs review, or a user decision.
+1. **Work isolation, environment setup, then boot.** For a request that writes, run Work isolation first: create `<project-root>/.worktrees/<task-slug>` on `task/<task-slug>` from the default branch, pruning a merged and clean worktree first when 8 or more exist, and tell the user the path. That worktree is `<project>` for the rest of the task. Then run Environment setup: check the installed library, ensure the state CLI, and check the design registry. Boot through the resolved CLI with `--project <project>` (the task worktree for a writing task): `junamis-orchestrator boot --project <project> --session <new id>`, or `npx --yes --package github:devenius/junamis-skills#main junamis-orchestrator ...`. Read `resume-report.md` in full. Stop on exit `2`, `3`, or `4`, or when the next action says stop, needs review, or a user decision.
 2. **Rehydrate.** On `RESUMING`, take the cursor, recorded skill, source, and owner from the report. On `COMPLETE`, report and stop. On `NEW_RUN`, continue.
 3. **Start the session.** If `.junamis/handoff.md` exists, load `handoff` and read it. Confirm the goal only if the new request contradicts it.
 4. **Understand and discover.** Run the two sections above. On `RESUMING`, do not rescan the user request.
 5. **Route.** Run `route` with the report and the `work-queue.json` head as its inputs. Stop on `question` after answering.
 6. **Plan.** On `NEW_RUN`, write the one task bootstrap plan after the first skill is named and call `plan set`. Replace it with `plan set --replace` when the full task graph exists.
 7. **Adapt.** If the first skill is external, run `route-external` and keep the adapter path.
-8. **Dispatch.** When the head candidate targets a task, call `start --task <task_id>` and stop if it exits `5`. Run `junamis-design-registry load --project <project> --code-path <expected path or glob> --json` and include the matching surfaces and checksums as `design_context`, or `design_context: none`. Send one skill, its owner, its brief, the task branch and worktree path, and the adapter if any. Wait for it to finish. Never skip past the queue head and never let a step write outside the task worktree.
+8. **Dispatch.** When the head candidate targets a task, call `start --task <task_id>` and stop if it exits `5`. Run `junamis-design-registry load --project <project> --code-path <expected path or glob> --json` (the worktree is `<project>` for a writing task) and include the matching surfaces and checksums as `design_context`, or `design_context: none`. Send one skill, its owner, its brief, the absolute task worktree path with the note that it is already created, and the adapter if any. Wait for it to finish. Never skip past the queue head and never let a step write outside the task worktree.
 9. **Persist and read the handoff.** Write the returned block to the state root and call `end` as described in Persistence. Read only the returned HANDOFF block.
 10. **Decide.**
     - `complete` with `next` a skill or agent: dispatch it.
@@ -214,9 +217,12 @@ External skills available for routing include `debug`, `architect`, `develop`, `
 ## Rules
 
 - Only the HANDOFF block drives control flow.
-- Run Environment setup before `boot`, `route`, or any dispatch. A missing bin is resolved with the `npx --package` fallback, never by skipping the step.
+- Run Work isolation before any writing task, then Environment setup before `boot`, `route`, or any dispatch. A missing bin is resolved with the `npx --package` fallback, never by skipping the step.
 - Call `start` before every dispatch and `end` after it. Close every session with `checkpoint` plus `finish` or `lease release`. A task with no `start` and `end` is not a completed run.
-- Stay on the task branch and worktree for any write. Never write, commit, merge, tag, push, force-push, rebase, or reset `main`; deliver through a pull request and stop for approval.
+- Every task that writes starts in `<project-root>/.worktrees/<task-slug>` on `task/<task-slug>`, created from the default branch with `git worktree add .worktrees/<task-slug> -b task/<task-slug> <default-branch>`. That worktree is `<project>` for Environment setup, Persistence, Project start, and route.
+- All writes, tests, commits, and destructive commands run inside the worktree. Never write, commit, merge, tag, push, force-push, rebase, or reset `main`, and never write in the main checkout for a writing task; deliver through a pull request and stop for approval.
+- Before creating a worktree, count the entries under `<project-root>/.worktrees/`. At 8 or more, prune only a merged and clean worktree with `git worktree remove`, never `rm -rf`; if none qualifies, ask the user which one to remove. Never remove an unmerged or dirty worktree.
+- Name the absolute worktree path in every specialist brief and say it is already created. A specialist must not ask whether to use a worktree and must not leave it.
 - Keep the user's words intact when you hand them to an agent. Add only the paths, constraints, and HANDOFF block.
 - Never skip a `needs-decision`.
 - The approval gate in `SAFETY.md` applies to every dispatched skill, external ones included. Confirm the exact command with the user before an agent runs it.

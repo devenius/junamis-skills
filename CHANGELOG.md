@@ -5,6 +5,14 @@ All notable changes to this project are documented here. Format follows [Keep a 
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [1.1.0] - 2026-11-13
+
+### Added
 - `.github/workflows/publish.yml` is renamed to `Publish` and runs two jobs: `publish-github` mirrors to GitHub Packages with `GITHUB_TOKEN` and `packages: write`, and `publish-npm` stages to npmjs with OIDC (`id-token: write`), the `npm-publish` environment, and `npm stage publish`. The npm job sets no `NODE_AUTH_TOKEN`; a maintainer approves the staged version on npmjs.com. Top-level permissions are `contents: read` and each job adds only what it needs.
 - `pnpm publish:npm` (`scripts/publish-npm.mjs` over `src/scripts/publish-npm.ts`) is a read-only publish checklist. It validates the package name, `publishConfig.access`, and the absence of `publishConfig.registry`, then prints the exact `npm stage publish` command. It never runs a registry mutation.
 - `src/color.ts` is a dependency-free ANSI helper (`paint`, `createColors`, `stripAnsi`, `colorsEnabled`). The `init` and `status` CLI output and the release gate use it: cyan headers, green success, yellow warnings, red errors, and gray details. Color disables itself for a non-TTY stream, `NO_COLOR`, or `TERM=dumb`, so captured output stays plain.

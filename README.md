@@ -29,10 +29,10 @@ npx @devenius/junamis-skills@latest status
 
 ### npmjs status
 
-npmjs is the primary public registry. **Right now `latest` still points at the `0.0.0-stage` placeholder**, so the commands above resolve to an empty placeholder, not a working installer. The first usable release will be **`1.1.0`**.
+npmjs is the primary public registry. **Until `1.1.0` is published and approved on npmjs.com, `latest` still points at the `0.0.0-stage` placeholder**, so the commands above resolve to an empty placeholder, not a working installer. The first usable npm release is **`1.1.0`**.
 
 - **Until `1.1.0` is live on npmjs**, use the GitHub direct install in Option B. It is the safe path today.
-- **After `1.1.0` is live**, the npmjs commands in Option A are primary.
+- **After `1.1.0` is live on npmjs**, the npmjs commands in Option A are primary and `latest` is `1.1.0`.
 
 The placeholder was staged from a separate release branch; it is not a banner on `main`.
 

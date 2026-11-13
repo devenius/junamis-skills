@@ -8,6 +8,10 @@ import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { writeGuide, renderGuide, GUIDE_NAME, MARKER_PATH, PACKAGE_ROOT } from "../dist/guide.js";
 
+// Force plain output so the captured CLI streams are stable even when the test
+// runner is attached to a TTY (the CLI colorizes when stdout is a TTY).
+process.env.NO_COLOR = "1";
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, "..", "bin", "junamis-skills.js");
 
@@ -106,7 +110,7 @@ test("CLI init --dry-run plans the guide without writing it", () => {
   try {
     const out = execFileSync(process.execPath, [CLI, "init", "--dry-run", "--dir", dir], {
       encoding: "utf8",
-      env: { ...process.env, HOME: home },
+      env: { ...process.env, HOME: home, NO_COLOR: "1" },
     });
     assert.match(out, /guide: would write/);
     assert.equal(existsSync(join(dir, GUIDE_NAME)), false);
@@ -122,7 +126,7 @@ test("CLI status reports guide and agents without writing anything", () => {
   try {
     const result = spawnSync(process.execPath, [CLI, "status", "--dir", dir, "--scope", "project"], {
       encoding: "utf8",
-      env: { ...process.env, HOME: home },
+      env: { ...process.env, HOME: home, NO_COLOR: "1" },
     });
     assert.equal(result.status, 0, "a missing guide or an undetected target must not fail");
     assert.match(result.stdout, /guide:\s+missing/);
@@ -138,7 +142,11 @@ test("CLI status reports guide and agents without writing anything", () => {
 
 test("CLI rejects unknown commands with a non-zero exit", () => {
   assert.throws(() =>
-    execFileSync(process.execPath, [CLI, "nope"], { encoding: "utf8", stdio: "pipe" }),
+    execFileSync(process.execPath, [CLI, "nope"], {
+      encoding: "utf8",
+      stdio: "pipe",
+      env: { ...process.env, NO_COLOR: "1" },
+    }),
   );
 });
 

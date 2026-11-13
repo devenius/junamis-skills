@@ -2,6 +2,7 @@ import { existsSync, lstatSync, readlinkSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { createColors, colorsEnabled, type Colors } from "./color.js";
 import { PACKAGE_ROOT, GUIDE_NAME, MARKER_PATH, writeGuide } from "./guide.js";
 import { getTarget, targets } from "./targets/index.js";
 import { installExternal, validateAgent, validateInstaller } from "./external.js";
@@ -211,52 +212,59 @@ export async function writeOpencodeConfig({
   return { status: "written", path: targetPath };
 }
 
+function palette(): Colors {
+  return createColors({ enabled: colorsEnabled() });
+}
+
 function reportGuide(result: GuideResult, projectDir: string): void {
+  const c = palette();
   if (result.status === "created") {
-    console.log(`guide: wrote ${result.path}`);
-    console.log(`marker: ${join(projectDir, MARKER_PATH)}`);
+    console.log(`${c.cyan("guide:")} wrote ${c.gray(result.path)}`);
+    console.log(`${c.cyan("marker:")} ${c.gray(join(projectDir, MARKER_PATH))}`);
   } else if (result.status === "exists") {
-    console.log(`guide: ${GUIDE_NAME} already written by junamis-skills ${result.version}; nothing to do.`);
-    console.log("guide: use --force to rewrite it.");
+    console.log(`${c.cyan("guide:")} ${GUIDE_NAME} already written by junamis-skills ${result.version}; nothing to do.`);
+    console.log(c.yellow("guide: use --force to rewrite it."));
   } else if (result.status === "kept-user-file") {
-    console.log(`guide: ${result.path} exists and was not written by junamis-skills; left unchanged.`);
-    console.log("guide: use --force to replace it.");
+    console.log(`${c.cyan("guide:")} ${c.gray(result.path)} exists and was not written by junamis-skills; left unchanged.`);
+    console.log(c.yellow("guide: use --force to replace it."));
   } else {
-    console.log(`guide: ${String(result.status)} (${result.path})`);
+    console.log(`${c.cyan("guide:")} ${String(result.status)} (${c.gray(result.path)})`);
   }
 }
 
 function reportConfig(result: OpencodeConfigResult): void {
-  if (result.status === "written") console.log(`config: wrote ${result.path}`);
-  else if (result.status === "unchanged") console.log(`config: unchanged (${result.path})`);
-  else if (result.status === "kept") console.log(`config: left unchanged; use --force (${result.path})`);
-  else if (result.status === "would-write") console.log(`config: would write ${result.path}`);
-  else if (result.status === "would-replace") console.log(`config: would replace ${result.path} (--force)`);
-  else console.log(`config: ${String(result.status)} (${result.path})`);
+  const c = palette();
+  if (result.status === "written") console.log(`${c.cyan("config:")} wrote ${c.gray(result.path)}`);
+  else if (result.status === "unchanged") console.log(`${c.cyan("config:")} unchanged (${c.gray(result.path)})`);
+  else if (result.status === "kept") console.log(`${c.yellow("config:")} left unchanged; use --force (${c.gray(result.path)})`);
+  else if (result.status === "would-write") console.log(`${c.cyan("config:")} would write ${c.gray(result.path)}`);
+  else if (result.status === "would-replace") console.log(`${c.cyan("config:")} would replace ${c.gray(result.path)} (--force)`);
+  else console.log(`${c.cyan("config:")} ${String(result.status)} (${c.gray(result.path)})`);
 }
 
 function reportLibrary(args: { readonly agent?: string; readonly dryRun: boolean }, scope: InstallScope, result: LibraryInstallResult, version: string): number {
+  const c = palette();
   const counts: Record<string, number> = {};
   for (const a of [...result.actions, ...(result.linkActions ?? [])]) {
     counts[a.action] = (counts[a.action] ?? 0) + 1;
   }
   const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ") || "nothing";
-  console.log(`library for ${args.agent} (junamis-skills ${version}, ${scope}): ${summary}`);
+  console.log(`${c.cyan("library")} for ${args.agent} (junamis-skills ${version}, ${scope}): ${c.gray(summary)}`);
 
   if (args.dryRun) {
-    for (const a of result.actions) console.log(`  ${a.action.padEnd(24)} ${a.path}`);
-    for (const a of result.linkActions ?? []) console.log(`  ${a.action.padEnd(24)} ${a.path} -> ${a.target}`);
+    for (const a of result.actions) console.log(`  ${a.action.padEnd(24)} ${c.gray(a.path)}`);
+    for (const a of result.linkActions ?? []) console.log(`  ${a.action.padEnd(24)} ${c.gray(a.path)} -> ${c.gray(String(a.target))}`);
   }
-  for (const p of result.stale) console.log(`  ${args.dryRun ? "would remove" : "removed"} stale ${p}`);
-  for (const warning of result.warnings ?? []) console.warn(`  warning: ${warning}`);
+  for (const p of result.stale) console.log(`  ${args.dryRun ? "would remove" : "removed"} stale ${c.gray(p)}`);
+  for (const warning of result.warnings ?? []) console.warn(c.yellow(`  warning: ${warning}`));
 
   if (!result.ok) {
-    console.error(`\n${result.conflicts.length} library file(s) were edited by you and are not managed by junamis-skills:`);
-    for (const p of result.conflicts) console.error(`  ${p}`);
-    console.error("Review them. Run again with --force to overwrite, or move your copy elsewhere.");
+    console.error(c.red(`\n${result.conflicts.length} library file(s) were edited by you and are not managed by junamis-skills:`));
+    for (const p of result.conflicts) console.error(c.red(`  ${p}`));
+    console.error(c.yellow("Review them. Run again with --force to overwrite, or move your copy elsewhere."));
     return 1;
   }
-  if (args.dryRun) console.log("library: dry run, nothing was written.");
+  if (args.dryRun) console.log(c.green("library: dry run, nothing was written."));
   return 0;
 }
 
@@ -308,20 +316,21 @@ export async function runInit(args: InitArgs, deps: InitDeps = {}): Promise<Init
     throw new Error(`unknown agent "${agent}"; expected opencode or claude`);
   }
   const scope = resolvedScope(args.scope, "global");
+  const c = palette();
   let exitCode = 0;
 
   // 1. Guide.
   if (args.dryRun) {
     const guidePath = join(args.dir, GUIDE_NAME);
     const exists = existsSync(guidePath);
-    console.log(`guide: ${exists && !args.force ? "present, would not rewrite without --force" : `would write ${guidePath}`}`);
+    console.log(`${c.cyan("guide:")} ${exists && !args.force ? "present, would not rewrite without --force" : `would write ${c.gray(guidePath)}`}`);
   } else {
     reportGuide(await d.writeGuide({ projectDir: args.dir, force: args.force }), args.dir);
   }
 
   // 2. opencode.json for OpenCode only.
   if (agent !== "opencode") {
-    console.log("config: skipped (opencode.json is OpenCode only)");
+    console.log(`${c.cyan("config:")} skipped (opencode.json is OpenCode only)`);
   } else {
     reportConfig(await d.writeOpencodeConfig({
       dir: args.dir,
@@ -355,7 +364,7 @@ export async function runInit(args: InitArgs, deps: InitDeps = {}): Promise<Init
   if (args.dryRun) {
     const names = await lockSkillNames();
     external = { ...external, planned: names.length };
-    console.log(`external: ${names.length} pinned skills would be installed with skillsio`);
+    console.log(`${c.cyan("external:")} ${names.length} pinned skills would be installed with skillsio`);
   } else {
     validateInstaller("skillsio");
     validateAgent(agent);
@@ -364,17 +373,17 @@ export async function runInit(args: InitArgs, deps: InitDeps = {}): Promise<Init
       agent,
       installer: "skillsio",
     });
-    console.log(`external: ${external.installed} installed, ${external.skipped} skipped, ${external.failed} failed`);
+    console.log(`${c.cyan("external:")} ${external.installed} installed, ${external.skipped} skipped, ${external.failed} failed`);
     if (external.failed > 0) exitCode = 1;
   }
 
   // 5. Summary.
-  console.log("\nsummary:");
-  console.log(`  guide:    ${args.dryRun ? "planned" : "done"}`);
-  console.log(`  config:   ${agent === "opencode" ? (args.dryRun ? "planned" : "done") : "skipped"}`);
-  console.log(`  library:  ${args.dryRun ? "planned" : "done"} (${scope})`);
-  console.log(`  external: ${args.dryRun ? `planned (${String(external.planned)})` : `${external.installed} installed, ${external.skipped} skipped, ${external.failed} failed`}`);
-  console.log(`  exit:     ${exitCode === 0 ? "ok" : "needs attention"}`);
+  console.log(`\n${c.cyan("summary:")}`);
+  console.log(`  ${c.gray("guide:")}    ${args.dryRun ? c.yellow("planned") : c.green("done")}`);
+  console.log(`  ${c.gray("config:")}   ${agent === "opencode" ? (args.dryRun ? c.yellow("planned") : c.green("done")) : "skipped"}`);
+  console.log(`  ${c.gray("library:")}  ${args.dryRun ? c.yellow("planned") : c.green("done")} (${scope})`);
+  console.log(`  ${c.gray("external:")} ${args.dryRun ? c.yellow(`planned (${String(external.planned)})`) : `${external.installed} installed, ${external.skipped} skipped, ${external.failed} failed`}`);
+  console.log(`  ${c.gray("exit:")}     ${exitCode === 0 ? c.green("ok") : c.yellow("needs attention")}`);
 
   return { exitCode, scope, external };
 }
@@ -454,6 +463,7 @@ async function legacyLeftovers(scope: InstallScope, projectDir: string): Promise
 }
 
 async function status(args: CliArgs): Promise<number> {
+  const c = palette();
   const scope = args.scope ?? "global";
   if (!isOneOf(scope, ALL_SCOPES)) {
     throw new Error(`unknown scope "${scope}"; expected global, project, or all`);
@@ -461,7 +471,7 @@ async function status(args: CliArgs): Promise<number> {
   const scopes: InstallScope[] = scope === "all" ? ["global", "project"] : [scope];
   const failures: string[] = [];
   const check = (label: string, pass: boolean, detail: string = ""): boolean => {
-    console.log(`${pass ? "✔" : "✖"} ${label}${detail ? `: ${detail}` : ""}`);
+    console.log(`${pass ? c.green("✔") : c.red("✖")} ${label}${detail ? `: ${c.gray(detail)}` : ""}`);
     if (!pass) failures.push(label);
     return pass;
   };
@@ -470,9 +480,9 @@ async function status(args: CliArgs): Promise<number> {
   // only a present but malformed marker is a real problem.
   const guidePath = join(args.dir, GUIDE_NAME);
   const guideExists = existsSync(guidePath);
-  console.log(`project:  ${args.dir}`);
-  console.log(`package:  ${PACKAGE_ROOT}`);
-  console.log(`guide:    ${guideExists ? "present" : "missing"} (${GUIDE_NAME})`);
+  console.log(`${c.cyan("project:")}  ${c.gray(args.dir)}`);
+  console.log(`${c.cyan("package:")}  ${c.gray(PACKAGE_ROOT)}`);
+  console.log(`${c.cyan("guide:")}    ${guideExists ? c.green("present") : "missing"} (${GUIDE_NAME})`);
 
   const markerPath = join(args.dir, MARKER_PATH);
   let marker: GuideMarker | null = null;
@@ -492,19 +502,19 @@ async function status(args: CliArgs): Promise<number> {
       }
     }
   }
-  console.log(`marker:   ${marker ? `written ${marker.writtenAt} by ${marker.version}` : "none"}`);
+  console.log(`${c.cyan("marker:")}   ${marker ? `written ${marker.writtenAt} by ${marker.version}` : "none"}`);
   if (markerProblem) {
-    console.error(`✖ invalid marker ${markerPath}: ${markerProblem}`);
+    console.error(c.red(`✖ invalid marker ${markerPath}: ${markerProblem}`));
     failures.push("marker");
   }
 
   // Per-target counts and library manifests. Missing directories and manifests
   // are informational: a target can be detected without this package being
   // installed for it. A present manifest is always validated.
-  console.log("agents:");
+  console.log(c.cyan("agents:"));
   for (const t of targets) {
     const detected = t.detect();
-    console.log(`  ${t.label.padEnd(12)} ${detected ? "detected" : "not found"}`);
+    console.log(`  ${t.label.padEnd(12)} ${detected ? c.green("detected") : c.gray("not found")}`);
     for (const location of statusLocations(t.id, scope, args.dir)) {
       const libraryCount = await countSkills(location.librarySkillsDir);
       const externalCount = await countSkills(location.skillsDir);
@@ -529,13 +539,13 @@ async function status(args: CliArgs): Promise<number> {
       }
       const parsed = await readJsonObject(location.manifestPath);
       if (!parsed.ok) {
-        console.error(`✖ library manifest invalid (${location.manifestPath}): ${parsed.error}`);
+        console.error(c.red(`✖ library manifest invalid (${location.manifestPath}): ${parsed.error}`));
         failures.push("library manifest");
         continue;
       }
       const problem = describeLibraryManifest(parsed.value);
       if (problem) {
-        console.error(`✖ library manifest invalid (${location.manifestPath}): ${problem}`);
+        console.error(c.red(`✖ library manifest invalid (${location.manifestPath}): ${problem}`));
         failures.push("library manifest");
         continue;
       }
@@ -596,7 +606,7 @@ async function status(args: CliArgs): Promise<number> {
   const missing = lockNames.filter((name) => !existsSync(join(externalDir, name)));
   const coverage = `${lockNames.length - missing.length}/${lockNames.length}`;
   const coverageDetail = missing.length === 0 ? `${coverage} in ${externalDir}` : `${coverage}; missing ${missing.join(", ")}`;
-  console.log(`external coverage: ${coverageDetail}`);
+  console.log(`${c.cyan("external coverage:")} ${missing.length === 0 ? c.green(coverageDetail) : c.yellow(coverageDetail)}`);
 
   // SECURITY.md is the recorded scan vetted at install time. Report its status
   // without failing; the scan record is part of the package, not the install.
@@ -607,11 +617,11 @@ async function status(args: CliArgs): Promise<number> {
     securityMonth = text.match(/^Last external scan:\s*(\d{4}-\d{2})/m)?.[1] ?? null;
   }
   console.log(
-    `SECURITY.md scan record: ${securityMonth ? `${securityPath} (last external scan ${securityMonth})` : `${securityPath} is missing or has no Last external scan line`}`,
+    `${c.cyan("SECURITY.md scan record:")} ${securityMonth ? `${c.gray(securityPath)} (last external scan ${securityMonth})` : c.yellow(`${securityPath} is missing or has no Last external scan line`)}`,
   );
 
   const passed = failures.length === 0;
-  console.log(`\nstatus: ${passed ? "ok" : `${failures.length} required check(s) failed`}`);
+  console.log(`\n${c.cyan("status:")} ${passed ? c.green("ok") : c.yellow(`${failures.length} required check(s) failed`)}`);
   if (!passed) process.exitCode = 1;
   return passed ? 0 : 1;
 }

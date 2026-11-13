@@ -157,6 +157,17 @@ Features:
     Gate: "Install-time scanning is skipped by design (--skip-scan); SECURITY.md and library/SAFETY.md define the gate, and flagged findings are reviewed there."
     PinCheck: "pnpm run check:pins fetches each locked source/ref and compares the actual tree SHA; network check, not in CI/release."
 
+  Publishing:
+    Description: >
+      npmjs is the primary public registry for @devenius/junamis-skills;
+      GitHub Packages is the mirror. The package is scoped, publishConfig sets
+      access public and no registry, and CI publishes through a trusted
+      publisher.
+    Workflow: ".github/workflows/publish.yml (name Publish) runs publish-github (GITHUB_TOKEN, packages write) then publish-npm (needs publish-github, id-token write, environment npm-publish, OIDC, npm stage publish to registry.npmjs.org)."
+    Checklist: "pnpm publish:npm runs scripts/publish-npm.mjs over src/scripts/publish-npm.ts; it validates the name, publishConfig.access, and the absence of publishConfig.registry, then prints the exact npm stage publish command and never runs it."
+    Command: "npm stage publish --access public --tag <tag> --registry=https://registry.npmjs.org; the user approves the staged version on npmjs.com with 2FA."
+    Gate: "The agent never runs npm publish, npm stage publish, npm deprecate, npm unpublish, npm dist-tag, npm owner, or npm access; library/SAFETY.md gates each one on a single-use approval."
+
 Setup:
   Install:
     - "pnpm install"
@@ -265,6 +276,8 @@ Utilities:
   - "src/targets/ : one adapter per agent"
   - "scripts/check-*.mjs : config, lock, security, pack, and YAML checks, each a launcher over dist/scripts/*.js"
   - "scripts/release-check.mjs : release gate, a launcher over dist/scripts/release-check.js"
+  - "src/color.ts : dependency-free ANSI palette, stripAnsi, and colorsEnabled (NO_COLOR, TERM=dumb, TTY)"
+  - "scripts/publish-npm.mjs : thin launcher over dist/scripts/publish-npm.js for the read-only publish checklist (pnpm publish:npm)"
   - "test/orchestrator-simulation.test.js : end-to-end simulation of design bootstrap, boot, plan set, reconcile, start, end, and no_work"
 
 Decisions:
@@ -287,6 +300,7 @@ Decisions:
   - "0017: Every writing task runs in <project-root>/.worktrees/<task-slug> on task/<task-slug>, that worktree is the project root for setup, state, design, and routing, the limit is 8 worktrees pruned only when merged and clean, and opencode.json allows /tmp, /var/tmp, and .worktrees while keeping main, force, and --no-verify pushes denied. Superseded by 0019 for the branch-per-prompt and per-subtask worktree model; the 8-worktree limit and path allows still apply."
   - "0018: The orchestrator's authority ends at gh pr create; it never merges, uses --admin, pushes main, force-pushes, tags, or rebases/resets main, and the user reviews and merges. Every approval is single-use: one command in one prompt, consumed when that command runs or fails, never standing, never reused. gh pr merge, main pushes, HEAD:main, and --force-with-lease are hard-denied in opencode.json and mirrored in HARD_DENY_POLICIES."
   - "0019: The orchestrator checks git branch --show-current at the start of every prompt and creates task/<task-slug> from the latest default branch when on main or a detached HEAD. It works and commits in the project checkout on that branch, plans the delegation with one owner per file, gives each delegated task its own .worktrees/<task-slug>-<subtask> worktree and allowed-file list, merges each sub-branch back with git merge --no-ff, removes the worktree, and opens one pull request per approved batch. Sub-agents commit only their allocated files on their sub-branch, never merge, and never create a pull request. git switch/checkout main and git branch -d/-D main are hard-denied."
+  - "0020: npmjs is the primary public registry for @devenius/junamis-skills and GitHub Packages is the mirror. The package name is already scoped, publishConfig sets access public and no registry, CI stages to npmjs through a GitHub Actions trusted publisher (publish.yml, environment npm-publish, OIDC with id-token write, npm stage publish) and a maintainer approves with 2FA. The agent never runs a registry mutation; pnpm publish:npm is a read-only checklist that prints the exact command."
 
 Limitations:
   - "No third-party skill content is shipped; init needs network access to fetch and scan external skills."
@@ -301,7 +315,7 @@ Limitations:
   - "The handoff parser is a strict subset because a runtime YAML dependency is not allowed."
 
 Validation:
-  - "pnpm test (277 tests)"
+  - "pnpm test (292 tests)"
   - "pnpm lint"
   - "pnpm audit"
   - "pnpm run check:config"

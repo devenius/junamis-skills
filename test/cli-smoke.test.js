@@ -8,6 +8,10 @@ import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { runInit } from "../dist/cli.js";
 
+// Force plain output so the captured streams below are not wrapped in ANSI
+// codes even if the test runner happens to expose a TTY.
+process.env.NO_COLOR = "1";
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, "..", "bin", "junamis-skills.js");
 

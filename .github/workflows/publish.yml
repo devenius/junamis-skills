@@ -1,4 +1,4 @@
-name: Publish to GitHub Packages
+name: Publish
 
 on:
   push:
@@ -13,11 +13,13 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
-  publish:
+  publish-github:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -29,6 +31,7 @@ jobs:
         with:
           node-version: '26'
           registry-url: 'https://npm.pkg.github.com'
+          scope: '@devenius'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
@@ -43,7 +46,48 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
 
-      - name: Publish
-        run: pnpm publish --access public --no-git-checks
+      # publishConfig.registry is absent on purpose, so the registry is explicit.
+      - name: Publish to GitHub Packages
+        run: pnpm publish --access public --no-git-checks --registry=https://npm.pkg.github.com
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-npm:
+    needs: publish-github
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: npm-publish
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '26'
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@devenius'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        with:
+          version: 12.15.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Release checks
+        run: pnpm run release:check -- --tag "$RELEASE_TAG"
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+
+      # OIDC is the auth: do not set NODE_AUTH_TOKEN in this job.
+      # The npm trusted publisher must be configured for this workflow filename
+      # (publish.yml), environment "npm-publish", repository
+      # "devenius/junamis-skills", and the allowed action "npm stage publish".
+      - name: Stage publish to npmjs
+        run: npm stage publish --access public --registry=https://registry.npmjs.org

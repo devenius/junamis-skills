@@ -8,12 +8,14 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { errorMessage, isRecord, isString } from "../types/index.js";
+import { createColors, colorsEnabled } from "../color.js";
 import { packageRoot, readJsonFile, readSkillsLock } from "./support.js";
 
 const VERSION = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
 
 function fail(message: string): void {
-  console.error(`✖ ${message}`);
+  const c = createColors({ enabled: colorsEnabled() });
+  console.error(c.red(`✖ ${message}`));
   process.exitCode = 1;
 }
 
@@ -87,10 +89,12 @@ async function main(argv: readonly string[]): Promise<void> {
 
   const exitCode = process.exitCode;
   if (typeof exitCode === "number" && exitCode !== 0) {
-    console.error("\nrelease check failed");
+    const c = createColors({ enabled: colorsEnabled() });
+    console.error(c.yellow("\nrelease check failed"));
     process.exit(exitCode);
   }
-  console.log(`✔ release check passed for ${version}`);
+  const c = createColors({ enabled: colorsEnabled() });
+  console.log(c.green(`✔ release check passed for ${version}`));
 }
 
 /** CLI entry. The launcher in `scripts/` calls this with `process.argv.slice(2)`. */

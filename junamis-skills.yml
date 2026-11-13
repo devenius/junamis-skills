@@ -7,7 +7,7 @@ Name: junamis-skills
 CLI: junamis-skills
 Bins: [junamis-skills, junamis-orchestrator, junamis-design-registry, junamis-reconcile]
 License: MIT
-Status: 1.0.x (Node 26+; ESM; external installs also need the system git CLI)
+Status: 1.1.x (Node 26+; ESM; external installs also need the system git CLI)
 
 Description: >
   Install and manage Agent Skills (SKILL.md workflows) for AI coding agents. The
@@ -166,6 +166,7 @@ Features:
     Workflow: ".github/workflows/publish.yml (name Publish) runs publish-github (GITHUB_TOKEN, packages write) then publish-npm (needs publish-github, id-token write, environment npm-publish, OIDC, npm stage publish to registry.npmjs.org)."
     Checklist: "pnpm publish:npm runs scripts/publish-npm.mjs over src/scripts/publish-npm.ts; it validates the name, publishConfig.access, and the absence of publishConfig.registry, then prints the exact npm stage publish command and never runs it."
     Command: "npm stage publish --access public --tag <tag> --registry=https://registry.npmjs.org; the user approves the staged version on npmjs.com with 2FA."
+    Release: "The first usable npm release is 1.1.0: package.json is 1.1.0, CHANGELOG.md has ## [1.1.0] - 2026-11-13, and docs/releases/1.1.0.md is the release note. Tag v1.1.0 to run publish.yml (publish-github mirrors to GitHub Packages, publish-npm stages 1.1.0 to npmjs with OIDC and the npm-publish environment); the user approves the staged 1.1.0 on npmjs.com with 2FA, then deprecates 1.0.0-placeholder.0."
     Gate: "The agent never runs npm publish, npm stage publish, npm deprecate, npm unpublish, npm dist-tag, npm owner, or npm access; library/SAFETY.md gates each one on a single-use approval."
 
 Setup:

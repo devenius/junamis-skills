@@ -23,29 +23,42 @@ This is the maintainer runbook for the npmjs release of `@devenius/junamis-skill
 
 - The package is bootstrapped with a placeholder, `1.0.0-placeholder.0`, published under the `placeholder` tag.
 - `latest` still points at `0.0.0-stage`, so `npx @devenius/junamis-skills@latest` does not run a working installer yet.
+- The release candidate is **`1.1.0`**: `package.json` is `1.1.0`, `CHANGELOG.md` has `## [1.1.0] - 2026-11-13`, and `docs/releases/1.1.0.md` is the release note.
 - A GitHub Actions trusted publisher is configured for this repository. **Assumed values:** workflow `publish.yml`, environment `npm-publish`. Confirm these on npmjs.com under the package's **Publishing → Trusted publisher** settings; if the real workflow filename or environment differs, update it there (the file name here is documentation, not a second source of truth).
 - The first usable release is **`1.1.0`**. There is no real npm `1.0.0`: the GitHub tag/release `v1.0.0` already exists and is not an npm release.
 
 ## The 48-hour validation window
 
-Configure the trusted publisher only when a release is ready. After the trusted publisher is first saved, the first successful publish must happen within 48 hours or the trust configuration expires and must be set up again. Do not configure it early.
+Configure the trusted publisher only when a release is ready. After the trusted publisher is first saved, the first successful publish must happen within 48 hours or the trust configuration expires and must be set up again; do not configure it early. This is the general rule. If the existing trusted publisher has already been validated by a successful publish, the window no longer applies and you can go straight to the tagged release.
 
 ## First usable release (`1.1.0`)
 
-1. **Bump and notes (agent).** `release-prep` updates the version to `1.1.0` and the `CHANGELOG.md` `## [1.1.0]` section, and produces the release candidate. It does not tag.
-2. **Commit and tag (user).** Merge the release commit, then create and push the tag `v1.1.0`. The tag and the commit are user actions.
-3. **CI stages to npmjs.** The `publish.yml` tag workflow runs. Its npmjs job uses OIDC (`id-token: write`), the `npm-publish` environment, and `npm stage publish`. It stages the tarball; it does not make it public.
-4. **Approve on npmjs.com (user).** A maintainer opens the package's **Staged publishing** page on npmjs.com, reviews the staged version, and approves it with 2FA. Approval is what makes `1.1.0` public and moves `latest` to it.
-5. **GitHub Packages mirror.** The same `publish.yml` run publishes the package to GitHub Packages in its other job, using `GITHUB_TOKEN` and `packages: write`.
+1. **Bump and notes (agent).** `release-prep` sets `package.json` to `1.1.0`, adds `## [1.1.0] - 2026-11-13` to `CHANGELOG.md`, and writes `docs/releases/1.1.0.md` as the release note. It produces the release candidate and does not tag.
+2. **Merge, then tag (user).** Merge the release pull request and pull `main`, then create and push the tag. The tag and the commit are user actions:
 
-After approval, verify:
+   ```bash
+   git switch main && git pull
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
 
-```bash
-npm view @devenius/junamis-skills dist-tags --registry https://registry.npmjs.org/
-npx @devenius/junamis-skills@latest status
-```
+3. **CI stages npmjs and publishes GitHub Packages.** The `publish.yml` tag workflow runs. Its `publish-github` job publishes the package to GitHub Packages with `GITHUB_TOKEN` and `packages: write`. Its `publish-npm` job uses OIDC (`id-token: write`), the `npm-publish` environment, and `npm stage publish` to stage `1.1.0` to npmjs; staging does not make it public.
+4. **Approve on npmjs.com (user).** A maintainer opens the package's **Staged publishing** page on npmjs.com, reviews the staged `1.1.0`, and approves it with 2FA. Approval is what makes `1.1.0` public and moves `latest` to it.
+5. **Verify the dist-tag (user).**
 
-`latest` should now be `1.1.0`. The npmjs path in the README is safe from this point.
+   ```bash
+   npm view @devenius/junamis-skills dist-tags --registry=https://registry.npmjs.org/
+   npx @devenius/junamis-skills@latest status
+   ```
+
+   `latest` must now be `1.1.0`. The npmjs path in the README is safe from this point.
+6. **Deprecate the placeholder (user).** With `1.1.0` live, deprecate `1.0.0-placeholder.0` so nobody installs it. Use the dedicated npmjs userconfig from [Prerequisites](#prerequisites) so the `@devenius` scope mapping does not redirect the command:
+
+   ```bash
+   npm deprecate "@devenius/junamis-skills@1.0.0-placeholder.0" "Placeholder; use 1.1.0 or newer" --userconfig ~/.config/npmjs/npmrc
+   ```
+
+   Deprecation does not change a dist-tag; keep `latest` on `1.1.0`.
 
 ## Trusted publisher fields
 

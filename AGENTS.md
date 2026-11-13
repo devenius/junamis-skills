@@ -161,6 +161,29 @@ Every approval covers exactly one command, in exactly one prompt, exactly once. 
 - Commands already allowed by `opencode.json` (read-only git, build, test, task-branch pushes, `gh pr create`, and `gh pr view|list|checks|edit`) are not gated. Everything in `SAFETY.md`, everything that touches `main`, and everything destructive is gated.
 - After a gated command runs once, the approval is spent. If the user wants it again, the user must repeat permission in a new prompt.
 
+## Publishing and deprecation
+
+npmjs is the primary public registry for `@devenius/junamis-skills`; GitHub Packages is the mirror. The package name is already scoped (`@devenius/junamis-skills`), so no rename is needed. The CLI binary stays `junamis-skills`.
+
+- **The agent never runs registry mutations.** `npm publish`, `npm stage publish`, `npm deprecate`, `npm unpublish`, `npm dist-tag`, `npm owner`, and `npm access` are user actions. They are gated by `library/SAFETY.md` and require a single-use approval that names the exact command. The agent may prepare the exact command and the release metadata and then stops at the user.
+- **First publish history.** The package was bootstrapped with `npm stage publish` and a placeholder (`1.0.0-placeholder.0`, published under the `placeholder` tag) because a trusted publisher needs an existing package. `latest` remains the `0.0.0-stage` placeholder until the first usable release. The first usable release is `1.1.0`; do not plan a real npm `1.0.0`, because the GitHub tag/release `v1.0.0` already exists and is not an npm release.
+- **CI.** One `publish.yml` workflow runs two jobs: a GitHub Packages job and an npmjs job. The npmjs job uses `id-token: write`, the `npm-publish` environment, and `npm stage publish`; a maintainer then approves the staged version on npmjs.com with 2FA. The GitHub Packages job uses `GITHUB_TOKEN` and `packages: write`.
+- **Deprecation policy.** Preferred over unpublish.
+
+  | Situation | Action |
+  |---|---|
+  | Normal release | Publish normally; move `latest` with the release. |
+  | Bad release | Publish the fix first, then deprecate the narrowest affected range; move `latest` to the fix only as a stopgap. |
+  | Abandoned or renamed package | Deprecate the whole package with a pointer to the successor; never unpublish. |
+  | Accidental publish | Unpublish only inside npm's 72-hour / no-dependents window and only with the user's explicit approval; otherwise deprecate. |
+  | Prerelease | Publish under `next`, `beta`, `rc`, or `placeholder`; never to `latest`. |
+  | Leaked secret | Rotate the secret first; deprecation or unpublish does not un-leak it. |
+
+- **Deprecation message.** It must name the reason, the fixed version or range, and the action the user should take. Example: `npm deprecate "@devenius/junamis-skills@<1.1.0" "Broken install; use >=1.1.0"`.
+- **Dist-tag policy.** `latest` is the stable release. Prereleases use a non-`latest` tag (`next`, `beta`, `rc`, or `placeholder`). Never publish a prerelease to `latest`.
+- **Detection.** A request that mentions publish, release, stage, deprecate, unpublish, dist-tag, or the npm registry is the `release` path. The orchestrator routes it to `release-prep` and the operator, which prepare the release and stop at the user-run registry command.
+- **Secrets.** Never put a token in the repository, the README, or a committed `.npmrc`. The runbook is [`docs/publishing/npm.md`](docs/publishing/npm.md).
+
 ## Working rules
 
 - Node 26 or newer. ESM only (`"type": "module"`). External installs also require the system `git` CLI.
@@ -175,7 +198,7 @@ Every approval covers exactly one command, in exactly one prompt, exactly once. 
 - Before tagging a release, ask the user which version bump to use (patch/minor/major) and propose a clear tag name (for example `v1.0.1`) with a short release title so others can understand the change.
 - When a commit is a versioning release (i.e. it bumps the package version and updates the changelog for release), the commit must also be tagged with the release tag (for example `git tag v1.0.1`) in the same step. A release commit without its tag is incomplete.
 - Do not add dependencies without asking.
-- Do not run `npm publish` or `pnpm publish` without an explicit request.
+- Do not run `npm publish`, `npm stage publish`, `npm deprecate`, `npm unpublish`, `npm dist-tag`, `npm owner`, `npm access`, or `pnpm publish` without an explicit, single-use user request naming the exact command. These are user actions and are gated by `library/SAFETY.md`. The agent prepares the command and stops.
 - Do not create a commit, push, or tag without an explicit request, and treat each request as single-use: it covers that one command in this prompt and is not standing permission (see "Approvals are single-use"). Stage changes only when asked. The orchestrator commits on `task/<task-slug>`. A sub-agent may commit only its allocated files on its assigned sub-branch when the delegation brief says so; it never commits to the task branch or `main`, never merges, and never opens a pull request. Tagging a release commit still requires the user's explicit request to commit/push/tag.
 
 ## Precedence

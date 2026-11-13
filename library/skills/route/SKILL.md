@@ -37,6 +37,7 @@ Decide the path for one request and state it in one line. Do no other work.
 | nestjs | "nestjs", "nest module", "guard", "pipe", "interceptor" | `nestjs` | nestjs |
 | frontend | "ui", "component", "layout", "form", "table", "modal", "shadcn" | `frontend` | frontend |
 | release | "release", "tag", "ship", "deploy" | `release-prep` | operator |
+| publish | "publish to npm", "stage a release", "deprecate a version", "unpublish", "dist-tag", "trusted publisher" | `release-prep` | operator |
 | incident | "prod is down", "users report", "spike", "outage" | `incident-response` | operator |
 | security | "is this safe", "audit", "secrets", "auth review" | `security-audit` | reviewer |
 | performance | "slow", "bundle size", "latency", "web vitals" | `perf-budget` | reviewer |
@@ -81,6 +82,7 @@ Read `<state-root>/work-queue.json` before scanning the request.
 
 - "Fix" is a bug, a refactor, or a dependency bump. Check which before routing.
 - "Deploy" usually means `release-prep` then a user-run deploy. It is never a direct production action from this library.
+- A publish, stage, deprecate, unpublish, or dist-tag request is the `release` path. The operator prepares the release and the user runs every registry mutation. The agent never runs `npm publish`, `npm stage publish`, `npm deprecate`, `npm unpublish`, or `npm dist-tag`; those are user actions.
 - Do not route to a skill because its name matches a word. Route by what must change.
 - If the user explicitly names a skill, honor it unless it clearly conflicts with the request. Say so if it does.
 - Any request that needs information from outside the repo goes to `research`, even if it is phrased as a question.

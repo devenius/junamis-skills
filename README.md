@@ -11,7 +11,32 @@ An orchestrated set of Agent Skills and agents for AI coding tools. The package 
 
 Run these in the project that will use the skills. Use `--dry-run` first to see what will change. Requires Node.js 26+; external installs also require Git.
 
-### Option A: Run directly from GitHub (no setup)
+The package name is `@devenius/junamis-skills`. The command-line binary it installs is `junamis-skills`. `npx @devenius/junamis-skills ...` runs the binary without a separate install.
+
+### Option A: Install from npmjs (primary)
+
+```bash
+# 1. Preview the whole install, then apply it.
+npx @devenius/junamis-skills@latest init --dry-run
+npx @devenius/junamis-skills@latest init
+
+# Or install the CLI globally and use the junamis-skills binary.
+npm install -g @devenius/junamis-skills@latest
+
+# 2. Check state.
+npx @devenius/junamis-skills@latest status
+```
+
+### npmjs status
+
+npmjs is the primary public registry. **Right now `latest` still points at the `0.0.0-stage` placeholder**, so the commands above resolve to an empty placeholder, not a working installer. The first usable release will be **`1.1.0`**.
+
+- **Until `1.1.0` is live on npmjs**, use the GitHub direct install in Option B. It is the safe path today.
+- **After `1.1.0` is live**, the npmjs commands in Option A are primary.
+
+The placeholder was staged from a separate release branch; it is not a banner on `main`.
+
+### Option B: Run directly from GitHub (no setup, safe today)
 
 ```bash
 # 1. Preview the whole install, then apply it.
@@ -30,9 +55,9 @@ npx github:devenius/junamis-skills status
 
 `init` writes the setup guide, writes `opencode.json` when it is missing (OpenCode only), installs the library, and installs every pinned external skill. Use `--force` to overwrite a guide, config, or library file you edited.
 
-### Option B: Install from GitHub Packages (faster after first setup)
+### Option C: Install from GitHub Packages (mirror)
 
-Configure `~/.npmrc` once (see [Installing from GitHub Packages](#installing-from-github-packages)), then use the normal npx form:
+GitHub Packages is the mirror of npmjs. Configure `~/.npmrc` once (see [Installing from GitHub Packages](#installing-from-github-packages)), then use the normal npx form:
 
 ```bash
 npx @devenius/junamis-skills init --dry-run
@@ -147,7 +172,7 @@ Each lock entry pins an upstream commit and skill tree SHA. Maintainers should f
 
 ## Installing from GitHub Packages
 
-This package is published to GitHub Packages as `@devenius/junamis-skills`.
+This package is also published to GitHub Packages as `@devenius/junamis-skills`; it is the mirror of the npmjs release, not the primary registry.
 
 1. Create or edit `~/.npmrc` (or project `.npmrc`):
 
@@ -165,6 +190,12 @@ npx github:devenius/junamis-skills init
 ```
 
 A GitHub personal access token with `read:packages` (and `write:packages` for publishing) is required.
+
+## Maintainers: publishing
+
+npmjs (`@devenius/junamis-skills`) is the primary public registry and GitHub Packages is the mirror. The release mechanics, trusted publisher setup, staged approval, and deprecation policy live in [`docs/publishing/npm.md`](docs/publishing/npm.md).
+
+**The user runs every publish and deprecate command.** The agent prepares the exact command and the release metadata and stops there. It never runs `npm publish`, `npm stage publish`, `npm deprecate`, `npm unpublish`, `npm dist-tag`, `npm owner`, or `npm access`; those are user actions gated by `library/SAFETY.md` and single-use approvals.
 
 ## Safety
 

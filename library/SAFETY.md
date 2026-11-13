@@ -12,7 +12,7 @@ Before running any command in the classes below, stop and show the user the exac
 | Privilege | `sudo`, `su`, `chmod -R`, `chown` |
 | Global or system install | `npm i -g`, `pnpm add -g`, `brew install`, `apt install` |
 | Git history or remote | `git push`, `git reset --hard`, `git clean`, `git rebase`, `git tag`, `git push --force`, `--no-verify` |
-| Production or publish | `vercel deploy --prod`, `npm publish`, `pnpm publish`, any deploy |
+| Production or publish | `vercel deploy --prod`, `pnpm publish`, any deploy, and the npm registry commands `npm publish`, `npm stage publish`, `npm deprecate`, `npm unpublish`, `npm dist-tag`, `npm owner`, `npm access` |
 | Forced overwrite | `--force`, `--overwrite`, `shadcn init --force`, `apply --force` |
 | Data destruction | `DROP`, `TRUNCATE`, unscoped `DELETE`, `vercel env rm`, a down migration on any database |
 | Remote code | `curl ... \| sh`, `wget ... \| bash` |
@@ -36,6 +36,7 @@ Never allowed without the user naming the exact action: anything in the table ab
 - Scripts inside a skill are commands. Read a script before running it. Running one that deletes or deploys needs the gate.
 - Deleting a temporary directory the same script created is still a deletion. Gate it.
 - Read-only commands (`git status`, `git log`, `git tag --list`, `vercel ls`, `npm view`) need no gate.
+- Registry mutations (`npm publish`, `npm stage publish`, `npm deprecate`, `npm unpublish`, `npm dist-tag`, `npm owner`, `npm access`) are production/publish actions. Show the exact command, what it changes, and what cannot be undone, and run it only after the user's explicit yes in this session. Each approval is single-use: ask again for a retry or a second command.
 
 ## External skills: status
 

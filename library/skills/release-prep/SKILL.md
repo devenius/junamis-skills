@@ -39,12 +39,20 @@ Get a release candidate to the point where a person can ship it with one command
 ```
 
 7. **Check.** If migrations are included, require the rollback file to exist before the release is ready. Stop with `needs-decision` if it does not.
+8. **npm publication checklist.** If the package publishes to npmjs, confirm each item and record the result:
+   - the version to publish is the bumped `package.json` version, with no real `1.0.0` when a `v1.0.0` GitHub tag already exists;
+   - the `CHANGELOG.md` section for that version is complete;
+   - the tag name is `v<version>` and the user, not the skill, creates it;
+   - `publish.yml` has the npmjs job with `id-token: write`, the `npm-publish` environment, and `npm stage publish`;
+   - the npmjs trusted publisher is configured for owner/repo, workflow `publish.yml`, and environment `npm-publish`;
+   - the staged version needs a human 2FA approval on npmjs.com after CI stages it.
+9. **Deprecation plan.** When this release supersedes a bad or placeholder version, write the deprecation command for the user. It must name the reason, the fixed version or range, and the action. Prefer `npm deprecate` over `npm unpublish`; use unpublish only in npm's 72-hour / no-dependents window with explicit user approval. Record the exact command and the target range.
 
 ## Gotchas
 
 - Do not invent changelog entries. Each line traces to a commit hash.
 - A version bump without a changelog is incomplete. Write both or neither.
-- Never tag or push. Print the exact commands the user should run, and stop.
+- Never tag or push. Print the exact commands the user should run, and stop. The skill also stops before the user runs `npm publish`, `npm stage publish`, or `npm deprecate`; those are user actions, and the skill never runs a registry mutation.
 - Do not bump a version that is already tagged. Check the tag list first.
 
 ## Finish

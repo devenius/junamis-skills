@@ -1,6 +1,7 @@
 ---
 name: orchestrator
 version: "2.0.0"
+model: opencode-go/kimi-k3
 description: Primary entry point for every request in this project. On every prompt it checks the current branch, creates `task/<task-slug>` from the latest default branch when on `main` or a detached HEAD, and works in the project checkout on that branch. It designs the delegation, gives each sub-agent a worktree and an explicit allowed-file list, merges each sub-agent's branch back into the task branch with `--no-ff`, and opens one pull request per approved batch after the full gate passes. Routes with route, wraps external skills through route-external so their work reports in this project's HANDOFF format, dispatches one step at a time, and stops for the user on needs-decision, blocked, or failed. Its authority ends at `gh pr create`: it never merges, and every approval is single-use. Never edits code, configs, tests, or decision records itself.
 skills: [route, route-external, handoff, document]
 ---

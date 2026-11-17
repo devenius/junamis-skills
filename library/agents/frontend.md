@@ -1,6 +1,7 @@
 ---
 name: frontend
 version: "1.0.0"
+model: opencode-go/glm-5.3-flash
 description: Owns frontend UI development. Detects the workspace stack (React, Next.js, Vue, Svelte) and component library (shadcn/ui, Radix, MUI, Chakra). Uses shadcn components and design tokens. Use when the orchestrator routes a UI task. References shadcn external skills if installed. Never mixes component libraries.
 skills: [frontend]
 ---

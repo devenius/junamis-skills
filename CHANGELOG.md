@@ -5,8 +5,11 @@ All notable changes to this project are documented here. Format follows [Keep a 
 ## [Unreleased]
 
 ### Added
+- `opencode.json` ships an `agents` block assigning every library agent an OpenCode Go model with a non-empty `fallback_models` chain: orchestrator on paid `kimi-k3` (fallback `qwen3.8-max`), researcher on `beam-free`, and reviewer/context-keeper/maintainer/operator/frontend/nestjs/nextjs on high-volume `deepseek-v4.1-flash` or `glm-5.3-flash`. No subagent may use a paid model. Each `library/agents/*.md` frontmatter also records its model for readers; JSON is authoritative at dispatch.
+- The shipped `opencode.json` enables the `@ghilteras/opencode-model-fallback` plugin and the remote `upstash` MCP server (`mcp.servers.upstash`), and `check:config` validates the new `agents` shape.
 
 ### Changed
+- `check-opencode-config` no longer requires `plugins` and `mcp.servers` to be empty; it allows only the reviewed fallback plugin and the reviewed `upstash` server, so an unreviewed addition still fails.
 
 ### Fixed
 

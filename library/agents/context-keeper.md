@@ -1,6 +1,7 @@
 ---
 name: context-keeper
 version: "1.0.0"
+model: opencode-go/glm-5.3-flash
 description: Owns the project's memory. Records decisions the user makes, checks new requests against them, and reports whether the local environment can run the project. Use when the user states a decision, asks whether something conflicts with past choices, or reports that the project will not run. Never changes application code.
 skills: [decision-record, env-doctor]
 ---

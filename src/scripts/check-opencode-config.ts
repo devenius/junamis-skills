@@ -28,6 +28,17 @@ const V1_ONLY_KEYS: readonly string[] = [
 
 const EFFECTS = new Set(["allow", "ask", "deny"]);
 
+// The shipped file may name only these reviewed plugins. Adding a third-party
+// package is a security decision: extend this list together with SECURITY.md.
+const ALLOWED_PLUGINS: readonly string[] = ["@ghilteras/opencode-model-fallback"];
+
+// The shipped file may declare only these reviewed MCP servers. V2 nests them
+// under `mcp.servers`; a remote server is { type: "remote", url }.
+const ALLOWED_MCP_SERVERS: readonly string[] = ["upstash"];
+
+// A provider/model reference, e.g. "opencode-go/kimi-k3".
+const MODEL_REF = /^[^/#\s]+\/[^#\s]+$/;
+
 export const HARD_DENY_POLICIES: readonly string[] = [
   "shell:git push origin main",
   "shell:git push origin main *",
@@ -194,16 +205,47 @@ export function validateConfig(config: unknown): unknown {
   }
 
   const mcp = config["mcp"];
-  if (
-    !isRecord(mcp) ||
-    !isRecord(mcp["servers"]) ||
-    Object.keys(mcp["servers"]).length !== 0
-  ) {
-    fail("mcp.servers must be an empty object");
+  if (!isRecord(mcp) || !isRecord(mcp["servers"])) {
+    fail("mcp.servers must be an object");
   }
+  for (const [name, server] of Object.entries(mcp["servers"])) {
+    if (!ALLOWED_MCP_SERVERS.includes(name)) {
+      fail(`mcp.servers may only declare reviewed servers: ${ALLOWED_MCP_SERVERS.join(", ")}`);
+    }
+    if (!isRecord(server) || server["type"] !== "remote" || !isString(server["url"])) {
+      fail(`mcp.servers.${name} must be { type: "remote", url }`);
+    }
+  }
+
   const plugins = config["plugins"];
-  if (!isUnknownArray(plugins) || plugins.length !== 0) {
-    fail("plugins must be an empty array");
+  if (!isUnknownArray(plugins)) fail("plugins must be an array");
+  for (const [index, entry] of plugins.entries()) {
+    if (!isString(entry) || !ALLOWED_PLUGINS.includes(entry)) {
+      fail(`plugins[${index}] must be one of the reviewed plugins: ${ALLOWED_PLUGINS.join(", ")}`);
+    }
+  }
+
+  // Per-agent model allocation. Every agent names a primary model and a
+  // non-empty fallback chain so the fallback plugin can recover.
+  const agents = config["agents"];
+  if (agents !== undefined) {
+    if (!isRecord(agents)) fail("agents must be an object");
+    for (const [name, rawAgent] of Object.entries(agents)) {
+      if (!isRecord(rawAgent)) fail(`agents.${name} must be an object`);
+      const model = rawAgent["model"];
+      if (!isString(model) || !MODEL_REF.test(model)) {
+        fail(`agents.${name}.model must be a provider/model string`);
+      }
+      const fallbacks = rawAgent["fallback_models"];
+      if (!isUnknownArray(fallbacks) || fallbacks.length === 0) {
+        fail(`agents.${name}.fallback_models must be a non-empty array`);
+      }
+      for (const [index, candidate] of fallbacks.entries()) {
+        if (!isString(candidate) || !MODEL_REF.test(candidate)) {
+          fail(`agents.${name}.fallback_models[${index}] must be a provider/model string`);
+        }
+      }
+    }
   }
   if (config["update"] !== "notify") fail('update must be "notify"');
   if (config["formatter"] !== false) fail("formatter must be false");

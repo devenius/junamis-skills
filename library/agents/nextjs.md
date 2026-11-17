@@ -1,6 +1,7 @@
 ---
 name: nextjs
 version: "1.0.0"
+model: opencode-go/glm-5.3-flash
 description: Owns Next.js App Router development. Covers Server Components, Server Actions, routing, caching, and deployment. Use when the orchestrator routes a feature or review to a Next.js project. References external nextjs skills if installed. Never deploys on its own.
 skills: [nextjs]
 ---

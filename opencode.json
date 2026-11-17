@@ -10,9 +10,52 @@
   ],
   "update": "notify",
   "formatter": false,
-  "plugins": [],
+  "agents": {
+    "orchestrator": {
+      "model": "opencode-go/kimi-k3",
+      "fallback_models": ["opencode-go/qwen3.8-max"]
+    },
+    "researcher": {
+      "model": "opencode-go/beam-free",
+      "fallback_models": ["opencode-go/longcat-2.5-free", "opencode-go/qwen3.7-plus"]
+    },
+    "reviewer": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "fallback_models": ["opencode-go/glm-5.3-flash", "opencode-go/minimax-m3.1-flash"]
+    },
+    "context-keeper": {
+      "model": "opencode-go/glm-5.3-flash",
+      "fallback_models": ["opencode-go/deepseek-v4.1-flash", "opencode-go/qwen3.7-plus"]
+    },
+    "maintainer": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "fallback_models": ["opencode-go/glm-5.3-flash", "opencode-go/minimax-m3.1-flash"]
+    },
+    "operator": {
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "fallback_models": ["opencode-go/glm-5.3-flash", "opencode-go/minimax-m3.1-flash"]
+    },
+    "frontend": {
+      "model": "opencode-go/glm-5.3-flash",
+      "fallback_models": ["opencode-go/deepseek-v4.1-flash", "opencode-go/minimax-m3.1-flash"]
+    },
+    "nestjs": {
+      "model": "opencode-go/glm-5.3-flash",
+      "fallback_models": ["opencode-go/deepseek-v4.1-flash", "opencode-go/minimax-m3.1-flash"]
+    },
+    "nextjs": {
+      "model": "opencode-go/glm-5.3-flash",
+      "fallback_models": ["opencode-go/deepseek-v4.1-flash", "opencode-go/minimax-m3.1-flash"]
+    }
+  },
+  "plugins": ["@ghilteras/opencode-model-fallback"],
   "mcp": {
-    "servers": {}
+    "servers": {
+      "upstash": {
+        "type": "remote",
+        "url": "https://mcp.upstash.com/mcp"
+      }
+    }
   },
   "permissions": [
     {

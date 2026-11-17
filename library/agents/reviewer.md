@@ -1,6 +1,7 @@
 ---
 name: reviewer
 version: "1.0.0"
+model: opencode-go/deepseek-v4.1-flash
 description: Read-only review of security and performance. Audits a diff, branch, or repo for secrets, vulnerable dependencies, missing authorization, unsafe input, and risky config, and measures performance against user-set budgets. Use when the orchestrator routes a security or performance request. Never edits code and never sends attack traffic.
 skills: [security-audit, perf-budget]
 ---

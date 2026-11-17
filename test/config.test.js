@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,7 @@ test("opencode.json is V2-native with the reviewed top-level shape", () => {
     "instructions",
     "update",
     "formatter",
+    "agents",
     "plugins",
     "mcp",
     "permissions",
@@ -84,11 +85,58 @@ test("opencode.json expresses the reviewed read, edit, shell, and network postur
   assert.ok(readDenyCount >= 30, `expected at least 30 read deny rules, found ${readDenyCount}`);
 });
 
-test("opencode.json ships no MCP servers or plugins and keeps updates and formatting quiet", () => {
-  assert.deepEqual(config.mcp, { servers: {} });
-  assert.deepEqual(config.plugins, []);
+test("opencode.json ships only the reviewed MCP server and fallback plugin", () => {
+  assert.deepEqual(config.mcp, {
+    servers: {
+      upstash: { type: "remote", url: "https://mcp.upstash.com/mcp" },
+    },
+  });
+  assert.deepEqual(config.plugins, ["@ghilteras/opencode-model-fallback"]);
   assert.equal(config.update, "notify");
   assert.equal(config.formatter, false);
+});
+
+// The agents that ship as Markdown files under library/agents are the roster
+// that must be covered by the JSON `agents` block (Phase 5b).
+const AGENT_DIR = fileURLToPath(new URL("../library/agents", import.meta.url));
+const roster = readdirSync(AGENT_DIR)
+  .filter((n) => n.endsWith(".md"))
+  .map((n) => n.replace(/\.md$/, ""))
+  .sort();
+
+// Paid models. Only the orchestrator may use these (invariant I1 / Phase 5c).
+const PAID_MODELS = new Set([
+  "opencode-go/kimi-k3",
+  "opencode-go/glm-5.3",
+  "opencode-go/qwen3.8-max",
+]);
+
+test("every library agent has a JSON model and a non-empty fallback chain", () => {
+  assert.ok(roster.length >= 9, `expected the full roster, found ${roster.length}`);
+  for (const name of roster) {
+    const agent = config.agents?.[name];
+    assert.ok(agent, `config.agents.${name} is missing (agent .md exists but JSON does not)`);
+    assert.match(agent.model, /^[^/]+\/.+$/, `${name}: model must be provider/model`);
+    assert.ok(Array.isArray(agent.fallback_models) && agent.fallback_models.length > 0,
+      `${name}: fallback_models must have at least one entry`);
+  }
+  assert.deepEqual(
+    Object.keys(config.agents).filter((n) => !roster.includes(n)),
+    [],
+    "config.agents has a key with no matching agent .md",
+  );
+});
+
+test("no subagent uses a paid model, primary or fallback", () => {
+  const orchestratorModel = config.agents.orchestrator.model;
+  assert.ok(PAID_MODELS.has(orchestratorModel), "the orchestrator must run a paid model");
+  for (const [name, agent] of Object.entries(config.agents)) {
+    if (name === "orchestrator") continue;
+    for (const model of [agent.model, ...agent.fallback_models]) {
+      assert.notEqual(model, orchestratorModel, `${name}: may not reuse the orchestrator model`);
+      assert.equal(PAID_MODELS.has(model), false, `${name}: paid model "${model}" on a subagent`);
+    }
+  }
 });
 
 test("opencode.json carries the hard-deny policies", () => {
@@ -238,14 +286,14 @@ test("validateConfig rejects V1 and weakened V2 configurations", () => {
       /websearch anything must be ask/,
     ],
     [
-      "non-empty mcp.servers",
-      (copy) => { copy.mcp.servers = { example: {} }; },
-      /mcp\.servers must be an empty object/,
+      "unreviewed mcp.servers",
+      (copy) => { copy.mcp.servers = { example: { type: "remote", url: "https://example.com/mcp" } }; },
+      /mcp\.servers may only declare reviewed servers/,
     ],
     [
-      "non-empty plugins",
+      "unreviewed plugins",
       (copy) => { copy.plugins = ["third-party"]; },
-      /plugins must be an empty array/,
+      /plugins\[0\] must be one of the reviewed plugins/,
     ],
     [
       "update not notify",

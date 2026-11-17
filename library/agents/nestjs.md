@@ -1,6 +1,7 @@
 ---
 name: nestjs
 version: "1.0.0"
+model: opencode-go/glm-5.3-flash
 description: Owns NestJS development. Covers module structure, dependency injection, guards, pipes, interceptors, and database integration. Delegates deep patterns to the external nestjs-best-practices skill. Use when the orchestrator routes a feature or review to a NestJS project. Never touches production databases.
 skills: [nestjs]
 ---
